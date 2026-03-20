@@ -10,15 +10,29 @@ import { Customer, Phase, Message } from '@/types'
 import { Send, CheckCircle, Loader } from 'lucide-react'
 
 function buildCustomerContext(customer: Customer): string {
-  return `CUSTOMER CONTEXT — collected during onboarding, do not ask again:
+  let ctx = `CUSTOMER CONTEXT — collected during onboarding, do not ask again:
 - Business Name: ${customer.business_name || 'Not provided'}
 - Website: ${customer.website_url || 'Not provided'}
 - Business Type: ${customer.business_type || 'Not provided'}
 - Primary Service/Product: ${customer.primary_service || 'Not provided'}
+- Geographic Market: ${(customer as any).geographic_market || 'Not provided'}
 - Biggest Marketing Challenge: ${customer.marketing_challenge || 'Not provided'}
 - Current Acquisition Channels: ${(customer.current_channels || []).join(', ') || 'Not provided'}
 
 Use this context to skip basic discovery questions you already know the answer to. Start Phase 1 with more specific, deeper questions building on what is already known.`
+
+  const research = (customer as any).business_research
+  if (research && research.websiteFound) {
+    ctx += `\n\nPRE-SESSION RESEARCH:\n`
+    ctx += `What they do: ${research.whatTheyDo}\n`
+    ctx += `Years in business: ${research.yearsInBusiness}\n`
+    ctx += `Primary product: ${research.primaryProduct}\n`
+    ctx += `Apparent target customer: ${research.apparentTargetCustomer}\n`
+    ctx += `Differentiators: ${research.differentiators}\n`
+    ctx += `Note: This is surface-level website data only. Find who is ACTUALLY buying.\n`
+  }
+
+  return ctx
 }
 
 function buildOpeningMessage(customer: Customer): string {
@@ -88,6 +102,16 @@ export default function AlexPage() {
         .single()
 
       if (!customerData) { router.push('/dashboard'); return }
+
+      // Require intake completion before starting Alex session
+      const intakeComplete = !!(
+        customerData.business_name?.trim() &&
+        customerData.website_url?.trim() &&
+        customerData.primary_service?.trim() &&
+        (customerData as any).geographic_market?.trim()
+      )
+      if (!intakeComplete) { router.push('/dashboard'); return }
+
       setCustomer(customerData)
 
       // Look for existing in-progress session

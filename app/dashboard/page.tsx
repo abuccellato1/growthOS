@@ -20,6 +20,7 @@ import {
   Loader,
 } from 'lucide-react'
 import { formatDistanceToNow } from '@/lib/utils'
+import IntakeGate, { isIntakeComplete } from '@/components/IntakeGate'
 
 const LOCKED_MODULES = [
   { label: 'Ad Pack', icon: Target, productType: 'ad_pack', href: '/dashboard/ad-pack' },
@@ -35,6 +36,8 @@ export default function DashboardPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
   const [loading, setLoading] = useState(true)
+  const [showIntakeGate, setShowIntakeGate] = useState(false)
+  const [showToast, setShowToast] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -49,7 +52,12 @@ export default function DashboardPage() {
         .eq('auth_user_id', user.id)
         .single()
 
-      if (customerData) setCustomer(customerData)
+      if (customerData) {
+        setCustomer(customerData)
+        if (!isIntakeComplete(customerData)) {
+          setShowIntakeGate(true)
+        }
+      }
 
       // Latest session
       const { data: sessionData } = await supabase
@@ -82,6 +90,13 @@ export default function DashboardPage() {
     }
     load()
   }, [router])
+
+  function handleIntakeComplete(updatedCustomer: Customer) {
+    setCustomer(updatedCustomer)
+    setShowIntakeGate(false)
+    setShowToast(true)
+    setTimeout(() => setShowToast(false), 3000)
+  }
 
   if (loading) {
     return (
@@ -133,209 +148,228 @@ export default function DashboardPage() {
     )
   }
 
-  // State 1 — Not started
-  if (state === 'not_started') {
-    return (
-      <div>
-        <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-          Welcome, {customer?.first_name}. Let&apos;s build your ICP.
-        </h1>
-        <p className="text-base mb-8" style={{ color: '#6b7280' }}>
-          Alex is ready when you are. This session takes 20–30 minutes — you can pause and resume any time.
-        </p>
+  return (
+    <>
+      {/* Intake gate overlay */}
+      {showIntakeGate && customer && (
+        <IntakeGate customer={customer} onComplete={handleIntakeComplete} />
+      )}
 
-        <Link href="/dashboard/alex">
-          <div
-            className="p-6 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-lg mb-6"
-            style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.05)' }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+      {/* Success toast */}
+      {showToast && (
+        <div
+          className="fixed top-4 left-1/2 z-[9999] px-6 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
+          style={{
+            backgroundColor: '#43C6AC',
+            transform: 'translateX(-50%)',
+            fontFamily: 'DM Sans, sans-serif',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Alex is ready for you. Start your session when you are.
+        </div>
+      )}
+
+      {/* State 1 — Not started */}
+      {state === 'not_started' && (
+        <div>
+          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+            Welcome, {customer?.first_name}. Let&apos;s build your ICP.
+          </h1>
+          <p className="text-base mb-8" style={{ color: '#6b7280' }}>
+            Alex is ready when you are. This session takes 20–30 minutes — you can pause and resume any time.
+          </p>
+
+          <Link href="/dashboard/alex">
+            <div
+              className="p-6 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-lg mb-6"
+              style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.05)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: '#191654' }}
+                  >
+                    <MessageSquare size={28} style={{ color: '#43C6AC' }} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+                      Alex ICP Session
+                    </h2>
+                    <p className="text-sm" style={{ color: '#6b7280' }}>
+                      20–30 min · AI-powered discovery · Pause and resume anytime
+                    </p>
+                  </div>
+                </div>
                 <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: '#191654' }}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
+                  style={{ backgroundColor: '#43C6AC' }}
                 >
-                  <MessageSquare size={28} style={{ color: '#43C6AC' }} />
+                  Start Your Session <ArrowRight size={16} />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                    Alex ICP Session
-                  </h2>
-                  <p className="text-sm" style={{ color: '#6b7280' }}>
-                    20–30 min · AI-powered discovery · Pause and resume anytime
-                  </p>
-                </div>
-              </div>
-              <div
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
-                style={{ backgroundColor: '#43C6AC' }}
-              >
-                Start Your Session <ArrowRight size={16} />
               </div>
             </div>
-          </div>
-        </Link>
+          </Link>
 
-        <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-          Unlocks after Alex completes
-        </h3>
-        <LockedModuleCards />
-      </div>
-    )
-  }
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
+            Unlocks after Alex completes
+          </h3>
+          <LockedModuleCards />
+        </div>
+      )}
 
-  // State 2 — In progress
-  if (state === 'in_progress') {
-    const lastActive = session?.last_activity
-      ? formatDistanceToNow(new Date(session.last_activity))
-      : 'recently'
+      {/* State 2 — In progress */}
+      {state === 'in_progress' && (() => {
+        const lastActive = session?.last_activity
+          ? formatDistanceToNow(new Date(session.last_activity))
+          : 'recently'
+        return (
+          <div>
+            <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+              Welcome back, {customer?.first_name}. Alex is waiting.
+            </h1>
 
-    return (
-      <div>
-        <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-          Welcome back, {customer?.first_name}. Alex is waiting.
-        </h1>
-
-        <Link href="/dashboard/alex">
-          <div
-            className="p-6 rounded-2xl border cursor-pointer transition-all hover:shadow-lg mb-6"
-            style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: '#191654' }}
-                >
-                  <MessageSquare size={28} style={{ color: '#43C6AC' }} />
+            <Link href="/dashboard/alex">
+              <div
+                className="p-6 rounded-2xl border cursor-pointer transition-all hover:shadow-lg mb-6"
+                style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-14 h-14 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: '#191654' }}
+                    >
+                      <MessageSquare size={28} style={{ color: '#43C6AC' }} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold mb-1" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+                        Alex ICP Session
+                      </h2>
+                      <div className="flex items-center gap-4 text-sm" style={{ color: '#6b7280' }}>
+                        <span>Phase {session?.phase} of 4</span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={13} /> Last active {lastActive} ago
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
+                    style={{ backgroundColor: '#191654' }}
+                  >
+                    Resume Your Session <ArrowRight size={16} />
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold mb-1" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                    Alex ICP Session
-                  </h2>
-                  <div className="flex items-center gap-4 text-sm" style={{ color: '#6b7280' }}>
-                    <span>Phase {session?.phase} of 4</span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={13} /> Last active {lastActive} ago
-                    </span>
+
+                {/* Phase progress bar */}
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs mb-1" style={{ color: '#9ca3af' }}>
+                    <span>Progress</span>
+                    <span>Phase {session?.phase} / 4</span>
+                  </div>
+                  <div className="h-1.5 rounded-full" style={{ backgroundColor: '#e5e7eb' }}>
+                    <div
+                      className="h-1.5 rounded-full transition-all"
+                      style={{ backgroundColor: '#43C6AC', width: `${((session?.phase ?? 1) / 4) * 100}%` }}
+                    />
                   </div>
                 </div>
               </div>
-              <div
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
-                style={{ backgroundColor: '#191654' }}
-              >
-                Resume Your Session <ArrowRight size={16} />
-              </div>
-            </div>
+            </Link>
 
-            {/* Phase progress bar */}
-            <div className="mt-4">
-              <div className="flex justify-between text-xs mb-1" style={{ color: '#9ca3af' }}>
-                <span>Progress</span>
-                <span>Phase {session?.phase} / 4</span>
-              </div>
-              <div className="h-1.5 rounded-full" style={{ backgroundColor: '#e5e7eb' }}>
-                <div
-                  className="h-1.5 rounded-full transition-all"
-                  style={{ backgroundColor: '#43C6AC', width: `${((session?.phase ?? 1) / 4) * 100}%` }}
-                />
-              </div>
-            </div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
+              Unlocks after Alex completes
+            </h3>
+            <LockedModuleCards />
           </div>
-        </Link>
+        )
+      })()}
 
-        <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-          Unlocks after Alex completes
-        </h3>
-        <LockedModuleCards />
-      </div>
-    )
-  }
+      {/* State 3 — Generating */}
+      {state === 'generating' && (
+        <div>
+          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+            Your deliverables are being built.
+          </h1>
+          <p className="text-base mb-8" style={{ color: '#6b7280' }}>
+            We&apos;ll email you at {customer?.email} when everything is ready.
+          </p>
 
-  // State 3 — Generating
-  if (state === 'generating') {
-    return (
-      <div>
-        <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-          Your deliverables are being built.
-        </h1>
-        <p className="text-base mb-8" style={{ color: '#6b7280' }}>
-          We&apos;ll email you at {customer?.email} when everything is ready.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {deliverables.map((d) => (
-            <div key={d.id} className="p-4 rounded-xl border flex items-center gap-4" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-              {d.status === 'complete' ? (
-                <CheckCircle size={20} style={{ color: '#43C6AC' }} />
-              ) : (
-                <Loader size={20} className="animate-spin" style={{ color: '#9ca3af' }} />
-              )}
-              <div>
-                <p className="text-sm font-medium" style={{ color: '#191654' }}>{d.deliverable_type}</p>
-                <p className="text-xs" style={{ color: '#9ca3af' }}>{d.status === 'complete' ? 'Ready' : 'Generating...'}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {deliverables.map((d) => (
+              <div key={d.id} className="p-4 rounded-xl border flex items-center gap-4" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+                {d.status === 'complete' ? (
+                  <CheckCircle size={20} style={{ color: '#43C6AC' }} />
+                ) : (
+                  <Loader size={20} className="animate-spin" style={{ color: '#9ca3af' }} />
+                )}
+                <div>
+                  <p className="text-sm font-medium" style={{ color: '#191654' }}>{d.deliverable_type}</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>{d.status === 'complete' ? 'Ready' : 'Generating...'}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    )
-  }
+      )}
 
-  // State 4 — Complete
-  return (
-    <div>
-      <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-        Everything is ready, {customer?.first_name}.
-      </h1>
+      {/* State 4 — Complete */}
+      {state === 'complete' && (
+        <div>
+          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+            Everything is ready, {customer?.first_name}.
+          </h1>
 
-      {/* Unlocked deliverables */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        {deliverables.filter((d) => d.status === 'complete').map((d) => (
-          <div key={d.id} className="p-5 rounded-xl border flex items-center justify-between" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-            <div className="flex items-center gap-3">
-              <CheckCircle size={20} style={{ color: '#43C6AC' }} />
-              <div>
-                <p className="text-sm font-semibold" style={{ color: '#191654' }}>{d.deliverable_type}</p>
-                <p className="text-xs" style={{ color: '#9ca3af' }}>Ready to download</p>
+          {/* Unlocked deliverables */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {deliverables.filter((d) => d.status === 'complete').map((d) => (
+              <div key={d.id} className="p-5 rounded-xl border flex items-center justify-between" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+                <div className="flex items-center gap-3">
+                  <CheckCircle size={20} style={{ color: '#43C6AC' }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#191654' }}>{d.deliverable_type}</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Ready to download</p>
+                  </div>
+                </div>
+                {d.pdf_url && (
+                  <a
+                    href={d.pdf_url}
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold"
+                    style={{ backgroundColor: '#f0fdf9', color: '#43C6AC' }}
+                  >
+                    <Download size={14} /> PDF
+                  </a>
+                )}
               </div>
-            </div>
-            {d.pdf_url && (
-              <a
-                href={d.pdf_url}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold"
-                style={{ backgroundColor: '#f0fdf9', color: '#43C6AC' }}
-              >
-                <Download size={14} /> PDF
-              </a>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Upsell locked cards */}
-      <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-        Expand your GrowthOS
-      </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {LOCKED_MODULES.filter((m) => !(purchasedTypes as string[]).includes(m.productType)).map((mod) => {
-          const Icon = mod.icon
-          return (
-            <div key={mod.label} className="p-5 rounded-xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
-              <Icon size={24} className="mb-3" style={{ color: '#9ca3af' }} />
-              <h3 className="text-sm font-semibold mb-1" style={{ color: '#374151' }}>{mod.label}</h3>
-              <a
-                href="https://leads.goodfellastech.com/meet-alex"
-                className="text-xs font-semibold"
-                style={{ color: '#43C6AC' }}
-              >
-                Upgrade to unlock →
-              </a>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+          {/* Upsell locked cards */}
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
+            Expand your GrowthOS
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {LOCKED_MODULES.filter((m) => !(purchasedTypes as string[]).includes(m.productType)).map((mod) => {
+              const Icon = mod.icon
+              return (
+                <div key={mod.label} className="p-5 rounded-xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
+                  <Icon size={24} className="mb-3" style={{ color: '#9ca3af' }} />
+                  <h3 className="text-sm font-semibold mb-1" style={{ color: '#374151' }}>{mod.label}</h3>
+                  <a
+                    href="https://leads.goodfellastech.com/meet-alex"
+                    className="text-xs font-semibold"
+                    style={{ color: '#43C6AC' }}
+                  >
+                    Upgrade to unlock →
+                  </a>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
