@@ -15,13 +15,13 @@ function buildCustomerContext(customer: Customer): string {
 - Website: ${customer.website_url || 'Not provided'}
 - Business Type: ${customer.business_type || 'Not provided'}
 - Primary Service/Product: ${customer.primary_service || 'Not provided'}
-- Geographic Market: ${(customer as any).geographic_market || 'Not provided'}
+- Geographic Market: ${customer.geographic_market || 'Not provided'}
 - Biggest Marketing Challenge: ${customer.marketing_challenge || 'Not provided'}
 - Current Acquisition Channels: ${(customer.current_channels || []).join(', ') || 'Not provided'}
 
 Use this context to skip basic discovery questions you already know the answer to. Start Phase 1 with more specific, deeper questions building on what is already known.`
 
-  const research = (customer as any).business_research
+  const research = customer.business_research
   if (research && research.websiteFound) {
     ctx += `\n\nPRE-SESSION RESEARCH:\n`
     ctx += `What they do: ${research.whatTheyDo}\n`
@@ -108,7 +108,7 @@ export default function AlexPage() {
         customerData.business_name?.trim() &&
         customerData.website_url?.trim() &&
         customerData.primary_service?.trim() &&
-        (customerData as any).geographic_market?.trim()
+        customerData.geographic_market?.trim()
       )
       if (!intakeComplete) { router.push('/dashboard'); return }
 

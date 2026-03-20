@@ -54,7 +54,7 @@ async function researchBusiness(
     const researchResponse = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 500,
-      tools: [{ type: 'web_search_20250305' as any, name: 'web_search' }] as any,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }] as Parameters<typeof anthropic.messages.create>[0]['tools'],
       system:
         'You are doing pre-session research on a business. Search for the business and visit their website if available. Extract only verifiable facts. Return ONLY valid JSON with no markdown, no preamble: {"whatTheyDo":"one sentence description","yearsInBusiness":"number or empty string","primaryProduct":"main product or service","apparentTargetCustomer":"who the website targets","differentiators":"notable claims or unique aspects","websiteFound":true or false}. Never invent information. Use empty string for unknown fields.',
       messages: [
@@ -64,9 +64,9 @@ async function researchBusiness(
         },
       ],
     })
-    const textBlock = researchResponse?.content?.find((b: any) => b.type === 'text')
+    const textBlock = researchResponse?.content?.find((b: { type: string }) => b.type === 'text')
     if (!textBlock || textBlock.type !== 'text') return null
-    const raw = (textBlock as any).text.trim()
+    const raw = (textBlock as { type: 'text'; text: string }).text.trim()
     const jsonMatch = raw.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return null
     return JSON.parse(jsonMatch[0])
@@ -76,7 +76,7 @@ async function researchBusiness(
   }
 }
 
-function buildResearchContext(research: any): string {
+function buildResearchContext(research: BusinessResearch | null): string {
   if (!research || !research.websiteFound) return ''
   return (
     `PRE-SESSION RESEARCH (gathered before this conversation): Alex has already reviewed this business. ` +

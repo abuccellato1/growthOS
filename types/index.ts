@@ -8,6 +8,15 @@ export interface PhaseConfig {
   systemPrompt: string;
 }
 
+export interface BusinessResearch {
+  whatTheyDo: string;
+  yearsInBusiness: string;
+  primaryProduct: string;
+  apparentTargetCustomer: string;
+  differentiators: string;
+  websiteFound: boolean;
+}
+
 export interface Customer {
   id: string;
   auth_user_id: string;
@@ -18,8 +27,10 @@ export interface Customer {
   website_url: string | null;
   business_type: string | null;
   primary_service: string | null;
+  geographic_market: string | null;
   marketing_challenge: string | null;
   current_channels: string[] | null;
+  business_research: BusinessResearch | null;
   role: string;
   stripe_customer_id: string | null;
   pinball_customer_id: string | null;

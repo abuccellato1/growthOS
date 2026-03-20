@@ -11,7 +11,7 @@ export function isIntakeComplete(customer: Customer): boolean {
     customer.business_name?.trim() &&
     customer.website_url?.trim() &&
     customer.primary_service?.trim() &&
-    (customer as any).geographic_market?.trim()
+    customer.geographic_market?.trim()
   )
 }
 
@@ -25,7 +25,7 @@ export default function IntakeGate({ customer, onComplete }: IntakeGateProps) {
   const [businessName, setBusinessName] = useState(customer.business_name || '')
   const [websiteUrl, setWebsiteUrl] = useState(customer.website_url || '')
   const [primaryService, setPrimaryService] = useState(customer.primary_service || '')
-  const [geographicMarket, setGeographicMarket] = useState((customer as any).geographic_market || '')
+  const [geographicMarket, setGeographicMarket] = useState(customer.geographic_market || '')
   const [honeypot, setHoneypot] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step1, setStep1] = useState(false)
