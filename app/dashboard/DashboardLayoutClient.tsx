@@ -1,0 +1,229 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Customer, Purchase } from '@/types'
+import {
+  LayoutDashboard,
+  MessageSquare,
+  FileText,
+  Target,
+  Share2,
+  Mail,
+  Map,
+  Calendar,
+  User,
+  LogOut,
+  Lock,
+  Menu,
+} from 'lucide-react'
+
+interface NavItem {
+  label: string
+  href: string
+  icon: React.ElementType
+  productType?: string
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Home', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Alex Session', href: '/dashboard/alex', icon: MessageSquare },
+  { label: 'My Deliverables', href: '/dashboard/deliverables', icon: FileText },
+  { label: 'Ad Pack', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
+  { label: 'Social Pack', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
+  { label: 'Email Pack', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },
+  { label: 'GTM Playbook', href: '/dashboard/gtm-plan', icon: Map, productType: 'gtm_plan' },
+  { label: '90-Day Plan', href: '/dashboard/action-plan', icon: Calendar, productType: 'action_plan' },
+  { label: 'Account', href: '/dashboard/account', icon: User },
+]
+
+export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [alexComplete, setAlexComplete] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+
+      const { data: customerData } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      if (customerData) setCustomer(customerData)
+
+      const { data: purchaseData } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('customer_id', customerData?.id)
+
+      if (purchaseData) setPurchases(purchaseData)
+
+      const { data: sessionData } = await supabase
+        .from('sessions')
+        .select('status')
+        .eq('customer_id', customerData?.id)
+        .eq('status', 'completed')
+        .maybeSingle()
+
+      setAlexComplete(!!sessionData)
+    }
+    load()
+  }, [router])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const purchasedTypes = purchases.map((p) => p.product_type)
+
+  function getNavItemState(item: NavItem): 'active' | 'available' | 'purchased-locked' | 'not-purchased' {
+    if (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) {
+      return 'active'
+    }
+    if (!item.productType) return 'available'
+    if (!(purchasedTypes as string[]).includes(item.productType)) return 'not-purchased'
+    if (!alexComplete) return 'purchased-locked'
+    return 'available'
+  }
+
+  const initials = customer
+    ? `${customer.first_name?.[0] || ''}${customer.last_name?.[0] || ''}`.toUpperCase()
+    : '?'
+
+  function SidebarContent() {
+    return (
+      <div className="flex flex-col h-full" style={{ backgroundColor: '#191654' }}>
+        <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+          <div className="relative w-36 h-8">
+            <Image src="/images/growthos-logo.png" alt="GrowthOS" fill className="object-contain object-left" />
+          </div>
+        </div>
+
+        <nav className="flex-1 py-4 overflow-y-auto">
+          {NAV_ITEMS.map((item) => {
+            const state = getNavItemState(item)
+            const Icon = item.icon
+            const isActive = state === 'active'
+            const isLocked = state === 'not-purchased' || state === 'purchased-locked'
+
+            return (
+              <Link
+                key={item.href}
+                href={isLocked ? '#' : item.href}
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-all"
+                style={{
+                  backgroundColor: isActive ? 'rgba(67,198,172,0.15)' : 'transparent',
+                  borderLeft: isActive ? '3px solid #43C6AC' : '3px solid transparent',
+                  opacity: state === 'not-purchased' ? 0.4 : 1,
+                  cursor: isLocked ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <Icon
+                  size={18}
+                  style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.75)', flexShrink: 0 }}
+                />
+                <span
+                  className="text-sm font-medium flex-1"
+                  style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.75)', fontFamily: 'DM Sans, sans-serif' }}
+                >
+                  {item.label}
+                </span>
+                {isLocked && (
+                  <Lock size={12} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                )}
+              </Link>
+            )
+          })}
+        </nav>
+
+        <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-all"
+            style={{ color: 'rgba(255,255,255,0.6)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+          >
+            <LogOut size={18} />
+            <span className="text-sm font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>Sign out</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#f8f9fc' }}>
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-60 flex-shrink-0" style={{ backgroundColor: '#191654' }}>
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile sidebar drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 bottom-0 w-64 z-10" style={{ backgroundColor: '#191654' }}>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
+      {/* Main area */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Top bar */}
+        <header
+          className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
+          style={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb' }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              className="md:hidden p-1 rounded"
+              onClick={() => setMobileOpen(true)}
+              style={{ color: '#191654' }}
+            >
+              <Menu size={22} />
+            </button>
+            <span className="text-lg font-bold" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
+              GrowthOS
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm hidden sm:block" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+              {customer?.first_name}
+            </span>
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: '#43C6AC' }}
+            >
+              {initials}
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  )
+}
