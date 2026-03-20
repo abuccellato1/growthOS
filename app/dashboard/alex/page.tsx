@@ -21,6 +21,11 @@ function buildCustomerContext(customer: Customer): string {
 Use this context to skip basic discovery questions you already know the answer to. Start Phase 1 with more specific, deeper questions building on what is already known.`
 }
 
+function buildOpeningMessage(customer: Customer): string {
+  const firstName = customer.first_name || 'there'
+  return `Hi ${firstName}! I'm Alex, your Client Discovery Strategist at Good Fellas Digital Marketing. I've reviewed what you shared about your business during setup, and I'm ready to dig in. Let's start by making sure I have a clear picture of what's actually happening in your business right now. What does your business do — and what's the core problem you solve for your customers?`
+}
+
 async function persistSession(
   msgs: Message[],
   currentPhase: Phase,
@@ -59,6 +64,8 @@ export default function AlexPage() {
   const [initializing, setInitializing] = useState(true)
   const [completed, setCompleted] = useState(false)
   const [phaseComplete, setPhaseComplete] = useState(false)
+  // Tracks whether the opening message has been sent by the user yet
+  const [openingMessage, setOpeningMessage] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -109,7 +116,6 @@ export default function AlexPage() {
       setSessionUuid(uuid)
       setSessionId(newSessionId)
 
-      const ctx = buildCustomerContext(customerData)
       await supabase.from('sessions').insert({
         id: newSessionId,
         customer_id: customerData.id,
@@ -120,16 +126,17 @@ export default function AlexPage() {
         started_at: null,
       })
 
+      // Show hardcoded opening message — no API call on mount
+      const greeting = buildOpeningMessage(customerData)
+      setOpeningMessage(greeting)
+      setMessages([{ role: 'assistant', content: greeting }])
       setInitializing(false)
-
-      // Get Alex's opening message
-      await streamAlexResponse([], 1, ctx, customerData, newSessionId, uuid, null)
     }
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const streamAlexResponse = useCallback(async (
+  const callAlexApi = useCallback(async (
     currentMessages: Message[],
     currentPhase: Phase,
     customerContext: string,
@@ -142,9 +149,6 @@ export default function AlexPage() {
 
     const actualStartedAt = sa ?? new Date().toISOString()
     if (!sa) setStartedAt(actualStartedAt)
-
-    const placeholderMsg: Message = { role: 'assistant', content: '' }
-    setMessages([...currentMessages, placeholderMsg])
 
     let fullText = ''
 
@@ -159,106 +163,74 @@ export default function AlexPage() {
         }),
       })
 
-      if (!response.ok || !response.body) throw new Error('Stream failed')
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
+      const data = await response.json()
+      fullText = data.reply ?? ''
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        fullText += chunk
+      const finalMessages: Message[] = [...currentMessages, { role: 'assistant', content: fullText }]
+      setMessages(finalMessages)
 
-        setMessages((prev) => {
-          const updated = [...prev]
-          updated[updated.length - 1] = { role: 'assistant', content: fullText }
-          return updated
-        })
+      if (data.shouldAdvancePhase) {
+        const nextPhase = (currentPhase + 1) as Phase
+        if (nextPhase <= 4) {
+          setPhase(nextPhase)
+        }
+        const transitionText = PHASE_TRANSITIONS[currentPhase]
+        if (transitionText) {
+          const withTransition: Message[] = [
+            ...finalMessages,
+            { role: 'assistant', content: transitionText },
+          ]
+          setMessages(withTransition)
+          await persistSession(withTransition, nextPhase <= 4 ? nextPhase : currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
+          setTimeout(() => setPhaseComplete(true), 1500)
+        }
+      } else if (data.isIcpComplete) {
+        const icpData = { raw: fullText }
+        await persistSession(finalMessages, 4, 'completed', sid, uuid, cust.id, actualStartedAt, icpData)
+
+        const supabase = createClient()
+        const { data: purchasesData } = await supabase
+          .from('purchases')
+          .select('product_type')
+          .eq('customer_id', cust.id)
+
+        const purchaseTypes = purchasesData?.map((p) => p.product_type) ?? []
+
+        if (purchaseTypes.length > 0) {
+          await supabase.from('deliverables').insert(
+            purchaseTypes.map((pt) => ({
+              customer_id: cust.id,
+              session_id: sid,
+              deliverable_type: pt,
+              status: 'pending',
+            }))
+          )
+        }
+
+        if (process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL) {
+          await fetch(process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: cust.email,
+              session_uuid: uuid,
+              icp_content: fullText,
+              purchased_products: purchaseTypes,
+            }),
+          }).catch(console.error)
+        }
+
+        setCompleted(true)
+        setTimeout(() => router.push('/dashboard/deliverables'), 3000)
+      } else {
+        await persistSession(finalMessages, currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
       }
     } catch (err) {
-      console.error('Stream error:', err)
-      fullText = "I'm sorry, I encountered an error. Please try again."
-      setMessages((prev) => {
-        const updated = [...prev]
-        updated[updated.length - 1] = { role: 'assistant', content: fullText }
-        return updated
-      })
-    }
-
-    // Detect phase completion tokens
-    let cleanText = fullText
-    let advancedPhase = currentPhase
-    let isSessionComplete = false
-
-    if (fullText.includes('[ICP_COMPLETE]')) {
-      cleanText = fullText.replace('[ICP_COMPLETE]', '').trim()
-      isSessionComplete = true
-    } else if (fullText.includes('[PHASE_COMPLETE]')) {
-      cleanText = fullText.replace('[PHASE_COMPLETE]', '').trim()
-      const nextPhase = (currentPhase + 1) as Phase
-      if (nextPhase <= 4) {
-        advancedPhase = nextPhase
-        setPhase(nextPhase)
-      }
-    }
-
-    const finalMessages = currentMessages.concat([{ role: 'assistant', content: cleanText }])
-    setMessages(finalMessages)
-
-    if (advancedPhase !== currentPhase) {
-      const transitionText = PHASE_TRANSITIONS[currentPhase]
-      if (transitionText) {
-        const withTransition: Message[] = [
-          ...finalMessages,
-          { role: 'assistant', content: transitionText },
-        ]
-        setMessages(withTransition)
-        await persistSession(withTransition, advancedPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
-        setTimeout(() => setPhaseComplete(true), 1500)
-      }
-    } else if (isSessionComplete) {
-      const icpData = { raw: cleanText }
-      await persistSession(finalMessages, 4, 'completed', sid, uuid, cust.id, actualStartedAt, icpData)
-
-      // Create deliverable records
-      const supabase = createClient()
-      const { data: purchasesData } = await supabase
-        .from('purchases')
-        .select('product_type')
-        .eq('customer_id', cust.id)
-
-      const purchaseTypes = purchasesData?.map((p) => p.product_type) ?? []
-
-      if (purchaseTypes.length > 0) {
-        await supabase.from('deliverables').insert(
-          purchaseTypes.map((pt) => ({
-            customer_id: cust.id,
-            session_id: sid,
-            deliverable_type: pt,
-            status: 'pending',
-          }))
-        )
-      }
-
-      // Fire Make.com webhook
-      if (process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL) {
-        await fetch(process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: cust.email,
-            session_uuid: uuid,
-            icp_content: cleanText,
-            purchased_products: purchaseTypes,
-          }),
-        }).catch(console.error)
-      }
-
-      setCompleted(true)
-      setTimeout(() => router.push('/dashboard/deliverables'), 3000)
-    } else {
-      await persistSession(finalMessages, currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
+      console.error('API error:', err)
+      const errMsg = "I'm sorry, I encountered an error. Please try again."
+      setMessages((prev) => [...prev, { role: 'assistant', content: errMsg }])
     }
 
     setStreaming(false)
@@ -270,7 +242,7 @@ export default function AlexPage() {
     if (!phaseComplete || !customer || !sessionId || !sessionUuid) return
     setPhaseComplete(false)
     const ctx = buildCustomerContext(customer)
-    streamAlexResponse(messages, phase, ctx, customer, sessionId, sessionUuid, startedAt)
+    callAlexApi(messages, phase, ctx, customer, sessionId, sessionUuid, startedAt)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phaseComplete])
 
@@ -279,13 +251,25 @@ export default function AlexPage() {
     const text = input.trim()
     if (!text || streaming || !customer || !sessionId || !sessionUuid) return
 
-    const userMsg: Message = { role: 'user', content: text }
-    const updatedMessages = [...messages, userMsg]
-    setMessages(updatedMessages)
     setInput('')
 
     const ctx = buildCustomerContext(customer)
-    await streamAlexResponse(updatedMessages, phase, ctx, customer, sessionId, sessionUuid, startedAt)
+
+    // First user message: include the opening message as the first assistant turn
+    // so Anthropic always receives at least one message.
+    let messagesForApi: Message[]
+    if (openingMessage !== null) {
+      messagesForApi = [
+        { role: 'assistant', content: openingMessage },
+        { role: 'user', content: text },
+      ]
+      setOpeningMessage(null) // opening message is now in history
+    } else {
+      messagesForApi = [...messages, { role: 'user', content: text }]
+    }
+
+    setMessages(messagesForApi)
+    await callAlexApi(messagesForApi, phase, ctx, customer, sessionId, sessionUuid, startedAt)
   }
 
   if (initializing) {
@@ -372,12 +356,6 @@ export default function AlexPage() {
       {/* Chat area */}
       <div className="flex flex-col flex-1 min-w-0">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.length === 0 && (
-            <div className="flex items-center justify-center h-full">
-              <Loader size={28} className="animate-spin" style={{ color: '#43C6AC' }} />
-            </div>
-          )}
-
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -410,7 +388,7 @@ export default function AlexPage() {
             </div>
           ))}
 
-          {streaming && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && messages[messages.length - 1].content === '' && (
+          {streaming && (
             <div className="flex justify-start">
               <div className="flex gap-1 px-4 py-3 rounded-2xl" style={{ backgroundColor: '#f3f4f6' }}>
                 <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#9ca3af', animationDelay: '0ms' }} />
