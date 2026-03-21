@@ -100,8 +100,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader size={32} className="animate-spin" style={{ color: '#43C6AC' }} />
+      <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: '#ffffff' }}>
+        <Loader size={36} className="animate-spin" style={{ color: '#43C6AC' }} />
       </div>
     )
   }
