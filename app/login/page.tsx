@@ -74,8 +74,8 @@ export default function LoginPage() {
           >
             Sign in to GrowthOS
           </h1>
-          <p className="text-center text-sm mb-8" style={{ color: '#6b7280' }}>
-            Your AI growth platform
+          <p className="text-center text-sm mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+            Welcome to GrowthOS. Sign in to start your session with Alex.
           </p>
 
           {success ? (

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getPhaseConfig, PHASE_TRANSITIONS } from '@/lib/prompts'
 import { generateUUID } from '@/lib/utils'
 import { Customer, Phase, Message } from '@/types'
-import { Send, CheckCircle, Loader } from 'lucide-react'
+import { Send, CheckCircle, Loader, MessageSquare } from 'lucide-react'
 
 function buildCustomerContext(customer: Customer): string {
   let ctx = `CUSTOMER CONTEXT — collected during onboarding, do not ask again:
@@ -298,11 +298,28 @@ export default function AlexPage() {
 
   if (initializing) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <Loader size={36} className="animate-spin mx-auto mb-3" style={{ color: '#43C6AC' }} />
-          <p style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>Starting your session...</p>
+      <div
+        className="flex flex-col items-center justify-center h-full gap-4"
+        style={{ minHeight: '60vh' }}
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{ backgroundColor: '#191654' }}
+        >
+          <MessageSquare size={32} style={{ color: '#43C6AC' }} />
         </div>
+        <div className="text-center">
+          <h2
+            className="text-2xl font-bold mb-2"
+            style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
+          >
+            Getting Alex ready...
+          </h2>
+          <p style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+            Setting up your session
+          </p>
+        </div>
+        <Loader size={24} className="animate-spin" style={{ color: '#43C6AC' }} />
       </div>
     )
   }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Customer, Session, Purchase, Deliverable } from '@/types'
 import {
@@ -31,12 +31,15 @@ const LOCKED_MODULES = [
 ]
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams()
+  const isOnboarding = searchParams.get('onboarding') === 'true'
+
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
   const [loading, setLoading] = useState(true)
-  const [showIntakeGate, setShowIntakeGate] = useState(false)
+  const [showIntakeGate, setShowIntakeGate] = useState(isOnboarding)
   const [showToast, setShowToast] = useState(false)
   const router = useRouter()
 
@@ -96,6 +99,7 @@ export default function DashboardPage() {
     setShowIntakeGate(false)
     setShowToast(true)
     setTimeout(() => setShowToast(false), 3000)
+    window.history.replaceState({}, '', '/dashboard')
   }
 
   if (loading) {
