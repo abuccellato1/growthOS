@@ -69,6 +69,7 @@ export interface Session {
   session_uuid: string;
   phase: Phase;
   message_history: Message[];
+  phase_transcripts: Record<string, Message[]> | null;
   icp_data: Record<string, unknown> | null;
   status: SessionStatus;
   started_at: string | null;

@@ -70,7 +70,14 @@ export default function AlexPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionUuid, setSessionUuid] = useState<string | null>(null)
+  // Display messages — rendered in the chat UI
   const [messages, setMessages] = useState<Message[]>([])
+  // Per-phase messages — sent to the API (current phase only, resets each phase)
+  const [phaseMessages, setPhaseMessages] = useState<Message[]>([])
+  // Completed phase transcripts — persisted to Supabase and read by Phase 4
+  const [phaseTranscripts, setPhaseTranscripts] = useState<Record<string, Message[]>>({})
+  // Ref so effects and callbacks always read the latest transcripts without stale closures
+  const phaseTranscriptsRef = useRef<Record<string, Message[]>>({})
   const [phase, setPhase] = useState<Phase>(1)
   const [startedAt, setStartedAt] = useState<string | null>(null)
   const [input, setInput] = useState('')
@@ -130,6 +137,12 @@ export default function AlexPage() {
         setMessages(existingSession.message_history)
         setPhase(existingSession.phase as Phase)
         setStartedAt(existingSession.started_at)
+        // Restore saved phase transcripts so Phase 4 has full context on resume
+        if (existingSession.phase_transcripts) {
+          const transcripts = existingSession.phase_transcripts as Record<string, Message[]>
+          setPhaseTranscripts(transcripts)
+          phaseTranscriptsRef.current = transcripts
+        }
         setInitializing(false)
         return
       }
@@ -161,7 +174,9 @@ export default function AlexPage() {
   }, [])
 
   const callAlexApi = useCallback(async (
-    currentMessages: Message[],
+    currentMessages: Message[],          // full display messages (for setMessages)
+    currentPhaseMessages: Message[],      // current-phase messages sent to API
+    currentPhaseTranscripts: Record<string, Message[]>, // for saving completed transcripts
     currentPhase: Phase,
     customerContext: string,
     cust: Customer,
@@ -181,9 +196,11 @@ export default function AlexPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: currentMessages,
+          // Phase 4 sends nothing from the client — server fetches transcripts from DB
+          messages: currentPhase === 4 ? [] : currentPhaseMessages,
           phase: currentPhase,
           customerContext: currentPhase === 1 ? customerContext : undefined,
+          sessionId: sid,
         }),
       })
 
@@ -192,14 +209,37 @@ export default function AlexPage() {
       const data = await response.json()
       fullText = data.reply ?? ''
 
+      // Update display messages
       const finalMessages: Message[] = [...currentMessages, { role: 'assistant', content: fullText }]
       setMessages(finalMessages)
+
+      // Update phase messages with Alex's reply
+      const finalPhaseMessages: Message[] = [...currentPhaseMessages, { role: 'assistant' as const, content: fullText }]
+      setPhaseMessages(finalPhaseMessages)
 
       if (data.shouldAdvancePhase) {
         const nextPhase = (currentPhase + 1) as Phase
         if (nextPhase <= 4) {
           setPhase(nextPhase)
         }
+
+        // Save completed phase transcript to state and Supabase
+        const completedTranscript = {
+          ...currentPhaseTranscripts,
+          [currentPhase.toString()]: finalPhaseMessages,
+        }
+        setPhaseTranscripts(completedTranscript)
+        phaseTranscriptsRef.current = completedTranscript
+
+        const supabase = createClient()
+        await supabase
+          .from('sessions')
+          .update({ phase_transcripts: completedTranscript })
+          .eq('id', sid)
+
+        // Reset phase messages for the next phase
+        setPhaseMessages([])
+
         const transitionText = PHASE_TRANSITIONS[currentPhase]
         if (transitionText) {
           const withTransition: Message[] = [
@@ -261,12 +301,24 @@ export default function AlexPage() {
     setTimeout(() => inputRef.current?.focus(), 100)
   }, [router])
 
-  // Auto-advance phase when phaseComplete flag is set
+  // Auto-advance: fires after a phase completes and transition message is shown.
+  // Uses phaseTranscriptsRef (not state) to avoid stale closure — the ref is
+  // always updated synchronously alongside the state setter.
   useEffect(() => {
     if (!phaseComplete || !customer || !sessionId || !sessionUuid) return
     setPhaseComplete(false)
     const ctx = buildCustomerContext(customer)
-    callAlexApi(messages, phase, ctx, customer, sessionId, sessionUuid, startedAt)
+    callAlexApi(
+      messages,
+      [],                            // new phase starts with empty phase messages
+      phaseTranscriptsRef.current,   // always current — updated via ref
+      phase,
+      ctx,
+      customer,
+      sessionId,
+      sessionUuid,
+      startedAt
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phaseComplete])
 
@@ -279,21 +331,37 @@ export default function AlexPage() {
 
     const ctx = buildCustomerContext(customer)
 
-    // First user message: include the opening message as the first assistant turn
-    // so Anthropic always receives at least one message.
-    let messagesForApi: Message[]
+    let updatedMessages: Message[]     // for display
+    let updatedPhaseMessages: Message[] // for API (current phase only)
+
     if (openingMessage !== null) {
-      messagesForApi = [
+      // First user message: include the opening message in display, but not in
+      // phaseMessages — customer context is already in the system prompt.
+      updatedMessages = [
         { role: 'assistant', content: openingMessage },
         { role: 'user', content: text },
       ]
-      setOpeningMessage(null) // opening message is now in history
+      updatedPhaseMessages = [{ role: 'user', content: text }]
+      setOpeningMessage(null)
     } else {
-      messagesForApi = [...messages, { role: 'user', content: text }]
+      updatedMessages = [...messages, { role: 'user', content: text }]
+      updatedPhaseMessages = [...phaseMessages, { role: 'user', content: text }]
     }
 
-    setMessages(messagesForApi)
-    await callAlexApi(messagesForApi, phase, ctx, customer, sessionId, sessionUuid, startedAt)
+    setMessages(updatedMessages)
+    setPhaseMessages(updatedPhaseMessages)
+
+    await callAlexApi(
+      updatedMessages,
+      updatedPhaseMessages,
+      phaseTranscriptsRef.current,
+      phase,
+      ctx,
+      customer,
+      sessionId,
+      sessionUuid,
+      startedAt
+    )
   }
 
   if (initializing) {

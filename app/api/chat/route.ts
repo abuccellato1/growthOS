@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getSystemPrompt } from '@/lib/prompts'
-import { Phase, Message } from '@/types'
+import { Phase, Message, Customer } from '@/types'
 import { sanitizeMessage } from '@/lib/sanitize'
 import { checkRateLimit, getIpIdentifier } from '@/lib/ratelimit'
 
@@ -20,118 +21,26 @@ const MAX_TOKENS: Record<number, number> = {
   1: 300,
   2: 400,
   3: 400,
-  4: 4000,
-}
-
-interface BusinessResearch {
-  whatTheyDo: string
-  yearsInBusiness: string
-  primaryProduct: string
-  apparentTargetCustomer: string
-  differentiators: string
-  websiteFound: boolean
+  4: 8000,
 }
 
 interface ChatRequest {
   messages: Message[]
   phase: Phase
   customerContext?: string
-  phaseSummaries?: Partial<Record<Phase, string>>
-  intakeData?: {
-    businessName: string
-    websiteUrl: string
-    primaryService: string
-    geographicMarket: string
-  }
+  sessionId?: string
 }
 
-async function researchBusiness(
-  businessName: string,
-  websiteUrl: string,
-  primaryService: string
-): Promise<BusinessResearch | null> {
-  try {
-    const researchResponse = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }] as Parameters<typeof anthropic.messages.create>[0]['tools'],
-      system:
-        'You are doing pre-session research on a business. Search for the business and visit their website if available. Extract only verifiable facts. Return ONLY valid JSON with no markdown, no preamble: {"whatTheyDo":"one sentence description","yearsInBusiness":"number or empty string","primaryProduct":"main product or service","apparentTargetCustomer":"who the website targets","differentiators":"notable claims or unique aspects","websiteFound":true or false}. Never invent information. Use empty string for unknown fields.',
-      messages: [
-        {
-          role: 'user',
-          content: `Research before a discovery session:\nBusiness: ${businessName}\nWebsite: ${websiteUrl}\nService: ${primaryService}`,
-        },
-      ],
-    })
-    const textBlock = researchResponse?.content?.find((b: { type: string }) => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') return null
-    const raw = (textBlock as { type: 'text'; text: string }).text.trim()
-    const jsonMatch = raw.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return null
-    return JSON.parse(jsonMatch[0])
-  } catch (err) {
-    console.warn('Business research failed — continuing without research:', err)
-    return null
-  }
-}
-
-function buildResearchContext(research: BusinessResearch | null): string {
-  if (!research || !research.websiteFound) return ''
-  return (
-    `PRE-SESSION RESEARCH (gathered before this conversation): Alex has already reviewed this business. ` +
-    `Use this to skip surface questions and open with informed context. ` +
-    `Do NOT re-ask for information already known here.\n\n` +
-    `What they do: ${research.whatTheyDo || 'unclear from website'}\n` +
-    `Years in business: ${research.yearsInBusiness || 'unknown'}\n` +
-    `Primary product: ${research.primaryProduct || 'unclear'}\n` +
-    `Apparent target customer: ${research.apparentTargetCustomer || 'unclear'}\n` +
-    `Notable differentiators: ${research.differentiators || 'none noted'}\n\n` +
-    `IMPORTANT: This is surface-level only. The website shows who they WANT to appear as. ` +
-    `Your job is to find who is ACTUALLY buying. Use this to build rapport and skip basics — not to make assumptions.\n\n`
-  )
-}
-
-function buildMessagesWithContext(
+function buildMessages(
   messages: Message[],
-  phaseSummaries?: Partial<Record<Phase, string>>
 ): Array<{ role: 'user' | 'assistant'; content: string }> {
-  const result: Array<{ role: 'user' | 'assistant'; content: string }> = []
-  const PHASE_TITLES: Record<number, string> = {
-    1: 'Phase 1 — Business & Customer Reality Check',
-    2: 'Phase 2 — Best Customer Forensics',
-    3: 'Phase 3 — Psychology & Motivation Deep Dive',
-    4: 'Phase 4 — ICP Document',
-  }
-  if (phaseSummaries && Object.keys(phaseSummaries).length > 0) {
-    const summaryLines = ['CONTEXT FROM PREVIOUS PHASES:']
-    for (const [p, summary] of Object.entries(phaseSummaries)) {
-      if (summary) summaryLines.push(`${PHASE_TITLES[Number(p)]}: ${summary}`)
-    }
-    if (summaryLines.length > 1) {
-      result.push({ role: 'user', content: summaryLines.join('\n\n') })
-      result.push({
-        role: 'assistant',
-        content: 'Understood. I have the context from the previous phases and am ready to continue.',
-      })
-    }
-  }
-  result.push(
-    ...messages.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }))
-  )
-  return result
+  return messages.map((m) => ({
+    role: m.role as 'user' | 'assistant',
+    content: m.content,
+  }))
 }
 
 export async function POST(request: Request) {
-  // Security — request size guard
-  const contentLength = request.headers.get('content-length')
-  if (contentLength && parseInt(contentLength) > 100_000) {
-    return NextResponse.json({ error: 'Request too large' }, { status: 413 })
-  }
-
   // Rate limiting
   const allowed = await checkRateLimit(getIpIdentifier(request), 'chat', 150, 60)
   if (!allowed) {
@@ -148,17 +57,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { messages, phase, customerContext, phaseSummaries, intakeData } = body
+  const { messages, phase, customerContext, sessionId } = body
 
   if (!messages || !phase) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Security — duplicate message guard
-  const userMessages = messages.filter((m) => m.role === 'user')
-  const lastTwo = userMessages.slice(-2)
-  if (lastTwo.length === 2 && lastTwo[0].content === lastTwo[1].content) {
-    return NextResponse.json({ error: 'Duplicate message' }, { status: 429 })
+  // Security — duplicate message guard (phases 1-3 only; phase 4 sends empty array)
+  if (phase !== 4 && messages.length > 0) {
+    const userMessages = messages.filter((m) => m.role === 'user')
+    const lastTwo = userMessages.slice(-2)
+    if (lastTwo.length === 2 && lastTwo[0].content === lastTwo[1].content) {
+      return NextResponse.json({ error: 'Duplicate message' }, { status: 429 })
+    }
   }
 
   // Security — sanitize last user message
@@ -169,26 +80,129 @@ export async function POST(request: Request) {
     return m
   })
 
-  // Web research on Phase 1 first message only
-  let researchContext = ''
-  if (phase === 1 && messages.length === 0 && intakeData) {
-    const research = await researchBusiness(
-      intakeData.businessName,
-      intakeData.websiteUrl,
-      intakeData.primaryService
-    )
-    researchContext = buildResearchContext(research)
+  // ─── Phase 4: server-side transcript assembly ──────────────────────────────
+  // Client sends empty messages array. Server fetches all phase transcripts
+  // from Supabase and assembles the full conversation context itself.
+  // This eliminates the 413 error and ensures 100% of conversation data
+  // reaches the model — no summaries, no compression, no data loss.
+  if (phase === 4) {
+    if (!sessionId) {
+      return NextResponse.json({ error: 'sessionId required for Phase 4' }, { status: 400 })
+    }
+
+    const adminClient = createAdminClient()
+
+    const { data: sessionData } = await adminClient
+      .from('sessions')
+      .select('phase_transcripts, customer_id')
+      .eq('id', sessionId)
+      .single()
+
+    if (!sessionData) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+
+    const { data: customerData } = await adminClient
+      .from('customers')
+      .select('*')
+      .eq('id', sessionData.customer_id)
+      .single()
+
+    const transcripts = sessionData.phase_transcripts as Record<string, Message[]> | null
+    const phase4Messages: Array<{ role: 'user' | 'assistant'; content: string }> = []
+
+    // Inject customer profile and pre-session research as opening context
+    if (customerData) {
+      const cust = customerData as Customer
+      const contextLines = [
+        'CUSTOMER PROFILE (collected before session):',
+        `Business: ${cust.business_name || 'Not provided'}`,
+        `Website: ${cust.website_url || 'Not provided'}`,
+        `Primary Service: ${cust.primary_service || 'Not provided'}`,
+        `Geographic Market: ${cust.geographic_market || 'Not provided'}`,
+      ]
+      if (cust.business_research?.websiteFound) {
+        const r = cust.business_research
+        contextLines.push(
+          '\nPRE-SESSION RESEARCH:',
+          `What they do: ${r.whatTheyDo}`,
+          `Years in business: ${r.yearsInBusiness}`,
+          `Apparent target customer: ${r.apparentTargetCustomer}`,
+          `Differentiators: ${r.differentiators}`
+        )
+      }
+      phase4Messages.push({ role: 'user', content: contextLines.join('\n') })
+      phase4Messages.push({
+        role: 'assistant',
+        content: 'I have reviewed the customer profile and pre-session research.',
+      })
+    }
+
+    // Inject each phase transcript in full — no summaries, no compression
+    const phaseLabels: Record<string, string> = {
+      '1': 'PHASE 1 — Business & Customer Reality Check',
+      '2': 'PHASE 2 — Best Customer Forensics',
+      '3': 'PHASE 3 — Psychology & Motivation Deep Dive',
+    }
+    for (const phaseNum of ['1', '2', '3']) {
+      const transcript = transcripts?.[phaseNum]
+      if (transcript && transcript.length > 0) {
+        phase4Messages.push({
+          role: 'user',
+          content: `Here is the complete ${phaseLabels[phaseNum]} conversation transcript:`,
+        })
+        phase4Messages.push({
+          role: 'assistant',
+          content: `Ready. I will use every detail from ${phaseLabels[phaseNum]} in the ICP.`,
+        })
+        phase4Messages.push(
+          ...transcript.map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }))
+        )
+      }
+    }
+
+    // Final synthesis instruction
+    phase4Messages.push({
+      role: 'user',
+      content:
+        'Now synthesize everything from all three phases into the complete ICP document following the exact output format in your instructions. Use specific details, exact language, and real examples from the conversation. Do not generalize. Do not invent. Every section must reflect what was actually said.',
+    })
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      system: getSystemPrompt(4),
+      messages: phase4Messages,
+    })
+
+    const replyContent = response.content[0]
+    if (replyContent.type !== 'text') {
+      return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 })
+    }
+
+    const rawReply = replyContent.text
+    const isIcpComplete = rawReply.includes('[ICP_COMPLETE]')
+    const cleanReply = rawReply.replace('[ICP_COMPLETE]', '').trim()
+
+    return NextResponse.json({
+      reply: cleanReply,
+      shouldAdvancePhase: isIcpComplete,
+      isIcpComplete,
+      icpDocument: isIcpComplete ? cleanReply : undefined,
+      phaseSummary: null,
+    })
   }
 
+  // ─── Phases 1-3: current phase messages only ──────────────────────────────
   let systemPrompt = getSystemPrompt(phase)
-
-  // Prepend research context and/or customer context to Phase 1 system prompt
-  if (phase === 1) {
-    const prefix = [researchContext, customerContext].filter(Boolean).join('\n')
-    if (prefix) systemPrompt = `${prefix}${systemPrompt}`
+  if (phase === 1 && customerContext) {
+    systemPrompt = `${customerContext}${systemPrompt}`
   }
 
-  const anthropicMessages = buildMessagesWithContext(sanitizedMessages, phaseSummaries)
+  const anthropicMessages = buildMessages(sanitizedMessages)
 
   const response = await anthropic.messages.create({
     model: MODEL[phase] ?? 'claude-haiku-4-5-20251001',
@@ -214,7 +228,7 @@ export async function POST(request: Request) {
     .trim()
 
   let phaseSummary: string | null = null
-  if (shouldAdvancePhase && phase < 4) {
+  if (shouldAdvancePhase) {
     try {
       const summaryResponse = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
