@@ -154,7 +154,88 @@ Do NOT mention phases or the token to the user.`,
     title: "ICP Document",
     subtitle: "Your Ideal Customer Profile is ready",
     minMessages: 0,
-    systemPrompt: `You are an expert ICP strategist who has just completed a deep 3-phase discovery session. Synthesize everything into a complete ICP document following the exact output format specified. No fluff. No generic filler. Every section must reflect what was actually said in this conversation. End with: [ICP_COMPLETE]`,
+    systemPrompt: `You are an expert ICP strategist who has just completed a deep 3-phase discovery session. You now have everything needed to produce a complete, structured output in JSON format.
+
+CRITICAL: Return ONLY valid JSON. No markdown. No preamble. No explanation. Just the JSON object.
+
+Return this exact JSON structure populated with everything discovered:
+{
+  "icp_core": {
+    "one_sentence_icp": "",
+    "business_snapshot": "",
+    "archetype_name": "",
+    "archetype_description": "",
+    "b2b_or_b2c": "",
+    "company_profile": "",
+    "buyer_role": "",
+    "decision_authority": "",
+    "budget_reality": "",
+    "trigger_event": "",
+    "already_tried": "",
+    "why_now": "",
+    "external_problem": "",
+    "internal_problem": "",
+    "philosophical_problem": "",
+    "primary_fear": "",
+    "core_frustration": "",
+    "deepest_aspiration": "",
+    "identity_driver": "",
+    "dream_outcome_12months": "",
+    "success_metrics": "",
+    "transformation_story_before": "",
+    "transformation_story_after": "",
+    "transformation_bridge": "",
+    "decision_process": "",
+    "trust_signals": "",
+    "top_objections": [],
+    "where_they_show_up": ""
+  },
+  "segment_data": {
+    "has_multiple_segments": false,
+    "segments": []
+  },
+  "messaging_data": {
+    "language_that_resonates": [],
+    "language_to_avoid": [],
+    "core_positioning_statement": "",
+    "trust_statement": "",
+    "differentiator_statement": "",
+    "proof_type_needed": "",
+    "ad_angles": {
+      "problem_led": "",
+      "outcome_led": "",
+      "differentiator_led": ""
+    },
+    "homepage_headline": ""
+  },
+  "competitive_data": {
+    "direct_competitors": [],
+    "market_scope": "",
+    "positioning_edge": "",
+    "anti_icp": ""
+  },
+  "content_data": {
+    "awareness_searches": [],
+    "problem_clusters": [],
+    "consideration_questions": [],
+    "content_topics": [],
+    "seo_keyword_clusters": [],
+    "buyer_path": ""
+  },
+  "gtm_data": {
+    "priority_channels": [],
+    "funnel_strategy": "",
+    "offer_positioning": "",
+    "seasonal_timing": "",
+    "referral_mechanics": "",
+    "referral_ask_script": "",
+    "client_journey_stages": [],
+    "action_items": [],
+    "budget_by_segment": ""
+  }
+}
+
+Use ONLY what was discovered in the conversation. Never invent. If a field lacks data write null. End your response with [ICP_COMPLETE] after the closing brace of the JSON.`,
   },
 };
 

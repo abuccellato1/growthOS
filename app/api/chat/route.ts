@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSystemPrompt } from '@/lib/prompts'
+import { buildICPMarkdown } from '@/lib/icp-formatter'
 import { Phase, Message, Customer } from '@/types'
 import { sanitizeMessage } from '@/lib/sanitize'
 import { checkRateLimit, getIpIdentifier } from '@/lib/ratelimit'
@@ -183,15 +184,46 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 })
     }
 
-    const rawReply = replyContent.text
-    const isIcpComplete = rawReply.includes('[ICP_COMPLETE]')
-    const cleanReply = rawReply.replace('[ICP_COMPLETE]', '').trim()
+    const rawText = replyContent.text
+    const isIcpComplete = rawText.includes('[ICP_COMPLETE]')
+    const cleanText = rawText.replace('[ICP_COMPLETE]', '').trim()
+
+    // Parse the JSON response
+    let parsedData: Record<string, unknown> = {}
+    try {
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        parsedData = JSON.parse(jsonMatch[0])
+      }
+    } catch (err) {
+      console.error('Failed to parse ICP JSON:', err)
+      // Fall back to saving raw text if JSON parsing fails
+      parsedData = { raw: cleanText }
+    }
+
+    // Save structured data to Supabase if sessionId provided and JSON parsed successfully
+    if (sessionId && parsedData.icp_core) {
+      await adminClient.from('sessions').update({
+        icp_core: parsedData.icp_core || null,
+        segment_data: parsedData.segment_data || null,
+        messaging_data: parsedData.messaging_data || null,
+        competitive_data: parsedData.competitive_data || null,
+        content_data: parsedData.content_data || null,
+        gtm_data: parsedData.gtm_data || null,
+        icp_data: parsedData,
+        icp_html: cleanText,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      }).eq('id', sessionId)
+    }
+
+    const icpMarkdown = buildICPMarkdown(parsedData)
 
     return NextResponse.json({
-      reply: cleanReply,
+      reply: icpMarkdown,
       shouldAdvancePhase: isIcpComplete,
       isIcpComplete,
-      icpDocument: isIcpComplete ? cleanReply : undefined,
+      icpDocument: isIcpComplete ? icpMarkdown : undefined,
       phaseSummary: null,
     })
   }

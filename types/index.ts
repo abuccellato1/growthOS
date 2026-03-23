@@ -72,6 +72,12 @@ export interface Session {
   phase_transcripts: Record<string, Message[]> | null;
   icp_data: Record<string, unknown> | null;
   icp_html: string | null;
+  icp_core: Record<string, unknown> | null;
+  messaging_data: Record<string, unknown> | null;
+  competitive_data: Record<string, unknown> | null;
+  content_data: Record<string, unknown> | null;
+  gtm_data: Record<string, unknown> | null;
+  segment_data: Record<string, unknown> | null;
   status: SessionStatus;
   started_at: string | null;
   last_activity: string | null;
