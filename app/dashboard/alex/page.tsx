@@ -74,8 +74,6 @@ export default function AlexPage() {
   const [messages, setMessages] = useState<Message[]>([])
   // Per-phase messages — sent to the API (current phase only, resets each phase)
   const [phaseMessages, setPhaseMessages] = useState<Message[]>([])
-  // Completed phase transcripts — persisted to Supabase and read by Phase 4
-  const [phaseTranscripts, setPhaseTranscripts] = useState<Record<string, Message[]>>({})
   // Ref so effects and callbacks always read the latest transcripts without stale closures
   const phaseTranscriptsRef = useRef<Record<string, Message[]>>({})
   const [phase, setPhase] = useState<Phase>(1)
@@ -140,7 +138,6 @@ export default function AlexPage() {
         // Restore saved phase transcripts so Phase 4 has full context on resume
         if (existingSession.phase_transcripts) {
           const transcripts = existingSession.phase_transcripts as Record<string, Message[]>
-          setPhaseTranscripts(transcripts)
           phaseTranscriptsRef.current = transcripts
         }
         setInitializing(false)
@@ -228,7 +225,6 @@ export default function AlexPage() {
           ...currentPhaseTranscripts,
           [currentPhase.toString()]: finalPhaseMessages,
         }
-        setPhaseTranscripts(completedTranscript)
         phaseTranscriptsRef.current = completedTranscript
 
         const supabase = createClient()
