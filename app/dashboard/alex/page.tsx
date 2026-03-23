@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { getPhaseConfig, PHASE_TRANSITIONS } from '@/lib/prompts'
 import { generateUUID } from '@/lib/utils'
 import { Customer, Phase, Message } from '@/types'
-import { Send, CheckCircle, Loader, MessageSquare } from 'lucide-react'
+import { Send, CheckCircle, Loader, MessageSquare, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 
 function buildCustomerContext(customer: Customer): string {
   let ctx = `CUSTOMER CONTEXT — collected during onboarding, do not ask again:
@@ -247,6 +248,13 @@ export default function AlexPage() {
           setTimeout(() => setPhaseComplete(true), 1500)
         }
       } else if (data.isIcpComplete) {
+        // Change A — save ICP markdown to sessions table before marking complete
+        await fetch('/api/save-icp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: sid, icpMarkdown: fullText }),
+        }).catch(console.error)
+
         const icpData = { raw: fullText }
         await persistSession(finalMessages, 4, 'completed', sid, uuid, cust.id, actualStartedAt, icpData)
 
@@ -282,8 +290,14 @@ export default function AlexPage() {
           }).catch(console.error)
         }
 
+        // Change B — append completion message with link to deliverables (no auto-redirect)
+        const completionMsg = `That's everything. Your **ICP Blueprint** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
+        const withCompletion: Message[] = [
+          ...finalMessages,
+          { role: 'assistant', content: completionMsg },
+        ]
+        setMessages(withCompletion)
         setCompleted(true)
-        setTimeout(() => router.push('/dashboard/deliverables'), 3000)
       } else {
         await persistSession(finalMessages, currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
       }
@@ -388,19 +402,7 @@ export default function AlexPage() {
     )
   }
 
-  if (completed) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center max-w-md">
-          <CheckCircle size={56} className="mx-auto mb-4" style={{ color: '#43C6AC' }} />
-          <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            Your ICP is complete.
-          </h2>
-          <p style={{ color: '#6b7280' }}>Redirecting to your deliverables...</p>
-        </div>
-      </div>
-    )
-  }
+  // Change C — inline completion card rendered inside the chat area (see below)
 
   return (
     <div className="flex h-full gap-6 -m-6 md:-m-8" style={{ height: 'calc(100vh - 73px)' }}>
@@ -506,6 +508,33 @@ export default function AlexPage() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Change C — inline completion card */}
+        {completed && (
+          <div
+            className="mx-6 mb-4 p-5 rounded-2xl border-2 flex items-center justify-between gap-4"
+            style={{ borderColor: '#43C6AC', backgroundColor: '#f0fdf9' }}
+          >
+            <div className="flex items-center gap-3">
+              <CheckCircle size={24} style={{ color: '#43C6AC', flexShrink: 0 }} />
+              <div>
+                <p className="font-semibold text-sm" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
+                  Your ICP Blueprint is ready
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+                  View, download as PDF, or copy for Google Docs
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/deliverables"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold flex-shrink-0"
+              style={{ backgroundColor: '#191654', fontFamily: 'DM Sans, sans-serif' }}
+            >
+              View Deliverables <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
+
         {/* Input */}
         <div className="border-t p-4" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <form onSubmit={handleSend} className="flex gap-3">
@@ -514,8 +543,8 @@ export default function AlexPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={streaming}
-              placeholder="Type your answer..."
+              disabled={streaming || completed}
+              placeholder={completed ? 'Session complete' : 'Type your answer...'}
               className="flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition-all"
               style={{ borderColor: '#e5e7eb', fontFamily: 'DM Sans, sans-serif' }}
               onFocus={(e) => {
@@ -529,7 +558,7 @@ export default function AlexPage() {
             />
             <button
               type="submit"
-              disabled={streaming || !input.trim()}
+              disabled={streaming || !input.trim() || completed}
               className="w-12 h-12 rounded-xl flex items-center justify-center text-white transition-opacity disabled:opacity-40"
               style={{ backgroundColor: '#43C6AC' }}
             >

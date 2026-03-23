@@ -71,6 +71,7 @@ export interface Session {
   message_history: Message[];
   phase_transcripts: Record<string, Message[]> | null;
   icp_data: Record<string, unknown> | null;
+  icp_html: string | null;
   status: SessionStatus;
   started_at: string | null;
   last_activity: string | null;
