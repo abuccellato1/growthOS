@@ -18,9 +18,9 @@ const MODEL: Record<number, string> = {
 }
 
 const MAX_TOKENS: Record<number, number> = {
-  1: 300,
-  2: 400,
-  3: 400,
+  1: 400,
+  2: 500,
+  3: 600,
   4: 8000,
 }
 

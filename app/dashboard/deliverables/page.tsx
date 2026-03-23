@@ -20,7 +20,29 @@ const ICPDisplay = dynamic(() => import('@/components/ICPDisplay'), {
 export default function DeliverablesPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [regenerating, setRegenerating] = useState(false)
   const router = useRouter()
+
+  async function handleRegenerateICP() {
+    if (!session) return
+    setRegenerating(true)
+    try {
+      const response = await fetch('/api/regenerate-icp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: session.id }),
+      })
+      if (response.ok) {
+        window.location.reload()
+      } else {
+        console.error('Regeneration failed')
+      }
+    } catch (err) {
+      console.error('Regeneration error:', err)
+    } finally {
+      setRegenerating(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -133,6 +155,32 @@ export default function DeliverablesPage() {
           >
             Resume Session <ArrowRight size={16} />
           </Link>
+        </div>
+      )}
+
+      {session?.status === 'completed' && !hasIcp && (
+        <div
+          className="p-6 rounded-xl border text-center mb-6"
+          style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
+        >
+          <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
+            Your session is complete but your ICP document needs to be generated.
+          </p>
+          <button
+            onClick={handleRegenerateICP}
+            disabled={regenerating}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm"
+            style={{ backgroundColor: regenerating ? '#9ca3af' : '#43C6AC' }}
+          >
+            {regenerating ? (
+              <>
+                <Loader size={16} className="animate-spin" />
+                Generating your ICP...
+              </>
+            ) : (
+              'Generate My ICP'
+            )}
+          </button>
         </div>
       )}
 
