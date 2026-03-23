@@ -21,6 +21,8 @@ export default function DeliverablesPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
+  const [recovering, setRecovering] = useState(false)
+  const [recoverError, setRecoverError] = useState<string | null>(null)
   const router = useRouter()
 
   async function handleRegenerateICP() {
@@ -41,6 +43,29 @@ export default function DeliverablesPage() {
       console.error('Regeneration error:', err)
     } finally {
       setRegenerating(false)
+    }
+  }
+
+  async function handleRecover() {
+    if (!session) return
+    setRecovering(true)
+    setRecoverError(null)
+    try {
+      const response = await fetch('/api/recover-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: session.id }),
+      })
+      if (response.ok) {
+        window.location.reload()
+      } else {
+        const data = await response.json()
+        setRecoverError(data.error || 'Something went wrong. Please try again.')
+      }
+    } catch {
+      setRecoverError('Connection error. Please try again.')
+    } finally {
+      setRecovering(false)
     }
   }
 
@@ -80,9 +105,17 @@ export default function DeliverablesPage() {
     )
   }
 
-  const hasIcp = !!(session?.icp_html)
-  const sessionInProgress = session?.status === 'in_progress'
+  const hasIcp = !!(session?.icp_html && session.icp_html.length > 0)
   const sessionNotStarted = !session || session.status === 'not_started'
+  // In-progress sessions still early (phase < 3) — prompt to resume
+  const sessionEarlyInProgress =
+    session?.status === 'in_progress' && (session.phase as number) < 3 && !hasIcp
+  // Recovery condition: phases 1-3 done but ICP not yet generated
+  const needsRecovery =
+    !!session &&
+    (session.phase as number) >= 3 &&
+    (session.status === 'completed' || session.status === 'in_progress') &&
+    !hasIcp
 
   return (
     <div className="max-w-4xl">
@@ -107,7 +140,7 @@ export default function DeliverablesPage() {
         </div>
       </div>
 
-      {/* States */}
+      {/* Not started */}
       {sessionNotStarted && (
         <div
           className="p-8 rounded-2xl border-2 text-center"
@@ -133,7 +166,8 @@ export default function DeliverablesPage() {
         </div>
       )}
 
-      {sessionInProgress && !hasIcp && (
+      {/* Early in-progress (phase < 3) — resume session */}
+      {sessionEarlyInProgress && (
         <div
           className="p-8 rounded-2xl border-2 text-center"
           style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
@@ -158,7 +192,62 @@ export default function DeliverablesPage() {
         </div>
       )}
 
-      {session?.status === 'completed' && !hasIcp && (
+      {/* Session complete (or past phase 3) but ICP not yet generated */}
+      {needsRecovery && (
+        <div
+          className="p-8 rounded-2xl border-2 text-center"
+          style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.04)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ backgroundColor: '#191654' }}
+          >
+            <FileText size={28} style={{ color: '#43C6AC' }} />
+          </div>
+          <h2
+            className="text-xl font-bold mb-2"
+            style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
+          >
+            Your session is complete.
+          </h2>
+          <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
+            All three phases are saved. Click below to generate your
+            complete ICP document from your session data.
+          </p>
+          {recoverError && (
+            <p className="text-sm mb-4" style={{ color: '#ef4444' }}>
+              {recoverError}
+            </p>
+          )}
+          <button
+            onClick={handleRecover}
+            disabled={recovering}
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold"
+            style={{
+              backgroundColor: recovering ? '#9ca3af' : '#43C6AC',
+              cursor: recovering ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {recovering ? (
+              <>
+                <Loader size={18} className="animate-spin" />
+                Generating your ICP... (this takes 30-60 seconds)
+              </>
+            ) : (
+              <>
+                <FileText size={18} />
+                Generate My ICP Blueprint
+              </>
+            )}
+          </button>
+          <p className="text-xs mt-4" style={{ color: '#9ca3af' }}>
+            Uses your complete 3-phase conversation to build your document.
+          </p>
+        </div>
+      )}
+
+      {/* Completed but icp_html missing (fallback regenerate via /api/regenerate-icp) */}
+      {session?.status === 'completed' && !hasIcp && !needsRecovery && (
         <div
           className="p-6 rounded-xl border text-center mb-6"
           style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
@@ -184,6 +273,7 @@ export default function DeliverablesPage() {
         </div>
       )}
 
+      {/* ICP ready */}
       {hasIcp && session && (
         <div
           className="rounded-2xl border overflow-hidden"
