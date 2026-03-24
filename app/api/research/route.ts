@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         research = JSON.parse(jsonMatch[0])
       }
     }
-  } catch (err) {
+  } catch {
     logger.warn('Business research failed — continuing without', { route: '/api/research', businessId: businessId })
   }
 
