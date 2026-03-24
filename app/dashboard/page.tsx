@@ -66,7 +66,7 @@ export default function DashboardPage() {
         const res = await fetch('/api/businesses/list')
         if (res.ok) {
           const data = await res.json()
-          bizList = data.businesses || []
+          bizList = data.data?.businesses || data.businesses || []
         }
       } catch {
         // Non-fatal
@@ -75,22 +75,35 @@ export default function DashboardPage() {
       // Auto-migration: create business from customer data if no businesses exist
       if (bizList.length === 0 && customerData.business_name?.trim()) {
         try {
-          const migRes = await fetch('/api/businesses/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              businessName: customerData.business_name,
-              websiteUrl: customerData.website_url,
-              primaryService: customerData.primary_service,
-              geographicMarket: customerData.geographic_market,
-              migratingFromCustomer: true,
-            }),
-          })
-          if (migRes.ok) {
-            const migData = await migRes.json()
-            if (migData.business) {
-              bizList = [migData.business]
-              localStorage.setItem('signalshot_active_business', migData.business.id)
+          // Check if businesses exist (including inactive) before creating
+          const checkRes = await fetch('/api/businesses/list?includeInactive=true')
+          if (checkRes.ok) {
+            const checkData = await checkRes.json()
+            if ((checkData.data?.businesses || []).length > 0) {
+              // Businesses exist but are inactive — reactivate the first one
+              bizList = (checkData.data?.businesses || []).slice(0, 1)
+              localStorage.setItem('signalshot_active_business', bizList[0].id)
+            } else {
+              // Truly no businesses — safe to migrate
+              const migRes = await fetch('/api/businesses/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  businessName: customerData.business_name,
+                  websiteUrl: customerData.website_url,
+                  primaryService: customerData.primary_service,
+                  geographicMarket: customerData.geographic_market,
+                  migratingFromCustomer: true,
+                }),
+              })
+              if (migRes.ok) {
+                const migData = await migRes.json()
+                if (migData.data?.business || migData.business) {
+                  const biz = migData.data?.business || migData.business
+                  bizList = [biz]
+                  localStorage.setItem('signalshot_active_business', biz.id)
+                }
+              }
             }
           }
         } catch {
@@ -193,7 +206,8 @@ export default function DashboardPage() {
     setShowIntakeGate(false)
     setShowToast(true)
     setTimeout(() => setShowToast(false), 3000)
-    window.history.replaceState({}, '', '/dashboard')
+    // Reload to ensure dashboard has correct business context
+    window.location.reload()
   }
 
   if (loading) {

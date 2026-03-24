@@ -167,6 +167,17 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
       }
     }
 
+    // If business is missing, try to fetch it directly
+    if (!business) {
+      const fallbackSupabase = createClient()
+      const { data: freshBusiness } = await fallbackSupabase
+        .from('businesses')
+        .select('*')
+        .eq('id', existingBusiness?.id || '')
+        .single()
+      business = freshBusiness
+    }
+
     // Fetch refreshed customer record
     const supabase = createClient()
     const { data: updated } = await supabase
@@ -177,6 +188,9 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
 
     if (business) {
       onComplete(updated || customer, business)
+    } else {
+      // Last resort — reload the page
+      window.location.reload()
     }
   }
 
