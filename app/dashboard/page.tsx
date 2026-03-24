@@ -134,15 +134,31 @@ export default function DashboardPage() {
         setShowIntakeGate(true)
       }
 
-      // Fetch sessions for this business (with fallback to customer_id)
-      const { data: sessionData } = await supabase
+      // Fetch sessions for this business, fall back to customer_id
+      // First: try by business_id
+      const { data: bizSession } = await supabase
         .from('sessions')
         .select('*')
-        .or(`business_id.eq.${currentBiz.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
+        .eq('business_id', currentBiz.id)
         .not('archived', 'is', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      // Fall back: if no business session, try by customer_id
+      // (handles sessions created before business architecture existed)
+      let sessionData = bizSession
+      if (!sessionData) {
+        const { data: customerSession } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('customer_id', customerData.id)
+          .not('archived', 'is', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        sessionData = customerSession
+      }
 
       if (sessionData) setSession(sessionData)
 

@@ -163,15 +163,32 @@ export default function AlexPage() {
         return
       }
 
-      // Check for in_progress session for this business
-      const { data: existingSession } = await supabase
+      // Check for in_progress session for this business, fall back to customer_id
+      // First: try by business_id
+      let existingSession = null
+      const { data: bizInProgress } = await supabase
         .from('sessions')
         .select('*')
-        .or(`business_id.eq.${bizData.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
+        .eq('business_id', bizData.id)
         .in('status', ['in_progress', 'not_started'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      // Fall back: if no business session, try by customer_id
+      // (handles sessions created before business architecture existed)
+      existingSession = bizInProgress
+      if (!existingSession) {
+        const { data: custInProgress } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('customer_id', customerData.id)
+          .in('status', ['in_progress', 'not_started'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        existingSession = custInProgress
+      }
 
       if (existingSession && existingSession.message_history?.length > 0) {
         setSessionId(existingSession.id)

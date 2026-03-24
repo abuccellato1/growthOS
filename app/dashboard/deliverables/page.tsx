@@ -90,16 +90,32 @@ export default function DeliverablesPage() {
       // Fetch session for active business (with fallback)
       let sessionData = null
       if (activeBizId) {
-        const { data, error } = await supabase
+        // First: try to find session by business_id
+        const { data: bizSession, error: bizError } = await supabase
           .from('sessions')
           .select('*')
-          .or(`business_id.eq.${activeBizId},and(business_id.is.null,customer_id.eq.${customerData.id})`)
+          .eq('business_id', activeBizId)
           .not('archived', 'is', true)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-        console.log('[deliverables] session query (with bizId) result:', data?.id, 'status:', data?.status, 'icp_html length:', data?.icp_html?.length, 'error:', error)
-        sessionData = data
+        console.log('[deliverables] bizSession query result:', bizSession?.id, 'status:', bizSession?.status, 'icp_html length:', bizSession?.icp_html?.length, 'error:', bizError)
+
+        // Fall back: if no business session found, try by customer_id
+        // (handles sessions created before business architecture existed)
+        sessionData = bizSession
+        if (!sessionData) {
+          const { data: customerSession, error: custError } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('customer_id', customerData.id)
+            .not('archived', 'is', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          console.log('[deliverables] customerSession fallback result:', customerSession?.id, 'status:', customerSession?.status, 'error:', custError)
+          sessionData = customerSession
+        }
       } else {
         const { data, error } = await supabase
           .from('sessions')
