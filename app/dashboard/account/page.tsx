@@ -292,6 +292,14 @@ export default function AccountPage() {
         </div>
 
         <div className="space-y-3">
+          {businesses.length === 0 && (
+            <p className="text-sm" style={{ color: '#9ca3af' }}>
+              No businesses registered yet. Complete the intake form to get started.{' '}
+              <a href="/dashboard" className="font-medium" style={{ color: '#43C6AC' }}>
+                Go to Dashboard →
+              </a>
+            </p>
+          )}
           {businesses.map((biz) => {
             const isActive = activeBizId === biz.id
             return (

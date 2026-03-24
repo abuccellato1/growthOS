@@ -15,6 +15,7 @@ import {
   Lock,
   Download,
   ArrowRight,
+  FileText,
   Clock,
   CheckCircle,
   Loader,
@@ -222,12 +223,30 @@ export default function DashboardPage() {
   const businessName = activeBusiness?.business_name || customer?.business_name || ''
 
   function determineState(): 'not_started' | 'in_progress' | 'generating' | 'complete' {
-    if (!session || session.status === 'not_started') return 'not_started'
-    if (session.status === 'in_progress') return 'in_progress'
+    if (!session || session.status === 'not_started') {
+      return 'not_started'
+    }
+    if (session.status === 'in_progress') {
+      return 'in_progress'
+    }
     if (session.status === 'completed') {
-      if (deliverables.length > 0 && deliverables.every((d) => d.status === 'complete')) {
-        return 'complete'
+      // If ICP exists — session is usable regardless of deliverable pack status
+      if (session.icp_html && session.icp_html.length > 0) {
+        // Check if all PURCHASED deliverable packs are complete
+        const purchasedPacks = deliverables.filter(
+          (d) => d.deliverable_type !== 'icp_blueprint'
+        )
+        if (
+          purchasedPacks.length > 0 &&
+          purchasedPacks.every((d) => d.status === 'complete')
+        ) {
+          return 'complete'
+        }
+        // ICP exists but packs pending or no packs purchased —
+        // show as 'generating' which now has a full useful UI
+        return 'generating'
       }
+      // Session completed but no ICP yet — treat as generating
       return 'generating'
     }
     return 'not_started'
@@ -407,28 +426,69 @@ export default function DashboardPage() {
       {/* State 3 — Generating */}
       {state === 'generating' && (
         <div>
-          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            Your deliverables are being built.
+          <h1
+            className="text-3xl font-bold mb-2"
+            style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
+          >
+            Your SignalMap™ is complete, {customer?.first_name}.
           </h1>
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
-            We&apos;ll email you at {customer?.email} when everything is ready.
+            Your ICP document is ready in your deliverables.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {deliverables.map((d) => (
-              <div key={d.id} className="p-4 rounded-xl border flex items-center gap-4" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-                {d.status === 'complete' ? (
-                  <CheckCircle size={20} style={{ color: '#43C6AC' }} />
-                ) : (
-                  <Loader size={20} className="animate-spin" style={{ color: '#9ca3af' }} />
-                )}
-                <div>
-                  <p className="text-sm font-medium" style={{ color: '#191654' }}>{d.deliverable_type}</p>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>{d.status === 'complete' ? 'Ready' : 'Generating...'}</p>
+          {/* Primary CTA — go to deliverables */}
+          <Link href="/dashboard/deliverables">
+            <div
+              className="p-6 rounded-2xl border-2 cursor-pointer
+                         transition-all hover:shadow-lg mb-6"
+              style={{
+                borderColor: '#43C6AC',
+                backgroundColor: 'rgba(67,198,172,0.05)'
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center
+                               justify-center"
+                    style={{ backgroundColor: '#191654' }}
+                  >
+                    <FileText size={28} style={{ color: '#43C6AC' }} />
+                  </div>
+                  <div>
+                    <h2
+                      className="text-xl font-bold"
+                      style={{
+                        fontFamily: 'Playfair Display, serif',
+                        color: '#191654'
+                      }}
+                    >
+                      View My SignalMap™
+                    </h2>
+                    <p className="text-sm" style={{ color: '#6b7280' }}>
+                      Your complete ICP document is ready to view and download
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl
+                             text-white font-semibold text-sm"
+                  style={{ backgroundColor: '#43C6AC' }}
+                >
+                  View Now <ArrowRight size={16} />
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          </Link>
+
+          {/* Locked modules — still show what is available */}
+          <h3
+            className="text-sm font-semibold uppercase tracking-wide mb-3"
+            style={{ color: '#9ca3af' }}
+          >
+            Expand your SignalShot™
+          </h3>
+          <LockedModuleCards />
         </div>
       )}
 
