@@ -11,13 +11,29 @@ interface ICPDisplayProps {
 }
 
 function getHtml(markdown: string): string {
-  const raw = marked.parse(markdown)
-  return sanitizeHtml(typeof raw === 'string' ? raw : '')
+  try {
+    const raw = marked.parse(markdown)
+    return sanitizeHtml(typeof raw === 'string' ? raw : '')
+  } catch (err) {
+    console.error('Markdown parse error:', err)
+    return '<p>Document could not be rendered.</p>'
+  }
 }
 
 export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) {
   const [downloading, setDownloading] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  if (!icpMarkdown || icpMarkdown.trim().length === 0) {
+    // Suppress unused variable warning — sessionId reserved for future per-session PDF caching
+    void sessionId
+    return (
+      <div className="p-8 text-center" style={{ color: '#6b7280' }}>
+        <p>Your SignalMap™ document could not be loaded.</p>
+        <p className="text-xs mt-2">Please contact support if this persists.</p>
+      </div>
+    )
+  }
 
   async function handleDownloadPdf() {
     setDownloading(true)
