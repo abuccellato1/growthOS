@@ -91,7 +91,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         const res = await fetch('/api/businesses/list')
         if (res.ok) {
           const data = await res.json()
-          const bizList = data.businesses || []
+          const bizList = data.data?.businesses || data.businesses || []
           setBusinesses(bizList)
 
           // Determine active business

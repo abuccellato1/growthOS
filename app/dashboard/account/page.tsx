@@ -116,7 +116,8 @@ export default function AccountPage() {
         const bizRes = await fetch('/api/businesses/list')
         if (bizRes.ok) {
           const bizData = await bizRes.json()
-          setBusinesses(bizData.businesses || [])
+          const bizList = bizData.data?.businesses || bizData.businesses || []
+          setBusinesses(bizList)
         }
       } catch {
         // Non-fatal — businesses section shows empty
