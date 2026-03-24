@@ -22,7 +22,7 @@ interface IntakeGateProps {
 }
 
 export default function IntakeGate({ customer, existingBusiness, onComplete }: IntakeGateProps) {
-  const [stage, setStage] = useState<'form' | 'loading'>('form')
+  const [stage, setStage] = useState<'intro' | 'form' | 'loading'>('intro')
   const [businessName, setBusinessName] = useState(existingBusiness?.business_name || customer.business_name || '')
   const [websiteUrl, setWebsiteUrl] = useState(existingBusiness?.website_url || customer.website_url || '')
   const [primaryService, setPrimaryService] = useState(existingBusiness?.primary_service || customer.primary_service || '')
@@ -194,12 +194,106 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
           className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
           style={{ animation: 'intakeFadeIn 0.3s ease-out' }}
         >
-          {/* Logo */}
-          <div className="flex justify-center pt-8 pb-0">
-            <div className="relative w-36 h-10">
-              <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain" priority onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:20px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'; }} />
+          {stage !== 'intro' && (
+            /* Logo — shown on form and loading stages */
+            <div className="flex justify-center pt-8 pb-0">
+              <div className="relative w-36 h-10">
+                <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain" priority onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:20px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'; }} />
+              </div>
             </div>
-          </div>
+          )}
+
+          {stage === 'intro' && (
+            <div className="p-8 pt-6 text-center">
+              {/* Logo */}
+              <div className="flex justify-center mb-6">
+                <img
+                  src="/images/signalshot-logo.png"
+                  alt="SignalShot"
+                  style={{ width: 140, height: 'auto' }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              </div>
+              <h2
+                className="text-2xl font-bold mb-3"
+                style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
+              >
+                Welcome to SignalShot™
+              </h2>
+              <p
+                className="text-sm mb-4 leading-relaxed"
+                style={{ color: '#4b5563', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                SignalShot uses Alex — an AI discovery strategist — to build
+                your complete Ideal Customer Profile through a live conversation.
+              </p>
+              <p
+                className="text-sm mb-8 leading-relaxed"
+                style={{ color: '#4b5563', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                Before Alex can start, he needs 60 seconds of context about
+                your business. This helps him skip the basics and start with
+                smarter questions.
+              </p>
+              {/* What Alex builds — three items */}
+              <div className="space-y-3 mb-8 text-left">
+                {[
+                  {
+                    icon: '🎯',
+                    title: 'Your Ideal Customer Profile',
+                    desc: 'A complete document identifying exactly who your best customer is'
+                  },
+                  {
+                    icon: '📣',
+                    title: 'Your Messaging Framework',
+                    desc: 'The exact language that resonates with your ideal customer'
+                  },
+                  {
+                    icon: '🚀',
+                    title: 'Your Go-To-Market Strategy',
+                    desc: 'Channels, content, and a 90-day action plan to reach them'
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className="flex items-start gap-3 p-3 rounded-xl"
+                    style={{ backgroundColor: '#f8f9fc' }}
+                  >
+                    <span style={{ fontSize: 20 }}>{item.icon}</span>
+                    <div>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}
+                      >
+                        {item.title}
+                      </p>
+                      <p
+                        className="text-xs mt-0.5"
+                        style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}
+                      >
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setStage('form')}
+                className="w-full py-3 rounded-xl font-semibold text-white text-sm"
+                style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                Let&apos;s Get Started →
+              </button>
+              <p
+                className="text-xs mt-3"
+                style={{ color: '#9ca3af', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                Takes about 60 seconds
+              </p>
+            </div>
+          )}
 
           {stage === 'form' && (
             <form onSubmit={handleSubmit} className="p-8 pt-5">
@@ -207,13 +301,13 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 className="text-2xl font-bold mb-1 text-center"
                 style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
               >
-                {existingBusiness ? 'Update your business details' : 'Tell us about your business'}
+                {existingBusiness ? 'Update your business details' : 'Tell Alex about your business'}
               </h2>
               <p
                 className="text-sm text-center mb-6"
                 style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}
               >
-                Alex needs these details to run your discovery session.
+                Alex will use this to skip the basics and start your SignalMap™ session with smarter, more specific questions.
               </p>
 
               {/* Honeypot — hidden from real users */}
@@ -287,15 +381,15 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 className="text-2xl font-bold mb-6"
                 style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
               >
-                Alex is reviewing your business...
+                Alex is getting ready for your session...
               </h2>
               <div className="flex justify-center mb-8">
                 <Loader size={32} className="animate-spin" style={{ color: '#43C6AC' }} />
               </div>
               <div className="space-y-4 text-left">
                 <ResearchStep active={step1} label="Reviewing your website" />
-                <ResearchStep active={step2} label="Analyzing your market position" />
-                <ResearchStep active={step3} label="Preparing your discovery session" />
+                <ResearchStep active={step2} label="Researching your market position" />
+                <ResearchStep active={step3} label="Preparing your SignalMap™ session" />
               </div>
               <div className="h-6" />
             </div>
