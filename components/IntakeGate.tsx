@@ -29,6 +29,8 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
   const [geographicMarket, setGeographicMarket] = useState(existingBusiness?.geographic_market || customer.geographic_market || '')
   const [gmbUrl, setGmbUrl] = useState(existingBusiness?.gmb_url || '')
   const [honeypot, setHoneypot] = useState('')
+  const [secondHoneypot, setSecondHoneypot] = useState('')
+  const [formStartTime] = useState(Date.now())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step1, setStep1] = useState(false)
   const [step2, setStep2] = useState(false)
@@ -49,7 +51,9 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     // Silently reject bots
-    if (honeypot) return
+    if (honeypot || secondHoneypot) return
+    const timeSpent = Date.now() - formStartTime
+    if (timeSpent < 3000) return
 
     const errs = validate()
     if (Object.keys(errs).length > 0) {
@@ -216,12 +220,22 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 Alex needs these details to run your discovery session.
               </p>
 
-              {/* Honeypot — hidden from real users */}
+              {/* Honeypot fields — hidden from real users */}
               <input
                 type="text"
                 name="website_url_confirm"
                 value={honeypot}
                 onChange={(e) => setHoneypot(e.target.value)}
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+              />
+              <input
+                type="email"
+                name="confirm_email_address"
+                value={secondHoneypot}
+                onChange={(e) => setSecondHoneypot(e.target.value)}
                 style={{ display: 'none' }}
                 tabIndex={-1}
                 autoComplete="off"

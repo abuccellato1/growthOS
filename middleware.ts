@@ -41,11 +41,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Admin routes — check role
+  // Admin routes — check role + optional IP restriction
   if (path.startsWith('/admin')) {
     const role = user.user_metadata?.role
     if (role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+    const allowedIPs = process.env.ADMIN_ALLOWED_IPS
+    if (allowedIPs) {
+      const clientIP = request.headers.get('x-forwarded-for')
+        ?.split(',')[0]?.trim() ?? ''
+      const allowed = allowedIPs.split(',').map((ip: string) => ip.trim())
+      if (!allowed.includes(clientIP)) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
     }
   }
 

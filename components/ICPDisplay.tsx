@@ -35,8 +35,8 @@ export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) 
       a.download = 'SignalMap.pdf'
       a.click()
       URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('PDF download error:', err)
+    } catch {
+      // Non-fatal — download failed silently
     } finally {
       setDownloading(false)
     }
@@ -58,8 +58,8 @@ export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) 
       }
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
-    } catch (err) {
-      console.error('Copy error:', err)
+    } catch {
+      // Non-fatal — copy failed silently
     }
   }
 

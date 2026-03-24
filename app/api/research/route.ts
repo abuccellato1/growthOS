@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logger } from '@/lib/logger'
+import { apiError, apiSuccess } from '@/lib/api-response'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -26,17 +27,21 @@ interface BusinessResearch {
 }
 
 export async function POST(request: Request) {
+  const start = logger.apiStart('/api/research')
+
   let body: ResearchRequest
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    logger.apiEnd('/api/research', start, 400)
+    return apiError('Invalid request body', 400, 'INVALID_BODY')
   }
 
   const { businessId, customerId, businessName, websiteUrl, primaryService, geographicMarket, gmbUrl } = body
 
   if (!businessName || !websiteUrl || !primaryService) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    logger.apiEnd('/api/research', start, 400)
+    return apiError('Missing required fields', 400, 'MISSING_FIELDS')
   }
 
   const adminClient = createAdminClient()
@@ -94,7 +99,7 @@ export async function POST(request: Request) {
       }
     }
   } catch (err) {
-    console.warn('Business research failed — continuing without:', err)
+    logger.warn('Business research failed — continuing without', { route: '/api/research', businessId: businessId })
   }
 
   // Save research result
@@ -112,5 +117,6 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, research })
+  logger.apiEnd('/api/research', start, 200)
+  return apiSuccess({ research })
 }

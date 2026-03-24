@@ -1,49 +1,45 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
+import { logger } from '@/lib/logger'
+import { apiError, apiSuccess } from '@/lib/api-response'
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const start = logger.apiStart('/api/businesses/switch')
+
+  const auth = await requireAuth()
+  if (auth.error) {
+    logger.apiEnd('/api/businesses/switch', start, 401)
+    return auth.error
   }
 
   let body: { businessId: string }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    logger.apiEnd('/api/businesses/switch', start, 400, auth.customer.id)
+    return apiError('Invalid request body', 400, 'INVALID_BODY')
   }
 
   const { businessId } = body
   if (!businessId) {
-    return NextResponse.json({ error: 'businessId required' }, { status: 400 })
+    logger.apiEnd('/api/businesses/switch', start, 400, auth.customer.id)
+    return apiError('businessId required', 400, 'MISSING_FIELD')
   }
 
   const adminClient = createAdminClient()
-
-  // Verify business belongs to this customer
-  const { data: customer } = await adminClient
-    .from('customers')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
-  }
 
   const { data: business } = await adminClient
     .from('businesses')
     .select('id')
     .eq('id', businessId)
-    .eq('customer_id', customer.id)
+    .eq('customer_id', auth.customer.id)
     .single()
 
   if (!business) {
-    return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+    logger.apiEnd('/api/businesses/switch', start, 404, auth.customer.id)
+    return apiError('Business not found', 404, 'NOT_FOUND')
   }
 
-  return NextResponse.json({ success: true })
+  logger.apiEnd('/api/businesses/switch', start, 200, auth.customer.id)
+  return apiSuccess({ success: true })
 }

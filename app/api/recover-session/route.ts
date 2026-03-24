@@ -1,45 +1,38 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
+import { apiError, apiSuccess } from '@/lib/api-response'
+import { requireAuth } from '@/lib/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSystemPrompt } from '@/lib/prompts'
 import { Customer, Message } from '@/types'
+
+const ROUTE = '/api/recover-session'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
+  const start = logger.apiStart(ROUTE, auth.customer.id)
+
   let body: { sessionId: string }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    logger.apiEnd(ROUTE, start, 400, auth.customer.id)
+    return apiError('Invalid request body', 400)
   }
 
   const { sessionId } = body
   if (!sessionId || typeof sessionId !== 'string') {
-    return NextResponse.json({ error: 'sessionId required' }, { status: 400 })
+    logger.apiEnd(ROUTE, start, 400, auth.customer.id)
+    return apiError('sessionId required', 400)
   }
 
-  // Validate authenticated user
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Fetch customer record
   const adminClient = createAdminClient()
-  const { data: customerData } = await adminClient
-    .from('customers')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!customerData) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
-  }
 
   // Fetch session
   const { data: sessionData } = await adminClient
@@ -49,26 +42,37 @@ export async function POST(request: Request) {
     .single()
 
   if (!sessionData) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    logger.apiEnd(ROUTE, start, 404, auth.customer.id)
+    return apiError('Session not found', 404)
   }
 
   // Verify session belongs to this user
-  if (sessionData.customer_id !== customerData.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (sessionData.customer_id !== auth.customer.id) {
+    logger.apiEnd(ROUTE, start, 403, auth.customer.id)
+    return apiError('Forbidden', 403)
   }
 
   // Already has ICP — return immediately
   if (sessionData.icp_html && sessionData.icp_html.trim().length > 0) {
-    return NextResponse.json({ success: true, already_exists: true })
+    logger.apiEnd(ROUTE, start, 200, auth.customer.id)
+    return apiSuccess({ success: true, already_exists: true })
   }
 
   // Check for conversation data
   const messageHistory = (sessionData.message_history ?? []) as Message[]
   if (messageHistory.length === 0) {
-    return NextResponse.json({ error: 'No conversation data found' }, { status: 400 })
+    logger.apiEnd(ROUTE, start, 400, auth.customer.id)
+    return apiError('No conversation data found', 400)
   }
 
-  const customer = customerData as Customer
+  // Fetch full customer record for context
+  const { data: customerFull } = await adminClient
+    .from('customers')
+    .select('*')
+    .eq('id', auth.customer.id)
+    .single()
+
+  const customer = (customerFull || auth.customer) as Customer
 
   // Build context block
   let contextBlock = [
@@ -128,13 +132,15 @@ export async function POST(request: Request) {
 
     const replyContent = response.content[0]
     if (replyContent.type !== 'text') {
-      return NextResponse.json({ error: 'Unexpected response type from Claude' }, { status: 500 })
+      logger.apiEnd(ROUTE, start, 500, auth.customer.id)
+      return apiError('Unexpected response type from Claude', 500)
     }
 
     icpText = replyContent.text.replace('[ICP_COMPLETE]', '').trim()
   } catch (err) {
-    console.error('Anthropic error in recover-session:', err)
-    return NextResponse.json({ error: 'Failed to generate ICP' }, { status: 500 })
+    logger.error('Anthropic error in recover-session', err, { route: ROUTE })
+    logger.apiEnd(ROUTE, start, 500, auth.customer.id)
+    return apiError('Failed to generate ICP', 500)
   }
 
   // Save to Supabase
@@ -155,9 +161,11 @@ export async function POST(request: Request) {
     .eq('id', sessionId)
 
   if (saveError) {
-    console.error('Save error in recover-session:', saveError)
-    return NextResponse.json({ error: 'Failed to save ICP' }, { status: 500 })
+    logger.error('Save error in recover-session', saveError, { route: ROUTE })
+    logger.apiEnd(ROUTE, start, 500, auth.customer.id)
+    return apiError('Failed to save ICP', 500)
   }
 
-  return NextResponse.json({ success: true })
+  logger.apiEnd(ROUTE, start, 200, auth.customer.id)
+  return apiSuccess({ success: true })
 }

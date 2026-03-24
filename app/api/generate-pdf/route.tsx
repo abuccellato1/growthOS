@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer'
 import { checkRateLimit, getIpIdentifier } from '@/lib/ratelimit'
+import { logger } from '@/lib/logger'
+import { apiError } from '@/lib/api-response'
 
 // ─── Markdown parser ──────────────────────────────────────────────────────────
 
@@ -175,21 +177,26 @@ function renderBlock(block: Block, i: number): React.ReactNode {
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  const start = logger.apiStart('/api/generate-pdf')
+
   const allowed = await checkRateLimit(getIpIdentifier(request), 'pdf', 10, 60)
   if (!allowed) {
-    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429 })
+    logger.apiEnd('/api/generate-pdf', start, 429)
+    return apiError('Rate limit exceeded', 429, 'RATE_LIMITED')
   }
 
   let body: { markdown: string }
   try {
     body = await request.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400 })
+    logger.apiEnd('/api/generate-pdf', start, 400)
+    return apiError('Invalid request body', 400, 'INVALID_BODY')
   }
 
   const { markdown } = body
   if (!markdown || typeof markdown !== 'string') {
-    return new Response(JSON.stringify({ error: 'markdown required' }), { status: 400 })
+    logger.apiEnd('/api/generate-pdf', start, 400)
+    return apiError('markdown required', 400, 'MISSING_FIELD')
   }
 
   const blocks = parseMarkdown(markdown)
@@ -250,6 +257,7 @@ export async function POST(request: Request) {
   }
   const buffer = Buffer.concat(chunks)
 
+  logger.apiEnd('/api/generate-pdf', start, 200)
   return new Response(buffer, {
     headers: {
       'Content-Type': 'application/pdf',

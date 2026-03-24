@@ -1,36 +1,31 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
+import { logger } from '@/lib/logger'
+import { apiError, apiSuccess } from '@/lib/api-response'
 
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const start = logger.apiStart('/api/businesses/list')
+
+  const auth = await requireAuth()
+  if (auth.error) {
+    logger.apiEnd('/api/businesses/list', start, 401)
+    return auth.error
   }
 
   const adminClient = createAdminClient()
 
-  const { data: customer } = await adminClient
-    .from('customers')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
-  }
-
   const { data: businesses, error } = await adminClient
     .from('businesses')
     .select('*')
-    .eq('customer_id', customer.id)
+    .eq('customer_id', auth.customer.id)
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Business list error:', error)
-    return NextResponse.json({ error: 'Failed to list businesses' }, { status: 500 })
+    logger.error('Business list error', error, { route: '/api/businesses/list', customerId: auth.customer.id })
+    logger.apiEnd('/api/businesses/list', start, 500, auth.customer.id)
+    return apiError('Failed to list businesses', 500, 'LIST_FAILED')
   }
 
-  return NextResponse.json({ businesses: businesses || [] })
+  logger.apiEnd('/api/businesses/list', start, 200, auth.customer.id)
+  return apiSuccess({ businesses: businesses || [] })
 }
