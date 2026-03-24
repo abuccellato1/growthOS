@@ -7,7 +7,8 @@ const anthropic = new Anthropic({
 })
 
 interface ResearchRequest {
-  customerId: string
+  businessId?: string
+  customerId?: string
   businessName: string
   websiteUrl: string
   primaryService: string
@@ -31,24 +32,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { customerId, businessName, websiteUrl, primaryService, geographicMarket } = body
+  const { businessId, customerId, businessName, websiteUrl, primaryService, geographicMarket } = body
 
-  if (!customerId || !businessName || !websiteUrl || !primaryService) {
+  if (!businessName || !websiteUrl || !primaryService) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
   const adminClient = createAdminClient()
 
-  // Save intake fields immediately
-  await adminClient
-    .from('customers')
-    .update({
-      business_name: businessName,
-      website_url: websiteUrl,
-      primary_service: primaryService,
-      geographic_market: geographicMarket,
-    })
-    .eq('id', customerId)
+  // If businessId provided, save to businesses table
+  if (businessId) {
+    await adminClient
+      .from('businesses')
+      .update({
+        business_name: businessName,
+        website_url: websiteUrl,
+        primary_service: primaryService,
+        geographic_market: geographicMarket,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', businessId)
+  } else if (customerId) {
+    // Legacy: save to customers table
+    await adminClient
+      .from('customers')
+      .update({
+        business_name: businessName,
+        website_url: websiteUrl,
+        primary_service: primaryService,
+        geographic_market: geographicMarket,
+      })
+      .eq('id', customerId)
+  }
 
   // Run web research — non-fatal
   let research: BusinessResearch | null = null
@@ -79,12 +94,19 @@ export async function POST(request: Request) {
     console.warn('Business research failed — continuing without:', err)
   }
 
-  // Save research result back to customer record
+  // Save research result
   if (research) {
-    await adminClient
-      .from('customers')
-      .update({ business_research: research })
-      .eq('id', customerId)
+    if (businessId) {
+      await adminClient
+        .from('businesses')
+        .update({ business_research: research, updated_at: new Date().toISOString() })
+        .eq('id', businessId)
+    } else if (customerId) {
+      await adminClient
+        .from('customers')
+        .update({ business_research: research })
+        .eq('id', customerId)
+    }
   }
 
   return NextResponse.json({ success: true, research })

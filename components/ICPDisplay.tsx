@@ -32,7 +32,7 @@ export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) 
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'ICP-Blueprint.pdf'
+      a.download = 'SignalMap.pdf'
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
@@ -80,7 +80,7 @@ export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) 
         }}
       >
         <p className="text-sm font-semibold" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
-          ICP Blueprint
+          SignalMap™
         </p>
         <div className="flex items-center gap-2">
           <button

@@ -6,31 +6,27 @@ import ReactMarkdown from 'react-markdown'
 import { createClient } from '@/lib/supabase/client'
 import { getPhaseConfig, PHASE_TRANSITIONS } from '@/lib/prompts'
 import { generateUUID } from '@/lib/utils'
-import { Customer, Phase, Message } from '@/types'
+import { Customer, Phase, Message, Business, Session } from '@/types'
 import { Send, CheckCircle, Loader, MessageSquare, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
-function buildCustomerContext(customer: Customer): string {
+function buildCustomerContext(business: Business): string {
   let ctx = `CUSTOMER CONTEXT — collected during onboarding, do not ask again:
-- Business Name: ${customer.business_name || 'Not provided'}
-- Website: ${customer.website_url || 'Not provided'}
-- Business Type: ${customer.business_type || 'Not provided'}
-- Primary Service/Product: ${customer.primary_service || 'Not provided'}
-- Geographic Market: ${customer.geographic_market || 'Not provided'}
-- Biggest Marketing Challenge: ${customer.marketing_challenge || 'Not provided'}
-- Current Acquisition Channels: ${(customer.current_channels || []).join(', ') || 'Not provided'}
+- Business Name: ${business.business_name}
+- Website: ${business.website_url || 'Not provided'}
+- Primary Service/Product: ${business.primary_service || 'Not provided'}
+- Geographic Market: ${business.geographic_market || 'Not provided'}
+Use this context to skip basic discovery questions you already know.
+Start Phase 1 with more specific, deeper questions.`
 
-Use this context to skip basic discovery questions you already know the answer to. Start Phase 1 with more specific, deeper questions building on what is already known.`
-
-  const research = customer.business_research
-  if (research && research.websiteFound) {
+  if (business.business_research?.websiteFound) {
+    const r = business.business_research
     ctx += `\n\nPRE-SESSION RESEARCH:\n`
-    ctx += `What they do: ${research.whatTheyDo}\n`
-    ctx += `Years in business: ${research.yearsInBusiness}\n`
-    ctx += `Primary product: ${research.primaryProduct}\n`
-    ctx += `Apparent target customer: ${research.apparentTargetCustomer}\n`
-    ctx += `Differentiators: ${research.differentiators}\n`
-    ctx += `Note: This is surface-level website data only. Find who is ACTUALLY buying.\n`
+    ctx += `What they do: ${r.whatTheyDo}\n`
+    ctx += `Years in business: ${r.yearsInBusiness}\n`
+    ctx += `Apparent target customer: ${r.apparentTargetCustomer}\n`
+    ctx += `Differentiators: ${r.differentiators}\n`
+    ctx += `Note: Surface-level only. Find who is ACTUALLY buying.\n`
   }
 
   return ctx
@@ -38,7 +34,7 @@ Use this context to skip basic discovery questions you already know the answer t
 
 function buildOpeningMessage(customer: Customer): string {
   const firstName = customer.first_name || 'there'
-  return `Hi ${firstName}! I'm Alex, your Client Discovery Strategist at Good Fellas Digital Marketing. I've reviewed what you shared about your business during setup, and I'm ready to dig in. Let's start by making sure I have a clear picture of what's actually happening in your business right now. What does your business do — and what's the core problem you solve for your customers?`
+  return `Hi ${firstName}! I'm Alex, your Client Discovery Strategist at SignalShot. I've reviewed what you shared about your business during setup, and I'm ready to dig in. Let's start by making sure I have a clear picture of what's actually happening in your business right now. What does your business do — and what's the core problem you solve for your customers?`
 }
 
 async function persistSession(
@@ -49,6 +45,7 @@ async function persistSession(
   uuid: string,
   custId: string,
   sa: string | null,
+  businessId?: string | null,
   icpData?: Record<string, unknown>
 ) {
   const supabase = createClient()
@@ -62,6 +59,7 @@ async function persistSession(
     last_activity: new Date().toISOString(),
     started_at: sa ?? new Date().toISOString(),
   }
+  if (businessId) payload.business_id = businessId
   if (icpData) payload.icp_data = icpData
   if (status === 'completed') payload.completed_at = new Date().toISOString()
   await supabase.from('sessions').upsert(payload)
@@ -69,13 +67,11 @@ async function persistSession(
 
 export default function AlexPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
+  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionUuid, setSessionUuid] = useState<string | null>(null)
-  // Display messages — rendered in the chat UI
   const [messages, setMessages] = useState<Message[]>([])
-  // Per-phase messages — sent to the API (current phase only, resets each phase)
   const [phaseMessages, setPhaseMessages] = useState<Message[]>([])
-  // Ref so effects and callbacks always read the latest transcripts without stale closures
   const phaseTranscriptsRef = useRef<Record<string, Message[]>>({})
   const [phase, setPhase] = useState<Phase>(1)
   const [startedAt, setStartedAt] = useState<string | null>(null)
@@ -84,8 +80,11 @@ export default function AlexPage() {
   const [initializing, setInitializing] = useState(true)
   const [completed, setCompleted] = useState(false)
   const [phaseComplete, setPhaseComplete] = useState(false)
-  // Tracks whether the opening message has been sent by the user yet
   const [openingMessage, setOpeningMessage] = useState<string | null>(null)
+
+  // ICP Already Complete state
+  const [completedSession, setCompletedSession] = useState<Session | null>(null)
+  const [showRebuildConfirm, setShowRebuildConfirm] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -109,22 +108,52 @@ export default function AlexPage() {
 
       if (!customerData) { router.push('/dashboard'); return }
 
-      // Require intake completion before starting Alex session
+      // Get active business from localStorage
+      const activeBizId = localStorage.getItem('signalshot_active_business')
+      if (!activeBizId) { router.push('/dashboard'); return }
+
+      const { data: bizData } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', activeBizId)
+        .single()
+
+      if (!bizData) { router.push('/dashboard'); return }
+
+      // Check intake completion using business fields
       const intakeComplete = !!(
-        customerData.business_name?.trim() &&
-        customerData.website_url?.trim() &&
-        customerData.primary_service?.trim() &&
-        customerData.geographic_market?.trim()
+        bizData.business_name?.trim() &&
+        bizData.website_url?.trim() &&
+        bizData.primary_service?.trim() &&
+        bizData.geographic_market?.trim()
       )
       if (!intakeComplete) { router.push('/dashboard'); return }
 
       setCustomer(customerData)
+      setActiveBusiness(bizData)
 
-      // Look for existing in-progress session
+      // Check for completed non-archived session for this business
+      const { data: existingCompleted } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('business_id', bizData.id)
+        .eq('status', 'completed')
+        .eq('archived', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingCompleted) {
+        setCompletedSession(existingCompleted)
+        setInitializing(false)
+        return
+      }
+
+      // Check for in_progress session for this business
       const { data: existingSession } = await supabase
         .from('sessions')
         .select('*')
-        .eq('customer_id', customerData.id)
+        .or(`business_id.eq.${bizData.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
         .in('status', ['in_progress', 'not_started'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -136,10 +165,8 @@ export default function AlexPage() {
         setMessages(existingSession.message_history)
         setPhase(existingSession.phase as Phase)
         setStartedAt(existingSession.started_at)
-        // Restore saved phase transcripts so Phase 4 has full context on resume
         if (existingSession.phase_transcripts) {
-          const transcripts = existingSession.phase_transcripts as Record<string, Message[]>
-          phaseTranscriptsRef.current = transcripts
+          phaseTranscriptsRef.current = existingSession.phase_transcripts as Record<string, Message[]>
         }
         setInitializing(false)
         return
@@ -154,14 +181,15 @@ export default function AlexPage() {
       await supabase.from('sessions').insert({
         id: newSessionId,
         customer_id: customerData.id,
+        business_id: bizData.id,
         session_uuid: uuid,
         phase: 1,
         message_history: [],
         status: 'not_started',
         started_at: null,
+        archived: false,
       })
 
-      // Show hardcoded opening message — no API call on mount
       const greeting = buildOpeningMessage(customerData)
       setOpeningMessage(greeting)
       setMessages([{ role: 'assistant', content: greeting }])
@@ -171,10 +199,48 @@ export default function AlexPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  async function handleConfirmRebuild() {
+    if (!completedSession) return
+    const supabase = createClient()
+
+    // Archive the existing completed session
+    await supabase
+      .from('sessions')
+      .update({ archived: true })
+      .eq('id', completedSession.id)
+
+    setShowRebuildConfirm(false)
+    setCompletedSession(null)
+
+    // Start new session
+    if (customer && activeBusiness) {
+      const uuid = generateUUID()
+      const newSessionId = generateUUID()
+      setSessionUuid(uuid)
+      setSessionId(newSessionId)
+
+      await supabase.from('sessions').insert({
+        id: newSessionId,
+        customer_id: customer.id,
+        business_id: activeBusiness.id,
+        session_uuid: uuid,
+        phase: 1,
+        message_history: [],
+        status: 'not_started',
+        started_at: null,
+        archived: false,
+      })
+
+      const greeting = buildOpeningMessage(customer)
+      setOpeningMessage(greeting)
+      setMessages([{ role: 'assistant', content: greeting }])
+    }
+  }
+
   const callAlexApi = useCallback(async (
-    currentMessages: Message[],          // full display messages (for setMessages)
-    currentPhaseMessages: Message[],      // current-phase messages sent to API
-    currentPhaseTranscripts: Record<string, Message[]>, // for saving completed transcripts
+    currentMessages: Message[],
+    currentPhaseMessages: Message[],
+    currentPhaseTranscripts: Record<string, Message[]>,
     currentPhase: Phase,
     customerContext: string,
     cust: Customer,
@@ -194,7 +260,6 @@ export default function AlexPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Phase 4 sends nothing from the client — server fetches transcripts from DB
           messages: currentPhase === 4 ? [] : currentPhaseMessages,
           phase: currentPhase,
           customerContext: currentPhase === 1 ? customerContext : undefined,
@@ -207,11 +272,9 @@ export default function AlexPage() {
       const data = await response.json()
       fullText = data.reply ?? ''
 
-      // Update display messages
       const finalMessages: Message[] = [...currentMessages, { role: 'assistant', content: fullText }]
       setMessages(finalMessages)
 
-      // Update phase messages with Alex's reply
       const finalPhaseMessages: Message[] = [...currentPhaseMessages, { role: 'assistant' as const, content: fullText }]
       setPhaseMessages(finalPhaseMessages)
 
@@ -221,7 +284,6 @@ export default function AlexPage() {
           setPhase(nextPhase)
         }
 
-        // Save completed phase transcript to state and Supabase
         const completedTranscript = {
           ...currentPhaseTranscripts,
           [currentPhase.toString()]: finalPhaseMessages,
@@ -234,7 +296,6 @@ export default function AlexPage() {
           .update({ phase_transcripts: completedTranscript })
           .eq('id', sid)
 
-        // Reset phase messages for the next phase
         setPhaseMessages([])
 
         const transitionText = PHASE_TRANSITIONS[currentPhase]
@@ -244,11 +305,10 @@ export default function AlexPage() {
             { role: 'assistant', content: transitionText },
           ]
           setMessages(withTransition)
-          await persistSession(withTransition, nextPhase <= 4 ? nextPhase : currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
+          await persistSession(withTransition, nextPhase <= 4 ? nextPhase : currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt, activeBusiness?.id)
           setTimeout(() => setPhaseComplete(true), 1500)
         }
       } else if (data.isIcpComplete) {
-        // Change A — save ICP markdown to sessions table before marking complete
         await fetch('/api/save-icp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -256,7 +316,7 @@ export default function AlexPage() {
         }).catch(console.error)
 
         const icpData = { raw: fullText }
-        await persistSession(finalMessages, 4, 'completed', sid, uuid, cust.id, actualStartedAt, icpData)
+        await persistSession(finalMessages, 4, 'completed', sid, uuid, cust.id, actualStartedAt, activeBusiness?.id, icpData)
 
         const supabase = createClient()
         const { data: purchasesData } = await supabase
@@ -270,6 +330,7 @@ export default function AlexPage() {
           await supabase.from('deliverables').insert(
             purchaseTypes.map((pt) => ({
               customer_id: cust.id,
+              business_id: activeBusiness?.id || null,
               session_id: sid,
               deliverable_type: pt,
               status: 'pending',
@@ -290,8 +351,7 @@ export default function AlexPage() {
           }).catch(console.error)
         }
 
-        // Change B — append completion message with link to deliverables (no auto-redirect)
-        const completionMsg = `That's everything. Your **ICP Blueprint** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
+        const completionMsg = `That's everything. Your **SignalMap™** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
         const withCompletion: Message[] = [
           ...finalMessages,
           { role: 'assistant', content: completionMsg },
@@ -299,7 +359,7 @@ export default function AlexPage() {
         setMessages(withCompletion)
         setCompleted(true)
       } else {
-        await persistSession(finalMessages, currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt)
+        await persistSession(finalMessages, currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt, activeBusiness?.id)
       }
     } catch (err) {
       console.error('API error:', err)
@@ -309,19 +369,17 @@ export default function AlexPage() {
 
     setStreaming(false)
     setTimeout(() => inputRef.current?.focus(), 100)
-  }, [router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBusiness])
 
-  // Auto-advance: fires after a phase completes and transition message is shown.
-  // Uses phaseTranscriptsRef (not state) to avoid stale closure — the ref is
-  // always updated synchronously alongside the state setter.
   useEffect(() => {
-    if (!phaseComplete || !customer || !sessionId || !sessionUuid) return
+    if (!phaseComplete || !customer || !sessionId || !sessionUuid || !activeBusiness) return
     setPhaseComplete(false)
-    const ctx = buildCustomerContext(customer)
+    const ctx = buildCustomerContext(activeBusiness)
     callAlexApi(
       messages,
-      [],                            // new phase starts with empty phase messages
-      phaseTranscriptsRef.current,   // always current — updated via ref
+      [],
+      phaseTranscriptsRef.current,
       phase,
       ctx,
       customer,
@@ -335,18 +393,16 @@ export default function AlexPage() {
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault()
     const text = input.trim()
-    if (!text || streaming || !customer || !sessionId || !sessionUuid) return
+    if (!text || streaming || !customer || !sessionId || !sessionUuid || !activeBusiness) return
 
     setInput('')
 
-    const ctx = buildCustomerContext(customer)
+    const ctx = buildCustomerContext(activeBusiness)
 
-    let updatedMessages: Message[]     // for display
-    let updatedPhaseMessages: Message[] // for API (current phase only)
+    let updatedMessages: Message[]
+    let updatedPhaseMessages: Message[]
 
     if (openingMessage !== null) {
-      // First user message: include the opening message in display, but not in
-      // phaseMessages — customer context is already in the system prompt.
       updatedMessages = [
         { role: 'assistant', content: openingMessage },
         { role: 'user', content: text },
@@ -402,7 +458,96 @@ export default function AlexPage() {
     )
   }
 
-  // Change C — inline completion card rendered inside the chat area (see below)
+  // ICP ALREADY COMPLETE SCREEN
+  if (completedSession) {
+    return (
+      <div className="flex items-center justify-center" style={{ minHeight: '60vh' }}>
+        <div className="text-center" style={{ maxWidth: 480 }}>
+          <CheckCircle size={56} style={{ color: '#43C6AC' }} className="mx-auto mb-4" />
+          <h2
+            className="text-2xl font-bold mb-3"
+            style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
+          >
+            Your SignalMap™ is complete.
+          </h2>
+          <p className="mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+            Alex has already built your customer intelligence for{' '}
+            {activeBusiness?.business_name || 'your business'}. Your ICP document is in your deliverables.
+          </p>
+
+          <Link href="/dashboard/deliverables">
+            <button
+              className="w-full py-3 rounded-xl text-white font-semibold text-sm mb-4"
+              style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
+            >
+              View My SignalMap™ →
+            </button>
+          </Link>
+
+          <div
+            className="p-4 border rounded-xl"
+            style={{ borderColor: '#e5e7eb' }}
+          >
+            <p className="text-sm text-center mb-3" style={{ color: '#6b7280' }}>
+              Want to start fresh with a new session?
+            </p>
+            <button
+              onClick={() => setShowRebuildConfirm(true)}
+              className="w-full py-2.5 rounded-xl text-sm font-medium border"
+              style={{
+                color: '#191654',
+                borderColor: '#191654',
+                backgroundColor: 'transparent',
+                fontFamily: 'DM Sans, sans-serif',
+              }}
+            >
+              Rebuild My ICP
+            </button>
+          </div>
+
+          {/* Rebuild Confirmation Modal */}
+          {showRebuildConfirm && (
+            <div
+              className="fixed inset-0 z-[900] flex items-center justify-center p-4"
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+            >
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full">
+                <h3
+                  className="text-xl font-bold mb-3"
+                  style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
+                >
+                  Are you sure?
+                </h3>
+                <p className="text-sm mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+                  Starting a new session will archive your current SignalMap™. Your previous ICP will still be
+                  accessible in your session history but your active deliverables will be replaced.
+                </p>
+                <button
+                  onClick={handleConfirmRebuild}
+                  className="w-full py-3 rounded-xl text-white font-semibold text-sm mb-3"
+                  style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
+                >
+                  Yes, Start Fresh
+                </button>
+                <button
+                  onClick={() => setShowRebuildConfirm(false)}
+                  className="w-full py-3 rounded-xl text-sm font-medium border"
+                  style={{
+                    color: '#6b7280',
+                    borderColor: '#e5e7eb',
+                    backgroundColor: 'transparent',
+                    fontFamily: 'DM Sans, sans-serif',
+                  }}
+                >
+                  Cancel — Keep My Current ICP
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full gap-6 -m-6 md:-m-8" style={{ height: 'calc(100vh - 73px)' }}>
@@ -508,7 +653,7 @@ export default function AlexPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Change C — inline completion card */}
+        {/* Completion card */}
         {completed && (
           <div
             className="mx-6 mb-4 p-5 rounded-2xl border-2 flex items-center justify-between gap-4"
@@ -518,7 +663,7 @@ export default function AlexPage() {
               <CheckCircle size={24} style={{ color: '#43C6AC', flexShrink: 0 }} />
               <div>
                 <p className="font-semibold text-sm" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
-                  Your ICP Blueprint is ready
+                  Your SignalMap™ is ready
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
                   View, download as PDF, or copy for Google Docs

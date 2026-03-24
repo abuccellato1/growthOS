@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Customer, Session, Purchase, Deliverable } from '@/types'
+import { Customer, Session, Purchase, Deliverable, Business } from '@/types'
 import {
   MessageSquare,
   Target,
@@ -20,21 +20,23 @@ import {
   Loader,
 } from 'lucide-react'
 import { formatDistanceToNow } from '@/lib/utils'
-import IntakeGate, { isIntakeComplete } from '@/components/IntakeGate'
+import IntakeGate from '@/components/IntakeGate'
 
 const LOCKED_MODULES = [
-  { label: 'Ad Pack', icon: Target, productType: 'ad_pack', href: '/dashboard/ad-pack' },
-  { label: 'Social Pack', icon: Share2, productType: 'social_pack', href: '/dashboard/social-pack' },
-  { label: 'Email Pack', icon: Mail, productType: 'email_pack', href: '/dashboard/email-pack' },
-  { label: 'GTM Playbook', icon: Map, productType: 'gtm_plan', href: '/dashboard/gtm-plan' },
-  { label: '90-Day Plan', icon: Calendar, productType: 'action_plan', href: '/dashboard/action-plan' },
+  { label: 'SignalAds™', icon: Target, productType: 'ad_pack', href: '/dashboard/ad-pack' },
+  { label: 'SignalContent™', icon: Share2, productType: 'social_pack', href: '/dashboard/social-pack' },
+  { label: 'SignalSequences™', icon: Mail, productType: 'email_pack', href: '/dashboard/email-pack' },
+  { label: 'SignalLaunch™', icon: Map, productType: 'gtm_plan', href: '/dashboard/gtm-plan' },
+  { label: 'SignalSprint™', icon: Calendar, productType: 'action_plan', href: '/dashboard/action-plan' },
 ]
 
 export default function DashboardPage() {
   const searchParams = useSearchParams()
   const isOnboarding = searchParams.get('onboarding') === 'true'
+  const isNewBusiness = searchParams.get('new_business') === 'true'
 
   const [customer, setCustomer] = useState<Customer | null>(null)
+  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
@@ -55,31 +57,104 @@ export default function DashboardPage() {
         .eq('auth_user_id', user.id)
         .single()
 
-      if (customerData) {
-        setCustomer(customerData)
-        if (!isIntakeComplete(customerData)) {
-          setShowIntakeGate(true)
+      if (!customerData) { router.push('/login'); return }
+      setCustomer(customerData)
+
+      // Fetch businesses
+      let bizList: Business[] = []
+      try {
+        const res = await fetch('/api/businesses/list')
+        if (res.ok) {
+          const data = await res.json()
+          bizList = data.businesses || []
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      // Auto-migration: create business from customer data if no businesses exist
+      if (bizList.length === 0 && customerData.business_name?.trim()) {
+        try {
+          const migRes = await fetch('/api/businesses/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              businessName: customerData.business_name,
+              websiteUrl: customerData.website_url,
+              primaryService: customerData.primary_service,
+              geographicMarket: customerData.geographic_market,
+              migratingFromCustomer: true,
+            }),
+          })
+          if (migRes.ok) {
+            const migData = await migRes.json()
+            if (migData.business) {
+              bizList = [migData.business]
+              localStorage.setItem('signalshot_active_business', migData.business.id)
+            }
+          }
+        } catch {
+          // Non-fatal
         }
       }
 
-      // Latest session
+      // Determine active business
+      let currentBiz: Business | null = null
+      const storedBizId = localStorage.getItem('signalshot_active_business')
+      if (storedBizId && bizList.find((b) => b.id === storedBizId)) {
+        currentBiz = bizList.find((b) => b.id === storedBizId) || null
+      } else if (bizList.length > 0) {
+        currentBiz = bizList[0]
+        localStorage.setItem('signalshot_active_business', bizList[0].id)
+      }
+      setActiveBusiness(currentBiz)
+
+      // Handle new_business param for beta users
+      if (isNewBusiness && customerData.beta_user) {
+        setShowIntakeGate(true)
+        setLoading(false)
+        return
+      }
+
+      // If no business exists, show intake gate
+      if (!currentBiz) {
+        setShowIntakeGate(true)
+        setLoading(false)
+        return
+      }
+
+      // Check if business intake is complete
+      const bizIntakeComplete = !!(
+        currentBiz.business_name?.trim() &&
+        currentBiz.website_url?.trim() &&
+        currentBiz.primary_service?.trim() &&
+        currentBiz.geographic_market?.trim()
+      )
+      if (!bizIntakeComplete) {
+        setShowIntakeGate(true)
+      }
+
+      // Fetch sessions for this business (with fallback to customer_id)
       const { data: sessionData } = await supabase
         .from('sessions')
         .select('*')
-        .eq('customer_id', customerData?.id)
+        .or(`business_id.eq.${currentBiz.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
+        .eq('archived', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
       if (sessionData) setSession(sessionData)
 
+      // Purchases
       const { data: purchaseData } = await supabase
         .from('purchases')
         .select('*')
-        .eq('customer_id', customerData?.id)
+        .eq('customer_id', customerData.id)
 
       if (purchaseData) setPurchases(purchaseData)
 
+      // Deliverables from latest session
       if (sessionData) {
         const { data: deliverableData } = await supabase
           .from('deliverables')
@@ -92,10 +167,13 @@ export default function DashboardPage() {
       setLoading(false)
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  function handleIntakeComplete(updatedCustomer: Customer) {
+  function handleIntakeComplete(updatedCustomer: Customer, business: Business) {
     setCustomer(updatedCustomer)
+    setActiveBusiness(business)
+    localStorage.setItem('signalshot_active_business', business.id)
     setShowIntakeGate(false)
     setShowToast(true)
     setTimeout(() => setShowToast(false), 3000)
@@ -111,6 +189,7 @@ export default function DashboardPage() {
   }
 
   const purchasedTypes = purchases.map((p) => p.product_type)
+  const businessName = activeBusiness?.business_name || customer?.business_name || ''
 
   function determineState(): 'not_started' | 'in_progress' | 'generating' | 'complete' {
     if (!session || session.status === 'not_started') return 'not_started'
@@ -156,7 +235,11 @@ export default function DashboardPage() {
     <>
       {/* Intake gate overlay */}
       {showIntakeGate && customer && (
-        <IntakeGate customer={customer} onComplete={handleIntakeComplete} />
+        <IntakeGate
+          customer={customer}
+          existingBusiness={isNewBusiness ? null : activeBusiness}
+          onComplete={handleIntakeComplete}
+        />
       )}
 
       {/* Success toast */}
@@ -178,7 +261,7 @@ export default function DashboardPage() {
       {state === 'not_started' && (
         <div>
           <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            Welcome, {customer?.first_name}. Let&apos;s build your ICP.
+            Welcome, {customer?.first_name}. Let&apos;s build your SignalMap™{businessName ? ` for ${businessName}` : ''}.
           </h1>
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
             Alex is ready when you are. This session takes 20–30 minutes — you can pause and resume any time.
@@ -199,7 +282,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                      Alex ICP Session
+                      SignalMap™ Session
                     </h2>
                     <p className="text-sm" style={{ color: '#6b7280' }}>
                       20–30 min · AI-powered discovery · Pause and resume anytime
@@ -249,7 +332,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold mb-1" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                        Alex ICP Session
+                        SignalMap™ Session
                       </h2>
                       <div className="flex items-center gap-4 text-sm" style={{ color: '#6b7280' }}>
                         <span>Phase {session?.phase} of 4</span>
@@ -352,7 +435,7 @@ export default function DashboardPage() {
 
           {/* Upsell locked cards */}
           <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-            Expand your GrowthOS
+            Expand your SignalShot
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {LOCKED_MODULES.filter((m) => !(purchasedTypes as string[]).includes(m.productType)).map((mod) => {
@@ -361,13 +444,12 @@ export default function DashboardPage() {
                 <div key={mod.label} className="p-5 rounded-xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
                   <Icon size={24} className="mb-3" style={{ color: '#9ca3af' }} />
                   <h3 className="text-sm font-semibold mb-1" style={{ color: '#374151' }}>{mod.label}</h3>
-                  <a
-                    href="https://leads.goodfellastech.com/meet-alex"
+                  <span
                     className="text-xs font-semibold"
                     style={{ color: '#43C6AC' }}
                   >
                     Upgrade to unlock →
-                  </a>
+                  </span>
                 </div>
               )
             })}

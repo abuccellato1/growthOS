@@ -35,23 +35,30 @@ export function getIpIdentifier(req: Request): string {
 
 export async function checkRateLimit(
   identifier: string,
-  limitType: 'chat' | 'session_start' | 'pdf',
+  limitType: 'chat' | 'session_start' | 'pdf' | 'research',
   maxRequests: number,
-  windowMinutes: number
+  windowMinutes: number,
+  customerId?: string
 ): Promise<boolean> {
   try {
     const adminClient = createAdminClient()
+
+    // Use combined key if customerId provided
+    const key = customerId
+      ? `${identifier}:${customerId}`
+      : identifier
+
     const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString()
     const { count } = await adminClient
       .from('rate_limits')
       .select('*', { count: 'exact', head: true })
-      .eq('identifier', identifier)
+      .eq('identifier', key)
       .eq('limit_type', limitType)
       .gte('created_at', windowStart)
     if ((count ?? 0) >= maxRequests) return false
     await adminClient
       .from('rate_limits')
-      .insert({ identifier, limit_type: limitType })
+      .insert({ identifier: key, limit_type: limitType })
     return true
   } catch {
     return true // fail open — never block on rate limit infra failure

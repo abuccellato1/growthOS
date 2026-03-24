@@ -57,11 +57,12 @@ export default function LoginPage() {
         <div className="flex justify-center mb-8">
           <div className="relative w-48 h-12">
             <Image
-              src="/images/growthos-logo.png"
-              alt="GrowthOS"
+              src="/images/signalshot-logo.png"
+              alt="SignalShot"
               fill
               className="object-contain"
               priority
+              onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:24px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot™</span>'; }}
             />
           </div>
         </div>
@@ -72,10 +73,10 @@ export default function LoginPage() {
             className="text-2xl font-bold text-center mb-2"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            Sign in to GrowthOS
+            Sign in to SignalShot
           </h1>
           <p className="text-center text-sm mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-            Welcome to GrowthOS. Sign in to start your session with Alex.
+            Turn signals into smarter marketing decisions.
           </p>
 
           {success ? (
@@ -246,8 +247,11 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
+        <p className="text-center text-xs mt-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
           Don&apos;t have an account? Access is granted after purchase.
+        </p>
+        <p className="text-center text-xs mt-2">
+          <a href="/beta" style={{ color: '#43C6AC' }}>Join the Beta →</a>
         </p>
       </div>
     </div>
