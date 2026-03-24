@@ -85,31 +85,35 @@ export default function DeliverablesPage() {
 
       // Get active business
       const activeBizId = localStorage.getItem('signalshot_active_business')
+      console.log('[deliverables] activeBizId from localStorage:', activeBizId)
 
       // Fetch session for active business (with fallback)
       let sessionData = null
       if (activeBizId) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('sessions')
           .select('*')
           .or(`business_id.eq.${activeBizId},and(business_id.is.null,customer_id.eq.${customerData.id})`)
-          .eq('archived', false)
+          .not('archived', 'is', true)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
+        console.log('[deliverables] session query (with bizId) result:', data?.id, 'status:', data?.status, 'icp_html length:', data?.icp_html?.length, 'error:', error)
         sessionData = data
       } else {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('sessions')
           .select('*')
           .eq('customer_id', customerData.id)
-          .eq('archived', false)
+          .not('archived', 'is', true)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
+        console.log('[deliverables] session query (no bizId) result:', data?.id, 'status:', data?.status, 'error:', error)
         sessionData = data
       }
 
+      console.log('[deliverables] final sessionData:', sessionData ? { id: sessionData.id, status: sessionData.status, hasIcpHtml: !!(sessionData.icp_html?.length), archived: sessionData.archived, icp_generated_at: sessionData.icp_generated_at } : null)
       if (sessionData) setSession(sessionData)
       setLoading(false)
     }
@@ -126,6 +130,7 @@ export default function DeliverablesPage() {
 
   const hasIcp = !!(session?.icp_html && session.icp_html.length > 0)
   const sessionNotStarted = !session || session.status === 'not_started'
+  console.log('[deliverables] render state:', { hasIcp, sessionNotStarted, sessionStatus: session?.status, sessionId: session?.id })
   const sessionEarlyInProgress =
     session?.status === 'in_progress' && (session.phase as number) < 3 && !hasIcp
 

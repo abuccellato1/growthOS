@@ -139,7 +139,7 @@ export default function DashboardPage() {
         .from('sessions')
         .select('*')
         .or(`business_id.eq.${currentBiz.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
-        .eq('archived', false)
+        .not('archived', 'is', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()

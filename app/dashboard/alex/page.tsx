@@ -152,7 +152,7 @@ export default function AlexPage() {
         .select('*')
         .eq('business_id', bizData.id)
         .eq('status', 'completed')
-        .eq('archived', false)
+        .not('archived', 'is', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
