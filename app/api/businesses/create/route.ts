@@ -1,3 +1,6 @@
+// SQL to run in Supabase before deploying:
+// ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS gmb_url text;
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -7,6 +10,7 @@ interface CreateBusinessRequest {
   websiteUrl?: string
   primaryService?: string
   geographicMarket?: string
+  gmbUrl?: string
   migratingFromCustomer?: boolean
 }
 
@@ -24,7 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { businessName, websiteUrl, primaryService, geographicMarket, migratingFromCustomer } = body
+  const { businessName, websiteUrl, primaryService, geographicMarket, gmbUrl, migratingFromCustomer } = body
 
   if (!businessName?.trim()) {
     return NextResponse.json({ error: 'Business name is required' }, { status: 400 })
@@ -69,6 +73,7 @@ export async function POST(request: Request) {
       website_url: websiteUrl?.trim() || null,
       primary_service: primaryService?.trim() || null,
       geographic_market: geographicMarket?.trim() || null,
+      gmb_url: gmbUrl?.trim() || null,
       is_active: true,
     })
     .select()

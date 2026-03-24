@@ -29,6 +29,16 @@ export function buildICPMarkdown(data: Record<string, unknown>): string {
   if (icp.buyer_role) lines.push(`**Buyer Role:** ${icp.buyer_role}`)
   if (icp.decision_authority) lines.push(`**Decision Authority:** ${icp.decision_authority}`)
   if (icp.budget_reality) lines.push(`**Budget Reality:** ${icp.budget_reality}`)
+  // GMB data from business research
+  const bizResearch = data.business_research as Record<string, unknown> | null
+  const gmbData = bizResearch?.gmbData as Record<string, string> | null
+  if (gmbData) {
+    const parts: string[] = []
+    if (gmbData.reviewCount) parts.push(`${gmbData.reviewCount} reviews`)
+    if (gmbData.averageRating) parts.push(`${gmbData.averageRating} avg rating`)
+    if (gmbData.serviceArea) parts.push(`serving ${gmbData.serviceArea}`)
+    if (parts.length > 0) lines.push(`**Local Presence:** ${parts.join(', ')}`)
+  }
   lines.push('')
   lines.push('---')
   lines.push('')

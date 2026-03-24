@@ -15,6 +15,12 @@ export interface BusinessResearch {
   apparentTargetCustomer: string;
   differentiators: string;
   websiteFound: boolean;
+  gmbData?: {
+    reviewCount: string;
+    averageRating: string;
+    categories: string;
+    serviceArea: string;
+  } | null;
 }
 
 export interface Business {
@@ -26,6 +32,7 @@ export interface Business {
   geographic_market: string | null;
   business_type: string | null;
   business_research: BusinessResearch | null;
+  gmb_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

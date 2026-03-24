@@ -27,6 +27,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
   const [websiteUrl, setWebsiteUrl] = useState(existingBusiness?.website_url || customer.website_url || '')
   const [primaryService, setPrimaryService] = useState(existingBusiness?.primary_service || customer.primary_service || '')
   const [geographicMarket, setGeographicMarket] = useState(existingBusiness?.geographic_market || customer.geographic_market || '')
+  const [gmbUrl, setGmbUrl] = useState(existingBusiness?.gmb_url || '')
   const [honeypot, setHoneypot] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step1, setStep1] = useState(false)
@@ -39,6 +40,9 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
     if (!websiteUrl.trim()) errs.websiteUrl = 'Website URL is required'
     if (!primaryService.trim()) errs.primaryService = 'Primary service is required'
     if (!geographicMarket.trim()) errs.geographicMarket = 'Geographic market is required'
+    if (gmbUrl.trim() && !gmbUrl.trim().startsWith('http://') && !gmbUrl.trim().startsWith('https://')) {
+      errs.gmbUrl = 'Please enter a valid URL starting with http:// or https://'
+    }
     return errs
   }
 
@@ -72,6 +76,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
           website_url: websiteUrl.trim(),
           primary_service: primaryService.trim(),
           geographic_market: geographicMarket.trim(),
+          gmb_url: gmbUrl.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingBusiness.id)
@@ -87,6 +92,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
             websiteUrl: websiteUrl.trim(),
             primaryService: primaryService.trim(),
             geographicMarket: geographicMarket.trim(),
+            gmbUrl: gmbUrl.trim() || undefined,
           }),
         }).catch(() => null),
         new Promise((resolve) => setTimeout(resolve, 4000)),
@@ -111,6 +117,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
             websiteUrl: websiteUrl.trim(),
             primaryService: primaryService.trim(),
             geographicMarket: geographicMarket.trim(),
+            gmbUrl: gmbUrl.trim() || undefined,
           }),
         }),
         new Promise((resolve) => setTimeout(resolve, 1000)),
@@ -137,6 +144,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 websiteUrl: websiteUrl.trim(),
                 primaryService: primaryService.trim(),
                 geographicMarket: geographicMarket.trim(),
+                gmbUrl: gmbUrl.trim() || undefined,
               }),
             }).catch(() => null),
             new Promise((resolve) => setTimeout(resolve, 3000)),
@@ -252,6 +260,14 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                   value={geographicMarket}
                   onChange={setGeographicMarket}
                   error={errors.geographicMarket}
+                />
+                <Field
+                  label="Google My Business URL"
+                  placeholder="e.g. https://g.page/your-business"
+                  hint="Optional — your GMB profile URL helps Alex understand your local presence"
+                  value={gmbUrl}
+                  onChange={setGmbUrl}
+                  error={errors.gmbUrl}
                 />
               </div>
 

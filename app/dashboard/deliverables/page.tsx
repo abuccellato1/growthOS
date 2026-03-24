@@ -184,7 +184,7 @@ export default function DeliverablesPage() {
             Your deliverables will appear here
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Complete your Alex session to generate your SignalMap™.
+            Complete your SignalMap™ session to generate your SignalMap™.
           </p>
           <Link
             href="/dashboard/alex"

@@ -13,6 +13,7 @@ interface ResearchRequest {
   websiteUrl: string
   primaryService: string
   geographicMarket: string
+  gmbUrl?: string
 }
 
 interface BusinessResearch {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { businessId, customerId, businessName, websiteUrl, primaryService, geographicMarket } = body
+  const { businessId, customerId, businessName, websiteUrl, primaryService, geographicMarket, gmbUrl } = body
 
   if (!businessName || !websiteUrl || !primaryService) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -42,15 +43,17 @@ export async function POST(request: Request) {
 
   // If businessId provided, save to businesses table
   if (businessId) {
+    const bizUpdate: Record<string, unknown> = {
+      business_name: businessName,
+      website_url: websiteUrl,
+      primary_service: primaryService,
+      geographic_market: geographicMarket,
+      updated_at: new Date().toISOString(),
+    }
+    if (gmbUrl !== undefined) bizUpdate.gmb_url = gmbUrl || null
     await adminClient
       .from('businesses')
-      .update({
-        business_name: businessName,
-        website_url: websiteUrl,
-        primary_service: primaryService,
-        geographic_market: geographicMarket,
-        updated_at: new Date().toISOString(),
-      })
+      .update(bizUpdate)
       .eq('id', businessId)
   } else if (customerId) {
     // Legacy: save to customers table
@@ -73,11 +76,11 @@ export async function POST(request: Request) {
       max_tokens: 500,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }] as Parameters<typeof anthropic.messages.create>[0]['tools'],
       system:
-        'You are doing pre-session research on a business. Search for the business and visit their website if available. Extract only verifiable facts. Return ONLY valid JSON with no markdown, no preamble: {"whatTheyDo":"one sentence description","yearsInBusiness":"number or empty string","primaryProduct":"main product or service","apparentTargetCustomer":"who the website targets","differentiators":"notable claims or unique aspects","websiteFound":true or false}. Never invent information. Use empty string for unknown fields.',
+        `You are doing pre-session research on a business. Search for the business and visit their website if available. Extract only verifiable facts. Return ONLY valid JSON with no markdown, no preamble: {"whatTheyDo":"one sentence description","yearsInBusiness":"number or empty string","primaryProduct":"main product or service","apparentTargetCustomer":"who the website targets","differentiators":"notable claims or unique aspects","websiteFound":true or false${gmbUrl ? ',"gmbData":{"reviewCount":"number or empty string","averageRating":"number or empty string","categories":"comma separated or empty string","serviceArea":"description or empty string"}' : ''}}. ${gmbUrl ? 'If a Google My Business URL is provided, use web_search to look it up and extract: review count, average rating, business categories, and service area. Include these in gmbData.' : ''} Never invent information. Use empty string for unknown fields.`,
       messages: [
         {
           role: 'user',
-          content: `Research before a discovery session:\nBusiness: ${businessName}\nWebsite: ${websiteUrl}\nService: ${primaryService}\nMarket: ${geographicMarket}`,
+          content: `Research before a discovery session:\nBusiness: ${businessName}\nWebsite: ${websiteUrl}\nService: ${primaryService}\nMarket: ${geographicMarket}${gmbUrl ? `\nGoogle My Business: ${gmbUrl}` : ''}`,
         },
       ],
     })

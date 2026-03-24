@@ -15,8 +15,13 @@ function buildCustomerContext(business: Business): string {
 - Business Name: ${business.business_name}
 - Website: ${business.website_url || 'Not provided'}
 - Primary Service/Product: ${business.primary_service || 'Not provided'}
-- Geographic Market: ${business.geographic_market || 'Not provided'}
-Use this context to skip basic discovery questions you already know.
+- Geographic Market: ${business.geographic_market || 'Not provided'}`
+
+  if (business.gmb_url) {
+    ctx += `\n- Google My Business: ${business.gmb_url}`
+  }
+
+  ctx += `\nUse this context to skip basic discovery questions you already know.
 Start Phase 1 with more specific, deeper questions.`
 
   if (business.business_research?.websiteFound) {
@@ -27,6 +32,15 @@ Start Phase 1 with more specific, deeper questions.`
     ctx += `Apparent target customer: ${r.apparentTargetCustomer}\n`
     ctx += `Differentiators: ${r.differentiators}\n`
     ctx += `Note: Surface-level only. Find who is ACTUALLY buying.\n`
+  }
+
+  if (business.business_research?.gmbData) {
+    const gmb = business.business_research.gmbData
+    ctx += `\nGMB SIGNALS:\n`
+    if (gmb.reviewCount) ctx += `- Reviews: ${gmb.reviewCount}\n`
+    if (gmb.averageRating) ctx += `- Average rating: ${gmb.averageRating}\n`
+    if (gmb.categories) ctx += `- Business categories: ${gmb.categories}\n`
+    if (gmb.serviceArea) ctx += `- Service area: ${gmb.serviceArea}\n`
   }
 
   return ctx
@@ -447,7 +461,7 @@ export default function AlexPage() {
             className="text-2xl font-bold mb-2"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            Getting Alex ready...
+            Starting your SignalMap™ session...
           </h2>
           <p style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
             Setting up your session
@@ -557,7 +571,7 @@ export default function AlexPage() {
         style={{ backgroundColor: '#f9fafb', borderRight: '1px solid #e5e7eb' }}
       >
         <h3 className="text-xs font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
-          Session Progress
+          SignalMap™ Progress
         </h3>
         <div className="space-y-1">
           {([1, 2, 3, 4] as Phase[]).map((phaseNum) => {
