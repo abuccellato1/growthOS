@@ -3,19 +3,19 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Customer, Purchase } from '@/types'
-import { User, Loader } from 'lucide-react'
+import { Customer, Purchase, Business } from '@/types'
+import { User, Loader, Building2, Plus, Lock } from 'lucide-react'
 
 const PRODUCT_LABELS: Record<string, string> = {
-  icp_blueprint: 'ICP Blueprint',
-  complete_alex_pack: 'Complete Alex Pack',
-  complete_intelligence_stack: 'Complete Intelligence Stack',
+  icp_blueprint: 'SignalMap™',
+  complete_alex_pack: 'SignalSuite™',
+  complete_intelligence_stack: 'SignalSuite™',
   founders_circle: "Founder's Circle",
-  ad_pack: 'Ad Pack',
-  social_pack: 'Social Pack',
-  email_pack: 'Email Pack',
-  gtm_plan: 'GTM Playbook',
-  action_plan: '90-Day Action Plan',
+  ad_pack: 'SignalAds™',
+  social_pack: 'SignalContent™',
+  email_pack: 'SignalSequences™',
+  gtm_plan: 'SignalLaunch™',
+  action_plan: 'SignalSprint™',
 }
 
 function formatDate(dateStr: string) {
@@ -69,12 +69,15 @@ function EditInput({ label, value, onChange, placeholder }: EditField) {
 export default function AccountPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [businesses, setBusinesses] = useState<Business[]>([])
+  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null)
+  const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
 
-  // Edit form state
+  // Edit form state — now edits business fields
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [businessName, setBusinessName] = useState('')
@@ -105,19 +108,47 @@ export default function AccountPage() {
         .order('created_at', { ascending: false })
 
       if (purchaseData) setPurchases(purchaseData)
+
+      // Fetch businesses
+      try {
+        const res = await fetch('/api/businesses/list')
+        if (res.ok) {
+          const data = await res.json()
+          const bizList = data.businesses || []
+          setBusinesses(bizList)
+
+          const stored = localStorage.getItem('signalshot_active_business')
+          const active = bizList.find((b: Business) => b.id === stored) || bizList[0] || null
+          setActiveBusiness(active)
+
+          // Get session counts for each business
+          const counts: Record<string, number> = {}
+          for (const biz of bizList) {
+            const { count } = await supabase
+              .from('sessions')
+              .select('*', { count: 'exact', head: true })
+              .eq('business_id', biz.id)
+            counts[biz.id] = count ?? 0
+          }
+          setSessionCounts(counts)
+        }
+      } catch {
+        // Non-fatal
+      }
+
       setLoading(false)
     }
     load()
   }, [router])
 
   function openEdit() {
-    if (!customer) return
+    if (!customer || !activeBusiness) return
     setFirstName(customer.first_name || '')
     setLastName(customer.last_name || '')
-    setBusinessName(customer.business_name || '')
-    setWebsiteUrl(customer.website_url || '')
-    setPrimaryService(customer.primary_service || '')
-    setGeographicMarket(customer.geographic_market || '')
+    setBusinessName(activeBusiness.business_name || '')
+    setWebsiteUrl(activeBusiness.website_url || '')
+    setPrimaryService(activeBusiness.primary_service || '')
+    setGeographicMarket(activeBusiness.geographic_market || '')
     setEditing(true)
     setSuccessMsg('')
   }
@@ -127,34 +158,50 @@ export default function AccountPage() {
     setSuccessMsg('')
   }
 
+  async function handleSwitchBusiness(biz: Business) {
+    await fetch('/api/businesses/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId: biz.id }),
+    }).catch(() => null)
+
+    localStorage.setItem('signalshot_active_business', biz.id)
+    setActiveBusiness(biz)
+  }
+
   async function handleSave() {
-    if (!customer) return
+    if (!customer || !activeBusiness) return
     setSaving(true)
 
     const supabase = createClient()
-    const updates = {
+
+    // Update customer name fields
+    await supabase.from('customers').update({
       first_name: firstName.trim() || null,
       last_name: lastName.trim() || null,
+    }).eq('id', customer.id)
+
+    // Update business fields
+    await supabase.from('businesses').update({
       business_name: businessName.trim() || null,
       website_url: websiteUrl.trim() || null,
       primary_service: primaryService.trim() || null,
       geographic_market: geographicMarket.trim() || null,
-    }
-
-    await supabase.from('customers').update(updates).eq('id', customer.id)
+      updated_at: new Date().toISOString(),
+    }).eq('id', activeBusiness.id)
 
     const businessFieldsChanged =
-      businessName.trim() !== (customer.business_name || '') ||
-      websiteUrl.trim() !== (customer.website_url || '') ||
-      primaryService.trim() !== (customer.primary_service || '') ||
-      geographicMarket.trim() !== (customer.geographic_market || '')
+      businessName.trim() !== (activeBusiness.business_name || '') ||
+      websiteUrl.trim() !== (activeBusiness.website_url || '') ||
+      primaryService.trim() !== (activeBusiness.primary_service || '') ||
+      geographicMarket.trim() !== (activeBusiness.geographic_market || '')
 
     if (businessFieldsChanged && businessName.trim() && websiteUrl.trim() && primaryService.trim()) {
       fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerId: customer.id,
+          businessId: activeBusiness.id,
           businessName: businessName.trim(),
           websiteUrl: websiteUrl.trim(),
           primaryService: primaryService.trim(),
@@ -163,8 +210,19 @@ export default function AccountPage() {
       }).catch(() => null)
     }
 
-    const updatedCustomer: Customer = { ...customer, ...updates }
+    const updatedCustomer: Customer = { ...customer, first_name: firstName.trim() || null, last_name: lastName.trim() || null }
     setCustomer(updatedCustomer)
+
+    const updatedBiz: Business = {
+      ...activeBusiness,
+      business_name: businessName.trim(),
+      website_url: websiteUrl.trim() || null,
+      primary_service: primaryService.trim() || null,
+      geographic_market: geographicMarket.trim() || null,
+    }
+    setActiveBusiness(updatedBiz)
+    setBusinesses((prev) => prev.map((b) => b.id === updatedBiz.id ? updatedBiz : b))
+
     setEditing(false)
     setSaving(false)
     setSuccessMsg('Profile updated successfully')
@@ -194,8 +252,76 @@ export default function AccountPage() {
             Account
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
-            Your profile, purchase history, and billing.
+            Your profile, businesses, and purchase history.
           </p>
+        </div>
+      </div>
+
+      {/* My Businesses */}
+      <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: '#9ca3af' }}>
+            <Building2 size={14} /> My Businesses
+          </h2>
+        </div>
+
+        <div className="space-y-3">
+          {businesses.map((biz) => {
+            const isActive = activeBusiness?.id === biz.id
+            return (
+              <div
+                key={biz.id}
+                className="flex items-center justify-between p-3 rounded-xl border"
+                style={{
+                  borderColor: isActive ? '#43C6AC' : '#e5e7eb',
+                  backgroundColor: isActive ? 'rgba(67,198,172,0.04)' : 'transparent',
+                }}
+              >
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#191654' }}>
+                    {biz.business_name}
+                  </p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>
+                    Created {formatDate(biz.created_at)} · {sessionCounts[biz.id] || 0} session{(sessionCounts[biz.id] || 0) !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isActive ? (
+                    <span
+                      className="text-xs font-semibold px-2 py-1 rounded-full"
+                      style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}
+                    >
+                      Active
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSwitchBusiness(biz)}
+                      className="text-xs font-medium px-3 py-1 rounded-full border"
+                      style={{ color: '#43C6AC', borderColor: '#43C6AC' }}
+                    >
+                      Switch
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="mt-4">
+          {customer?.beta_user ? (
+            <button
+              onClick={() => router.push('/dashboard?new_business=true')}
+              className="flex items-center gap-2 text-sm font-medium"
+              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <Plus size={14} /> Add Business
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 text-sm" style={{ color: '#9ca3af' }}>
+              <Lock size={14} /> Upgrade to add multiple businesses
+            </div>
+          )}
         </div>
       </div>
 
@@ -264,8 +390,8 @@ export default function AccountPage() {
                   {customer?.first_name} {customer?.last_name}
                 </p>
                 <p className="text-sm" style={{ color: '#6b7280' }}>{customer?.email}</p>
-                {customer?.business_name && (
-                  <p className="text-sm mt-1" style={{ color: '#9ca3af' }}>{customer.business_name}</p>
+                {activeBusiness?.business_name && (
+                  <p className="text-sm mt-1" style={{ color: '#9ca3af' }}>{activeBusiness.business_name}</p>
                 )}
               </div>
             </div>
@@ -274,9 +400,9 @@ export default function AccountPage() {
               <div>
                 <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Website</p>
                 <p className="text-sm" style={{ color: '#374151' }}>
-                  {customer?.website_url ? (
-                    <a href={customer.website_url} target="_blank" rel="noopener noreferrer" style={{ color: '#43C6AC' }}>
-                      {customer.website_url}
+                  {activeBusiness?.website_url ? (
+                    <a href={activeBusiness.website_url} target="_blank" rel="noopener noreferrer" style={{ color: '#43C6AC' }}>
+                      {activeBusiness.website_url}
                     </a>
                   ) : '—'}
                 </p>
@@ -289,11 +415,11 @@ export default function AccountPage() {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Primary service</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{customer?.primary_service || '—'}</p>
+                <p className="text-sm" style={{ color: '#374151' }}>{activeBusiness?.primary_service || '—'}</p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Geographic market</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{customer?.geographic_market || '—'}</p>
+                <p className="text-sm" style={{ color: '#374151' }}>{activeBusiness?.geographic_market || '—'}</p>
               </div>
             </div>
           </>

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Customer, Purchase } from '@/types'
+import { Customer, Purchase, Business } from '@/types'
 import {
   LayoutDashboard,
   MessageSquare,
@@ -19,6 +19,8 @@ import {
   LogOut,
   Lock,
   Menu,
+  ChevronDown,
+  Plus,
 } from 'lucide-react'
 
 interface NavItem {
@@ -30,13 +32,13 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Home', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Alex Session', href: '/dashboard/alex', icon: MessageSquare },
+  { label: 'SignalMap™ Session', href: '/dashboard/alex', icon: MessageSquare },
   { label: 'My Deliverables', href: '/dashboard/deliverables', icon: FileText },
-  { label: 'Ad Pack', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
-  { label: 'Social Pack', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
-  { label: 'Email Pack', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },
-  { label: 'GTM Playbook', href: '/dashboard/gtm-plan', icon: Map, productType: 'gtm_plan' },
-  { label: '90-Day Plan', href: '/dashboard/action-plan', icon: Calendar, productType: 'action_plan' },
+  { label: 'SignalAds™', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
+  { label: 'SignalContent™', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
+  { label: 'SignalSequences™', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },
+  { label: 'SignalLaunch™', href: '/dashboard/gtm-plan', icon: Map, productType: 'gtm_plan' },
+  { label: 'SignalSprint™', href: '/dashboard/action-plan', icon: Calendar, productType: 'action_plan' },
   { label: 'Account', href: '/dashboard/account', icon: User },
 ]
 
@@ -45,6 +47,9 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [alexComplete, setAlexComplete] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [businesses, setBusinesses] = useState<Business[]>([])
+  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null)
+  const [showBusinessMenu, setShowBusinessMenu] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -78,6 +83,27 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         .maybeSingle()
 
       setAlexComplete(!!sessionData)
+
+      // Fetch businesses
+      try {
+        const res = await fetch('/api/businesses/list')
+        if (res.ok) {
+          const data = await res.json()
+          const bizList = data.businesses || []
+          setBusinesses(bizList)
+
+          // Determine active business
+          const stored = localStorage.getItem('signalshot_active_business')
+          if (stored && bizList.find((b: Business) => b.id === stored)) {
+            setActiveBusiness(bizList.find((b: Business) => b.id === stored))
+          } else if (bizList.length > 0) {
+            setActiveBusiness(bizList[0])
+            localStorage.setItem('signalshot_active_business', bizList[0].id)
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
     }
     load()
   }, [router])
@@ -86,6 +112,29 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  async function handleSwitchBusiness(biz: Business) {
+    await fetch('/api/businesses/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId: biz.id }),
+    }).catch(() => null)
+
+    localStorage.setItem('signalshot_active_business', biz.id)
+    setActiveBusiness(biz)
+    setShowBusinessMenu(false)
+    router.push('/dashboard')
+    window.location.href = '/dashboard'
+  }
+
+  function handleAddBusiness() {
+    setShowBusinessMenu(false)
+    if (customer?.beta_user) {
+      router.push('/dashboard?new_business=true')
+    } else {
+      alert('Adding multiple businesses requires a SignalShot upgrade. Contact us at support@goodfellastech.com')
+    }
   }
 
   const purchasedTypes = purchases.map((p) => p.product_type)
@@ -104,16 +153,109 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     ? `${customer.first_name?.[0] || ''}${customer.last_name?.[0] || ''}`.toUpperCase()
     : '?'
 
+  function BusinessSelector() {
+    if (businesses.length === 0 && !activeBusiness) return null
+
+    const displayName = activeBusiness
+      ? activeBusiness.business_name.length > 20
+        ? activeBusiness.business_name.slice(0, 20) + '...'
+        : activeBusiness.business_name
+      : 'Select Business'
+
+    return (
+      <div className="relative mx-2 mb-2">
+        <button
+          onClick={() => setShowBusinessMenu(!showBusinessMenu)}
+          className="flex items-center justify-between w-full px-3 py-2.5 rounded-[10px] text-left transition-all"
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          <span
+            className="text-[13px] font-medium text-white truncate"
+            style={{ fontFamily: 'DM Sans, sans-serif' }}
+          >
+            {displayName}
+          </span>
+          <ChevronDown
+            size={14}
+            style={{
+              color: 'rgba(255,255,255,0.6)',
+              transform: showBusinessMenu ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s',
+              flexShrink: 0,
+            }}
+          />
+        </button>
+
+        {showBusinessMenu && (
+          <div
+            className="absolute left-0 right-0 mt-1 rounded-[10px] shadow-lg overflow-hidden z-50"
+            style={{ backgroundColor: '#ffffff' }}
+          >
+            {businesses.map((biz) => {
+              const isActive = activeBusiness?.id === biz.id
+              return (
+                <button
+                  key={biz.id}
+                  onClick={() => handleSwitchBusiness(biz)}
+                  className="flex items-center justify-between w-full px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
+                  style={{
+                    borderLeft: isActive ? '3px solid #43C6AC' : '3px solid transparent',
+                  }}
+                >
+                  <span
+                    className="text-[13px] truncate"
+                    style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}
+                  >
+                    {biz.business_name}
+                  </span>
+                  {isActive && (
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}
+                    >
+                      Active
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+            <button
+              onClick={handleAddBusiness}
+              className="flex items-center gap-2 w-full px-3 py-2.5 text-left transition-colors hover:bg-gray-50 border-t"
+              style={{ borderColor: '#f3f4f6' }}
+            >
+              <Plus size={14} style={{ color: '#43C6AC' }} />
+              <span
+                className="text-[13px] font-medium"
+                style={{ color: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                Add New Business
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function SidebarContent() {
     return (
       <div className="flex flex-col h-full" style={{ backgroundColor: '#191654' }}>
         <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
           <div className="relative w-36 h-8">
-            <Image src="/images/growthos-logo.png" alt="GrowthOS" fill className="object-contain object-left" />
+            <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain object-left" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:18px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'; }} />
           </div>
         </div>
 
-        <nav className="flex-1 py-4 overflow-y-auto">
+        {/* Business Selector */}
+        <div className="pt-3">
+          <BusinessSelector />
+        </div>
+
+        <nav className="flex-1 py-2 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const state = getNavItemState(item)
             const Icon = item.icon
@@ -156,8 +298,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-all"
             style={{ color: 'rgba(255,255,255,0.6)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)' }}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.backgroundColor = 'transparent' }}
           >
             <LogOut size={18} />
             <span className="text-sm font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>Sign out</span>
@@ -203,7 +345,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
               <Menu size={22} />
             </button>
             <span className="text-lg font-bold" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
-              GrowthOS
+              SignalShot
             </span>
           </div>
 

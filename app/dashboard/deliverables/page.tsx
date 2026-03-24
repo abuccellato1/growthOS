@@ -83,13 +83,32 @@ export default function DeliverablesPage() {
 
       if (!customerData) { setLoading(false); return }
 
-      const { data: sessionData } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('customer_id', customerData.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      // Get active business
+      const activeBizId = localStorage.getItem('signalshot_active_business')
+
+      // Fetch session for active business (with fallback)
+      let sessionData = null
+      if (activeBizId) {
+        const { data } = await supabase
+          .from('sessions')
+          .select('*')
+          .or(`business_id.eq.${activeBizId},and(business_id.is.null,customer_id.eq.${customerData.id})`)
+          .eq('archived', false)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        sessionData = data
+      } else {
+        const { data } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('customer_id', customerData.id)
+          .eq('archived', false)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        sessionData = data
+      }
 
       if (sessionData) setSession(sessionData)
       setLoading(false)
@@ -107,15 +126,26 @@ export default function DeliverablesPage() {
 
   const hasIcp = !!(session?.icp_html && session.icp_html.length > 0)
   const sessionNotStarted = !session || session.status === 'not_started'
-  // In-progress sessions still early (phase < 3) — prompt to resume
   const sessionEarlyInProgress =
     session?.status === 'in_progress' && (session.phase as number) < 3 && !hasIcp
-  // Recovery condition: phases 1-3 done but ICP not yet generated
+
+  // Recovery condition: session complete or past phase 3 but ICP never generated
   const needsRecovery =
     !!session &&
     (session.phase as number) >= 3 &&
     (session.status === 'completed' || session.status === 'in_progress') &&
-    !hasIcp
+    !hasIcp &&
+    !session.icp_generated_at &&
+    !session.archived
+
+  // Regenerate button: only if session completed/phase>=3, icp_generated_at IS NULL, not archived, and no ICP exists
+  const showRegenerate =
+    !!session &&
+    !hasIcp &&
+    !needsRecovery &&
+    ((session.status === 'completed' || (session.phase as number) >= 3)) &&
+    !session.icp_generated_at &&
+    !session.archived
 
   return (
     <div className="max-w-4xl">
@@ -135,7 +165,7 @@ export default function DeliverablesPage() {
             My Deliverables
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-            Your ICP Blueprint generated from your Alex session.
+            Your SignalMap™ generated from your Alex session.
           </p>
         </div>
       </div>
@@ -154,7 +184,7 @@ export default function DeliverablesPage() {
             Your deliverables will appear here
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Complete your Alex session to generate your ICP Blueprint.
+            Complete your Alex session to generate your SignalMap™.
           </p>
           <Link
             href="/dashboard/alex"
@@ -166,7 +196,7 @@ export default function DeliverablesPage() {
         </div>
       )}
 
-      {/* Early in-progress (phase < 3) — resume session */}
+      {/* Early in-progress */}
       {sessionEarlyInProgress && (
         <div
           className="p-8 rounded-2xl border-2 text-center"
@@ -180,7 +210,7 @@ export default function DeliverablesPage() {
             Session in progress
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Finish your Alex session to unlock your ICP Blueprint.
+            Finish your Alex session to unlock your SignalMap™.
           </p>
           <Link
             href="/dashboard/alex"
@@ -192,7 +222,7 @@ export default function DeliverablesPage() {
         </div>
       )}
 
-      {/* Session complete (or past phase 3) but ICP not yet generated */}
+      {/* Session complete but ICP not generated */}
       {needsRecovery && (
         <div
           className="p-8 rounded-2xl border-2 text-center"
@@ -231,12 +261,12 @@ export default function DeliverablesPage() {
             {recovering ? (
               <>
                 <Loader size={18} className="animate-spin" />
-                Generating your ICP... (this takes 30-60 seconds)
+                Generating your SignalMap™... (this takes 30-60 seconds)
               </>
             ) : (
               <>
                 <FileText size={18} />
-                Generate My ICP Blueprint
+                Generate My SignalMap™
               </>
             )}
           </button>
@@ -246,14 +276,14 @@ export default function DeliverablesPage() {
         </div>
       )}
 
-      {/* Completed but icp_html missing (fallback regenerate via /api/regenerate-icp) */}
-      {session?.status === 'completed' && !hasIcp && !needsRecovery && (
+      {/* Fallback regenerate */}
+      {showRegenerate && (
         <div
           className="p-6 rounded-xl border text-center mb-6"
           style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
         >
           <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
-            Your session is complete but your ICP document needs to be generated.
+            Your session is complete but your SignalMap™ document needs to be generated.
           </p>
           <button
             onClick={handleRegenerateICP}
@@ -264,10 +294,10 @@ export default function DeliverablesPage() {
             {regenerating ? (
               <>
                 <Loader size={16} className="animate-spin" />
-                Generating your ICP...
+                Generating your SignalMap™...
               </>
             ) : (
-              'Generate My ICP'
+              'Generate My SignalMap™'
             )}
           </button>
         </div>
@@ -275,12 +305,25 @@ export default function DeliverablesPage() {
 
       {/* ICP ready */}
       {hasIcp && session && (
-        <div
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
-        >
-          <ICPDisplay icpMarkdown={session.icp_html!} sessionId={session.id} />
-        </div>
+        <>
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
+          >
+            <ICPDisplay icpMarkdown={session.icp_html!} sessionId={session.id} />
+          </div>
+
+          {/* Rebuild link */}
+          <div className="text-center mt-6">
+            <Link
+              href="/dashboard/alex"
+              className="text-xs"
+              style={{ color: '#9ca3af' }}
+            >
+              Want to rebuild your ICP? Go to your SignalMap™ Session →
+            </Link>
+          </div>
+        </>
       )}
     </div>
   )

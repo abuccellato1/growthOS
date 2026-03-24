@@ -27,15 +27,15 @@ const ACQUISITION_CHANNELS = [
 ]
 
 const PRODUCT_LABELS: Record<string, string> = {
-  icp_blueprint: 'ICP Blueprint (Alex Session)',
-  complete_alex_pack: 'Complete Alex Pack',
-  complete_intelligence_stack: 'Complete Intelligence Stack',
+  icp_blueprint: 'SignalMap™',
+  complete_alex_pack: 'SignalSuite™',
+  complete_intelligence_stack: 'SignalSuite™',
   founders_circle: "Founder's Circle",
-  ad_pack: 'Ad Pack',
-  social_pack: 'Social Pack',
-  email_pack: 'Email Pack',
-  gtm_plan: 'GTM Playbook',
-  action_plan: '90-Day Action Plan',
+  ad_pack: 'SignalAds™',
+  social_pack: 'SignalContent™',
+  email_pack: 'SignalSequences™',
+  gtm_plan: 'SignalLaunch™',
+  action_plan: 'SignalSprint™',
 }
 
 const LOCKED_PRODUCTS = ['ad_pack', 'social_pack', 'email_pack', 'gtm_plan', 'action_plan']
@@ -202,7 +202,7 @@ export default function WelcomePage() {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <div className="relative w-48 h-12">
-            <Image src="/images/growthos-logo.png" alt="GrowthOS" fill className="object-contain" priority />
+            <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain" priority onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:24px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot™</span>'; }} />
           </div>
         </div>
 
@@ -447,7 +447,7 @@ export default function WelcomePage() {
           {step === 3 && (
             <>
               <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                Welcome to GrowthOS, {firstName}.
+                Welcome to SignalShot, {firstName}.
               </h1>
               <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
                 Step 3 of 3 — Here&apos;s what&apos;s ready for you.
@@ -479,7 +479,7 @@ export default function WelcomePage() {
                   <div className="flex items-center gap-3 mb-1">
                     <CheckCircle size={20} style={{ color: '#43C6AC' }} />
                     <span className="font-semibold" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
-                      Alex ICP Session
+                      SignalMap™ Session
                     </span>
                   </div>
                   <p className="text-sm ml-8" style={{ color: '#6b7280' }}>

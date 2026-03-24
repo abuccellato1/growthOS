@@ -114,7 +114,7 @@ export default function LockedPage({ name, description, productType, iconName }:
             This module is available as an add-on or as part of a bundle.
           </p>
           <a
-            href="https://leads.goodfellastech.com/meet-alex"
+            href={`${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard`}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm"
             style={{ backgroundColor: '#43C6AC' }}
           >

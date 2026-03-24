@@ -42,7 +42,7 @@ function buildMessages(
 }
 
 export async function POST(request: Request) {
-  // Rate limiting
+  // Rate limiting — customerId added after session lookup
   const allowed = await checkRateLimit(getIpIdentifier(request), 'chat', 150, 60)
   if (!allowed) {
     return NextResponse.json(

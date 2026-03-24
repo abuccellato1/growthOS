@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { Customer } from '@/types'
+import { Customer, Business } from '@/types'
 import { Loader } from 'lucide-react'
 
 export function isIntakeComplete(customer: Customer): boolean {
@@ -17,15 +17,16 @@ export function isIntakeComplete(customer: Customer): boolean {
 
 interface IntakeGateProps {
   customer: Customer
-  onComplete: (updatedCustomer: Customer) => void
+  existingBusiness?: Business | null
+  onComplete: (updatedCustomer: Customer, business: Business) => void
 }
 
-export default function IntakeGate({ customer, onComplete }: IntakeGateProps) {
+export default function IntakeGate({ customer, existingBusiness, onComplete }: IntakeGateProps) {
   const [stage, setStage] = useState<'form' | 'loading'>('form')
-  const [businessName, setBusinessName] = useState(customer.business_name || '')
-  const [websiteUrl, setWebsiteUrl] = useState(customer.website_url || '')
-  const [primaryService, setPrimaryService] = useState(customer.primary_service || '')
-  const [geographicMarket, setGeographicMarket] = useState(customer.geographic_market || '')
+  const [businessName, setBusinessName] = useState(existingBusiness?.business_name || customer.business_name || '')
+  const [websiteUrl, setWebsiteUrl] = useState(existingBusiness?.website_url || customer.website_url || '')
+  const [primaryService, setPrimaryService] = useState(existingBusiness?.primary_service || customer.primary_service || '')
+  const [geographicMarket, setGeographicMarket] = useState(existingBusiness?.geographic_market || customer.geographic_market || '')
   const [honeypot, setHoneypot] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step1, setStep1] = useState(false)
@@ -59,21 +60,100 @@ export default function IntakeGate({ customer, onComplete }: IntakeGateProps) {
     setTimeout(() => setStep2(true), 1500)
     setTimeout(() => setStep3(true), 3000)
 
-    // Save intake fields + run research; enforce minimum 4s loading display
-    await Promise.all([
-      fetch('/api/research', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: customer.id,
-          businessName,
-          websiteUrl,
-          primaryService,
-          geographicMarket,
+    let business: Business | null = null
+
+    if (existingBusiness) {
+      // Update existing business
+      const supabase = createClient()
+      await supabase
+        .from('businesses')
+        .update({
+          business_name: businessName.trim(),
+          website_url: websiteUrl.trim(),
+          primary_service: primaryService.trim(),
+          geographic_market: geographicMarket.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingBusiness.id)
+
+      // Run research with businessId
+      await Promise.all([
+        fetch('/api/research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessId: existingBusiness.id,
+            businessName: businessName.trim(),
+            websiteUrl: websiteUrl.trim(),
+            primaryService: primaryService.trim(),
+            geographicMarket: geographicMarket.trim(),
+          }),
+        }).catch(() => null),
+        new Promise((resolve) => setTimeout(resolve, 4000)),
+      ])
+
+      // Fetch updated business
+      const { data: updatedBusiness } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', existingBusiness.id)
+        .single()
+
+      business = updatedBusiness
+    } else {
+      // Create new business
+      const [createRes] = await Promise.all([
+        fetch('/api/businesses/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessName: businessName.trim(),
+            websiteUrl: websiteUrl.trim(),
+            primaryService: primaryService.trim(),
+            geographicMarket: geographicMarket.trim(),
+          }),
         }),
-      }).catch(() => null),
-      new Promise((resolve) => setTimeout(resolve, 4000)),
-    ])
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ])
+
+      if (createRes.ok) {
+        const createData = await createRes.json()
+        business = createData.business
+
+        // Store active business
+        if (business) {
+          localStorage.setItem('signalshot_active_business', business.id)
+        }
+
+        // Run research with new businessId
+        if (business) {
+          await Promise.all([
+            fetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                businessId: business.id,
+                businessName: businessName.trim(),
+                websiteUrl: websiteUrl.trim(),
+                primaryService: primaryService.trim(),
+                geographicMarket: geographicMarket.trim(),
+              }),
+            }).catch(() => null),
+            new Promise((resolve) => setTimeout(resolve, 3000)),
+          ])
+
+          // Fetch updated business with research
+          const supabase = createClient()
+          const { data: updatedBusiness } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', business.id)
+            .single()
+
+          if (updatedBusiness) business = updatedBusiness
+        }
+      }
+    }
 
     // Fetch refreshed customer record
     const supabase = createClient()
@@ -83,7 +163,9 @@ export default function IntakeGate({ customer, onComplete }: IntakeGateProps) {
       .eq('id', customer.id)
       .single()
 
-    onComplete(updated || customer)
+    if (business) {
+      onComplete(updated || customer, business)
+    }
   }
 
   return (
@@ -107,7 +189,7 @@ export default function IntakeGate({ customer, onComplete }: IntakeGateProps) {
           {/* Logo */}
           <div className="flex justify-center pt-8 pb-0">
             <div className="relative w-36 h-10">
-              <Image src="/images/growthos-logo.png" alt="GrowthOS" fill className="object-contain" priority />
+              <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain" priority onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:20px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'; }} />
             </div>
           </div>
 
@@ -117,7 +199,7 @@ export default function IntakeGate({ customer, onComplete }: IntakeGateProps) {
                 className="text-2xl font-bold mb-1 text-center"
                 style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
               >
-                Tell us about your business
+                {existingBusiness ? 'Update your business details' : 'Tell us about your business'}
               </h2>
               <p
                 className="text-sm text-center mb-6"
