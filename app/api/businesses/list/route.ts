@@ -17,14 +17,14 @@ export async function GET(request: Request) {
 
   const adminClient = createAdminClient()
 
-  const query = adminClient
+  let query = adminClient
     .from('businesses')
     .select('*')
     .eq('customer_id', auth.customer.id)
     .order('created_at', { ascending: true })
 
   if (!includeInactive) {
-    query.eq('is_active', true)
+    query = query.eq('is_active', true)
   }
 
   const { data: businesses, error } = await query

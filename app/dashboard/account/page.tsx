@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Customer, Purchase, Business } from '@/types'
 import { User, Loader, Building2, Plus, Lock, ExternalLink } from 'lucide-react'
@@ -180,7 +181,7 @@ export default function AccountPage() {
     : '?'
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
           <User size={26} style={{ color: '#43C6AC' }} />
@@ -195,179 +196,196 @@ export default function AccountPage() {
         </div>
       </div>
 
-      {/* SECTION 1 — My Account */}
-      <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-            My Account
-          </h2>
-          {!editingAccount && (
-            <button
-              onClick={openAccountEdit}
-              className="text-sm font-medium"
-              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              Edit
-            </button>
-          )}
-        </div>
-
-        {editingAccount ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <EditInput label="First Name" value={firstName} onChange={setFirstName} placeholder="Jane" />
-              <EditInput label="Last Name" value={lastName} onChange={setLastName} placeholder="Smith" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
-                Email
-              </label>
-              <p className="text-sm px-3 py-2.5 rounded-lg border" style={{ borderColor: '#e5e7eb', color: '#6b7280', backgroundColor: '#f9fafb' }}>
-                {customer?.email}
-              </p>
-              <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
-                Changing your email will require you to verify the new address
-              </p>
-            </div>
-
-            <button
-              onClick={handleSaveAccount}
-              disabled={saving}
-              className="w-full py-3 rounded-xl font-semibold text-white text-sm mt-2 disabled:opacity-60"
-              style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-            <button
-              onClick={() => { setEditingAccount(false); setSuccessMsg('') }}
-              disabled={saving}
-              className="w-full text-center text-sm py-1"
-              style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <>
-            {successMsg && (
-              <p className="text-sm mb-4" style={{ color: '#43C6AC' }}>{successMsg}</p>
-            )}
-            <div className="flex items-center gap-5">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: '#43C6AC' }}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* My Account card — left column */}
+        <div className="p-6 rounded-2xl border h-fit" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
+              My Account
+            </h2>
+            {!editingAccount && (
+              <button
+                onClick={openAccountEdit}
+                className="text-sm font-medium"
+                style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                {initials}
+                Edit
+              </button>
+            )}
+          </div>
+
+          {editingAccount ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <EditInput label="First Name" value={firstName} onChange={setFirstName} placeholder="Jane" />
+                <EditInput label="Last Name" value={lastName} onChange={setLastName} placeholder="Smith" />
               </div>
               <div>
-                <p className="text-lg font-semibold" style={{ color: '#191654' }}>
-                  {customer?.first_name} {customer?.last_name}
+                <label className="block text-sm font-medium mb-1" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
+                  Email
+                </label>
+                <p className="text-sm px-3 py-2.5 rounded-lg border" style={{ borderColor: '#e5e7eb', color: '#6b7280', backgroundColor: '#f9fafb' }}>
+                  {customer?.email}
                 </p>
-                <p className="text-sm" style={{ color: '#6b7280' }}>{customer?.email}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>
-                    Member since {customer?.created_at ? formatDate(customer.created_at) : '—'}
-                  </p>
-                  {customer?.beta_user && (
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}
-                    >
-                      Beta Member
-                    </span>
-                  )}
-                </div>
+                <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                  Changing your email will require you to verify the new address
+                </p>
               </div>
-            </div>
-          </>
-        )}
-      </div>
 
-      {/* SECTION 2 — My Businesses */}
-      <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: '#9ca3af' }}>
-            <Building2 size={14} /> My Businesses
-          </h2>
-        </div>
-
-        <div className="space-y-3">
-          {businesses.length === 0 && (
-            <p className="text-sm" style={{ color: '#9ca3af' }}>
-              No businesses registered yet. Complete the intake form to get started.{' '}
-              <a href="/dashboard" className="font-medium" style={{ color: '#43C6AC' }}>
-                Go to Dashboard →
-              </a>
-            </p>
-          )}
-          {businesses.map((biz) => {
-            const isActive = activeBizId === biz.id
-            return (
-              <div
-                key={biz.id}
-                className="p-4 rounded-xl border"
-                style={{
-                  borderColor: isActive ? '#43C6AC' : '#e5e7eb',
-                  backgroundColor: isActive ? 'rgba(67,198,172,0.04)' : 'transparent',
-                }}
+              <button
+                onClick={handleSaveAccount}
+                disabled={saving}
+                className="w-full py-3 rounded-xl font-semibold text-white text-sm mt-2 disabled:opacity-60"
+                style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold" style={{ color: '#191654' }}>
-                      {biz.business_name}
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => { setEditingAccount(false); setSuccessMsg('') }}
+                disabled={saving}
+                className="w-full text-center text-sm py-1"
+                style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              {successMsg && (
+                <p className="text-sm mb-4" style={{ color: '#43C6AC' }}>{successMsg}</p>
+              )}
+              <div className="flex items-center gap-5">
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
+                  style={{ backgroundColor: '#43C6AC' }}
+                >
+                  {initials}
+                </div>
+                <div>
+                  <p className="text-lg font-semibold" style={{ color: '#191654' }}>
+                    {customer?.first_name} {customer?.last_name}
+                  </p>
+                  <p className="text-sm" style={{ color: '#6b7280' }}>{customer?.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>
+                      Member since {customer?.created_at ? formatDate(customer.created_at) : '—'}
                     </p>
-                    {isActive && (
+                    {customer?.beta_user && (
                       <span
                         className="text-xs font-semibold px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}
                       >
-                        Active
+                        Beta Member
                       </span>
                     )}
                   </div>
-                  {!isActive && (
-                    <button
-                      onClick={() => handleSwitchBusiness(biz)}
-                      className="text-xs font-medium px-3 py-1 rounded-full border"
-                      style={{ color: '#43C6AC', borderColor: '#43C6AC' }}
-                    >
-                      Switch to this business
-                    </button>
-                  )}
                 </div>
-                {biz.website_url && (
-                  <a
-                    href={biz.website_url.startsWith('http') ? biz.website_url : `https://${biz.website_url}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs mb-1"
-                    style={{ color: '#43C6AC' }}
-                  >
-                    {biz.website_url} <ExternalLink size={10} />
-                  </a>
-                )}
-                <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
-                  Created {formatDate(biz.created_at)}
-                </p>
               </div>
-            )
-          })}
+            </>
+          )}
         </div>
 
-        <div className="mt-4">
-          {customer?.beta_user ? (
-            <button
-              onClick={() => router.push('/dashboard?new_business=true')}
-              className="flex items-center gap-2 text-sm font-medium"
-              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <Plus size={14} /> Add New Business
-            </button>
+        {/* My Businesses card — right column */}
+        <div className="p-6 rounded-2xl border h-fit" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: '#9ca3af' }}>
+              <Building2 size={14} /> My Businesses
+            </h2>
+          </div>
+
+          {businesses.length === 0 ? (
+            <div className="text-center py-6">
+              <Building2
+                size={32}
+                className="mx-auto mb-3"
+                style={{ color: '#d1d5db' }}
+              />
+              <p className="text-sm mb-1" style={{ color: '#374151', fontWeight: 600 }}>
+                No business registered yet
+              </p>
+              <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>
+                Complete the intake form to register your first business
+              </p>
+              <Link
+                href="/dashboard"
+                className="text-xs font-medium"
+                style={{ color: '#43C6AC' }}
+              >
+                Go to Dashboard →
+              </Link>
+            </div>
           ) : (
-            <div className="flex items-center gap-2 text-sm" style={{ color: '#9ca3af' }}>
-              <Lock size={14} /> Upgrade to add multiple businesses
+            <div className="space-y-3">
+              {businesses.map((biz) => {
+                const isActive = activeBizId === biz.id
+                return (
+                  <div
+                    key={biz.id}
+                    className="p-4 rounded-xl border"
+                    style={{
+                      borderColor: isActive ? '#43C6AC' : '#e5e7eb',
+                      backgroundColor: isActive ? 'rgba(67,198,172,0.04)' : 'transparent',
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold" style={{ color: '#191654' }}>
+                          {biz.business_name}
+                        </p>
+                        {isActive && (
+                          <span
+                            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}
+                          >
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      {!isActive && (
+                        <button
+                          onClick={() => handleSwitchBusiness(biz)}
+                          className="text-xs font-medium px-3 py-1 rounded-full border"
+                          style={{ color: '#43C6AC', borderColor: '#43C6AC' }}
+                        >
+                          Switch to this business
+                        </button>
+                      )}
+                    </div>
+                    {biz.website_url && (
+                      <a
+                        href={biz.website_url.startsWith('http') ? biz.website_url : `https://${biz.website_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs mb-1"
+                        style={{ color: '#43C6AC' }}
+                      >
+                        {biz.website_url} <ExternalLink size={10} />
+                      </a>
+                    )}
+                    <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                      Created {formatDate(biz.created_at)}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           )}
+
+          <div className="mt-4">
+            {customer?.beta_user ? (
+              <button
+                onClick={() => router.push('/dashboard?new_business=true')}
+                className="flex items-center gap-2 text-sm font-medium"
+                style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <Plus size={14} /> Add New Business
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-sm" style={{ color: '#9ca3af' }}>
+                <Lock size={14} /> Upgrade to add multiple businesses
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
