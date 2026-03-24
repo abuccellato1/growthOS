@@ -1,7 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 import DashboardLayoutClient from './DashboardLayoutClient'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardLayoutClient>{children}</DashboardLayoutClient>
+  return (
+    <DashboardLayoutClient>
+      <ErrorBoundary>
+        {children}
+      </ErrorBoundary>
+    </DashboardLayoutClient>
+  )
 }

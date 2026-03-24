@@ -6,6 +6,10 @@ import { buildICPMarkdown } from '@/lib/icp-formatter'
 import { Phase, Message, Customer } from '@/types'
 import { sanitizeMessage } from '@/lib/sanitize'
 import { checkRateLimit, getIpIdentifier } from '@/lib/ratelimit'
+import { logger } from '@/lib/logger'
+import { apiError } from '@/lib/api-response'
+import { requireAuth } from '@/lib/auth-guard'
+import { validateBody } from '@/lib/validate'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -42,26 +46,58 @@ function buildMessages(
 }
 
 export async function POST(request: Request) {
-  // Rate limiting — customerId added after session lookup
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
+  const start = logger.apiStart('/api/chat', auth.customer.id)
+
+  // Rate limiting
   const allowed = await checkRateLimit(getIpIdentifier(request), 'chat', 150, 60)
   if (!allowed) {
-    return NextResponse.json(
-      { error: 'Too many messages. Please wait a moment before continuing.' },
-      { status: 429 }
-    )
+    logger.warn('Rate limit exceeded', { route: '/api/chat', action: 'rate_limited' })
+    logger.apiEnd('/api/chat', start, 429, auth.customer.id)
+    return apiError('Too many messages. Please wait a moment before continuing.', 429, 'RATE_LIMITED')
   }
 
   let body: ChatRequest
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    logger.apiEnd('/api/chat', start, 400, auth.customer.id)
+    return apiError('Invalid request body', 400, 'INVALID_BODY')
+  }
+
+  const { valid, errors } = validateBody(body as unknown as Record<string, unknown>, {
+    messages: { type: 'array', required: true },
+    phase: { type: 'number', required: true },
+    sessionId: { type: 'string', required: true },
+  })
+  if (!valid) {
+    logger.apiEnd('/api/chat', start, 400, auth.customer.id)
+    return apiError(errors.join(', '), 400, 'VALIDATION_ERROR')
   }
 
   const { messages, phase, customerContext, sessionId } = body
 
-  if (!messages || !phase) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  // Session ownership verification
+  if (sessionId) {
+    const adminClientCheck = createAdminClient()
+    const { data: sessionOwner } = await adminClientCheck
+      .from('sessions')
+      .select('customer_id')
+      .eq('id', sessionId)
+      .single()
+
+    if (sessionOwner && sessionOwner.customer_id !== auth.customer.id) {
+      logger.warn('Session does not belong to authenticated customer', {
+        route: '/api/chat',
+        sessionId,
+        customerId: auth.customer.id,
+        sessionOwnerId: sessionOwner.customer_id,
+      })
+      logger.apiEnd('/api/chat', start, 403, auth.customer.id)
+      return apiError('Session does not belong to this customer', 403, 'FORBIDDEN')
+    }
   }
 
   // Security — duplicate message guard (phases 1-3 only; phase 4 sends empty array)
@@ -69,7 +105,8 @@ export async function POST(request: Request) {
     const userMessages = messages.filter((m) => m.role === 'user')
     const lastTwo = userMessages.slice(-2)
     if (lastTwo.length === 2 && lastTwo[0].content === lastTwo[1].content) {
-      return NextResponse.json({ error: 'Duplicate message' }, { status: 429 })
+      logger.apiEnd('/api/chat', start, 429, auth.customer.id)
+      return apiError('Duplicate message', 429, 'DUPLICATE_MESSAGE')
     }
   }
 
@@ -88,7 +125,8 @@ export async function POST(request: Request) {
   // reaches the model — no summaries, no compression, no data loss.
   if (phase === 4) {
     if (!sessionId) {
-      return NextResponse.json({ error: 'sessionId required for Phase 4' }, { status: 400 })
+      logger.apiEnd('/api/chat', start, 400, auth.customer.id)
+      return apiError('sessionId required for Phase 4', 400, 'MISSING_SESSION_ID')
     }
 
     const adminClient = createAdminClient()
@@ -100,7 +138,8 @@ export async function POST(request: Request) {
       .single()
 
     if (!sessionData) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+      logger.apiEnd('/api/chat', start, 404, auth.customer.id)
+      return apiError('Session not found', 404, 'NOT_FOUND')
     }
 
     const { data: customerData } = await adminClient
@@ -181,7 +220,8 @@ export async function POST(request: Request) {
 
     const replyContent = response.content[0]
     if (replyContent.type !== 'text') {
-      return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 })
+      logger.apiEnd('/api/chat', start, 500, auth.customer.id)
+      return apiError('Unexpected response type', 500, 'UNEXPECTED_RESPONSE')
     }
 
     const rawText = replyContent.text
@@ -196,7 +236,7 @@ export async function POST(request: Request) {
         parsedData = JSON.parse(jsonMatch[0])
       }
     } catch (err) {
-      console.error('Failed to parse ICP JSON:', err)
+      logger.error('Failed to parse ICP JSON', err, { route: '/api/chat', sessionId: sessionId })
       // Fall back to saving raw text if JSON parsing fails
       parsedData = { raw: cleanText }
     }
@@ -219,6 +259,11 @@ export async function POST(request: Request) {
 
     const icpMarkdown = buildICPMarkdown(parsedData)
 
+    if (isIcpComplete) {
+      logger.info('ICP complete', { route: '/api/chat', sessionId, customerId: auth.customer.id })
+    }
+
+    logger.apiEnd('/api/chat', start, 200, auth.customer.id)
     return NextResponse.json({
       reply: icpMarkdown,
       shouldAdvancePhase: isIcpComplete,
@@ -245,10 +290,8 @@ export async function POST(request: Request) {
 
   const replyContent = response.content[0]
   if (replyContent.type !== 'text') {
-    return NextResponse.json(
-      { error: 'Unexpected response type from Claude' },
-      { status: 500 }
-    )
+    logger.apiEnd('/api/chat', start, 500, auth.customer.id)
+    return apiError('Unexpected response type from Claude', 500, 'UNEXPECTED_RESPONSE')
   }
 
   const rawReply = replyContent.text
@@ -261,6 +304,7 @@ export async function POST(request: Request) {
 
   let phaseSummary: string | null = null
   if (shouldAdvancePhase) {
+    logger.info('Phase complete', { route: '/api/chat', phase, sessionId, customerId: auth.customer.id })
     try {
       const summaryResponse = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
@@ -277,10 +321,15 @@ export async function POST(request: Request) {
         phaseSummary = summaryContent.text.trim()
       }
     } catch (err) {
-      console.error('Phase summarization error:', err)
+      logger.error('Phase summarization error', err, { route: '/api/chat', action: 'phase_summary' })
     }
   }
 
+  if (isIcpComplete) {
+    logger.info('ICP complete', { route: '/api/chat', sessionId, customerId: auth.customer.id })
+  }
+
+  logger.apiEnd('/api/chat', start, 200, auth.customer.id)
   return NextResponse.json({
     reply: cleanReply,
     shouldAdvancePhase: shouldAdvancePhase || isIcpComplete,

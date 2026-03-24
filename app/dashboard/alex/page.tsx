@@ -163,15 +163,32 @@ export default function AlexPage() {
         return
       }
 
-      // Check for in_progress session for this business
-      const { data: existingSession } = await supabase
+      // Check for in_progress session for this business, fall back to customer_id
+      // First: try by business_id
+      let existingSession = null
+      const { data: bizInProgress } = await supabase
         .from('sessions')
         .select('*')
-        .or(`business_id.eq.${bizData.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
+        .eq('business_id', bizData.id)
         .in('status', ['in_progress', 'not_started'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      // Fall back: if no business session, try by customer_id
+      // (handles sessions created before business architecture existed)
+      existingSession = bizInProgress
+      if (!existingSession) {
+        const { data: custInProgress } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('customer_id', customerData.id)
+          .in('status', ['in_progress', 'not_started'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        existingSession = custInProgress
+      }
 
       if (existingSession && existingSession.message_history?.length > 0) {
         setSessionId(existingSession.id)
@@ -327,7 +344,7 @@ export default function AlexPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: sid, icpMarkdown: fullText }),
-        }).catch(console.error)
+        }).catch(() => null)
 
         const icpData = { raw: fullText }
         await persistSession(finalMessages, 4, 'completed', sid, uuid, cust.id, actualStartedAt, activeBusiness?.id, icpData)
@@ -352,19 +369,6 @@ export default function AlexPage() {
           )
         }
 
-        if (process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL) {
-          await fetch(process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: cust.email,
-              session_uuid: uuid,
-              icp_content: fullText,
-              purchased_products: purchaseTypes,
-            }),
-          }).catch(console.error)
-        }
-
         const completionMsg = `That's everything. Your **SignalMap™** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
         const withCompletion: Message[] = [
           ...finalMessages,
@@ -376,9 +380,36 @@ export default function AlexPage() {
         await persistSession(finalMessages, currentPhase, 'in_progress', sid, uuid, cust.id, actualStartedAt, activeBusiness?.id)
       }
     } catch (err) {
-      console.error('API error:', err)
-      const errMsg = "I'm sorry, I encountered an error. Please try again."
-      setMessages((prev) => [...prev, { role: 'assistant', content: errMsg }])
+      let status: number | undefined
+      if (err instanceof Error && err.message.includes('API error:')) {
+        const match = err.message.match(/\d{3}/)
+        status = match ? parseInt(match[0]) : undefined
+      }
+
+      let errMsg: string
+      if (status === 429) {
+        errMsg = "You're sending messages too quickly. Please wait a moment before continuing."
+      } else if (status === 413) {
+        errMsg = "Your message was too long. Please try a shorter response."
+      } else if (status === 401 || status === 403) {
+        errMsg = "Your session has expired. Redirecting to login..."
+        router.push('/login')
+      } else if (status === 500) {
+        errMsg = "Alex encountered a technical issue. Your session is saved — please try again in a moment."
+      } else {
+        errMsg = "Something went wrong. Your session is saved — please refresh and continue."
+      }
+
+      const errorId = Date.now().toString(36)
+      // Intentional console.error for client-side error tracking
+      console.error(JSON.stringify({
+        level: 'error',
+        message: 'Alex API error in client',
+        errorId,
+        timestamp: new Date().toISOString(),
+      }))
+
+      setMessages((prev) => [...prev, { role: 'assistant', content: `${errMsg} (Ref: ${errorId})` }])
     }
 
     setStreaming(false)

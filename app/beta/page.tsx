@@ -11,6 +11,8 @@ export default function BetaSignupPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [honeypot, setHoneypot] = useState('')
+  const [secondHoneypot, setSecondHoneypot] = useState('')
+  const [formStartTime] = useState(Date.now())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -18,7 +20,9 @@ export default function BetaSignupPage() {
     e.preventDefault()
 
     // Silently reject bots
-    if (honeypot) return
+    if (honeypot || secondHoneypot) return
+    const timeSpent = Date.now() - formStartTime
+    if (timeSpent < 3000) return
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -113,12 +117,22 @@ export default function BetaSignupPage() {
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Honeypot */}
+            {/* Honeypot fields */}
             <input
               type="text"
               name="website_url_confirm"
               value={honeypot}
               onChange={(e) => setHoneypot(e.target.value)}
+              style={{ display: 'none' }}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+            />
+            <input
+              type="email"
+              name="confirm_email_address"
+              value={secondHoneypot}
+              onChange={(e) => setSecondHoneypot(e.target.value)}
               style={{ display: 'none' }}
               tabIndex={-1}
               autoComplete="off"

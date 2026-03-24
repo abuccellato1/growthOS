@@ -1,41 +1,36 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
+import { apiError, apiSuccess } from '@/lib/api-response'
+import { requireAuth } from '@/lib/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendICPCompletionEmail } from '@/lib/email'
 
+const ROUTE = '/api/save-icp'
+
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
+  const start = logger.apiStart(ROUTE, auth.customer.id)
 
   let body: { sessionId: string; icpMarkdown: string }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    logger.apiEnd(ROUTE, start, 400, auth.customer.id)
+    return apiError('Invalid request body', 400)
   }
 
   const { sessionId, icpMarkdown } = body
   if (!sessionId || typeof sessionId !== 'string') {
-    return NextResponse.json({ error: 'sessionId required' }, { status: 400 })
+    logger.apiEnd(ROUTE, start, 400, auth.customer.id)
+    return apiError('sessionId required', 400)
   }
   if (!icpMarkdown || typeof icpMarkdown !== 'string') {
-    return NextResponse.json({ error: 'icpMarkdown required' }, { status: 400 })
+    logger.apiEnd(ROUTE, start, 400, auth.customer.id)
+    return apiError('icpMarkdown required', 400)
   }
 
-  // Verify the session belongs to this user
   const adminClient = createAdminClient()
-  const { data: customer } = await adminClient
-    .from('customers')
-    .select('id, email, first_name')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!customer) {
-    return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
-  }
 
   // Save ICP with icp_generated_at
   const { error } = await adminClient
@@ -48,11 +43,12 @@ export async function POST(request: Request) {
       completed_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
-    .eq('customer_id', customer.id)
+    .eq('customer_id', auth.customer.id)
 
   if (error) {
-    console.error('save-icp error:', error)
-    return NextResponse.json({ error: 'Failed to save ICP' }, { status: 500 })
+    logger.error('save-icp error', error, { route: ROUTE })
+    logger.apiEnd(ROUTE, start, 500, auth.customer.id)
+    return apiError('Failed to save ICP', 500)
   }
 
   // Verify the write succeeded
@@ -63,14 +59,26 @@ export async function POST(request: Request) {
     .single()
 
   if (!verification?.icp_html) {
-    return NextResponse.json(
-      { error: 'ICP save verification failed' },
-      { status: 500 }
-    )
+    logger.apiEnd(ROUTE, start, 500, auth.customer.id)
+    return apiError('ICP save verification failed', 500)
   }
+
+  logger.info('ICP save verified', {
+    route: '/api/save-icp',
+    action: 'icp_saved',
+    sessionId: sessionId,
+    contentLength: icpMarkdown.length,
+  })
 
   // Send completion email — non-fatal
   try {
+    // Fetch first_name and business_name for email
+    const { data: fullCustomer } = await adminClient
+      .from('customers')
+      .select('first_name')
+      .eq('id', auth.customer.id)
+      .single()
+
     let businessName = 'your business'
     if (verification.business_id) {
       const { data: biz } = await adminClient
@@ -82,14 +90,15 @@ export async function POST(request: Request) {
     }
 
     await sendICPCompletionEmail({
-      email: customer.email,
-      firstName: customer.first_name || 'there',
+      email: auth.customer.email,
+      firstName: fullCustomer?.first_name || 'there',
       businessName,
       appUrl: process.env.NEXT_PUBLIC_APP_URL || '',
     })
   } catch (emailErr) {
-    console.error('ICP completion email failed:', emailErr)
+    logger.error('ICP completion email failed', emailErr, { route: ROUTE })
   }
 
-  return NextResponse.json({ ok: true })
+  logger.apiEnd(ROUTE, start, 200, auth.customer.id)
+  return apiSuccess({ ok: true })
 }

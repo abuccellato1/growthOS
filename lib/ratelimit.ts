@@ -35,7 +35,7 @@ export function getIpIdentifier(req: Request): string {
 
 export async function checkRateLimit(
   identifier: string,
-  limitType: 'chat' | 'session_start' | 'pdf' | 'research',
+  limitType: 'chat' | 'session_start' | 'pdf' | 'research' | 'signup' | 'auth',
   maxRequests: number,
   windowMinutes: number,
   customerId?: string

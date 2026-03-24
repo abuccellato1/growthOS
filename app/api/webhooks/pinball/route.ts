@@ -1,7 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { PinballWebhookPayload, ProductType } from '@/types'
+import { logger } from '@/lib/logger'
+import { apiError, apiSuccess } from '@/lib/api-response'
 
 const VALID_PRODUCT_TYPES: ProductType[] = [
   'icp_blueprint',
@@ -16,11 +17,14 @@ const VALID_PRODUCT_TYPES: ProductType[] = [
 ]
 
 export async function POST(request: Request) {
+  const start = logger.apiStart('/api/webhooks/pinball')
+
   const signature = request.headers.get('x-pinball-signature')
   const webhookSecret = process.env.PINBALL_WEBHOOK_SECRET
 
   if (!signature || !webhookSecret) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    logger.apiEnd('/api/webhooks/pinball', start, 401)
+    return apiError('Invalid signature', 401, 'INVALID_SIGNATURE')
   }
 
   // Timing-safe signature check
@@ -29,24 +33,30 @@ export async function POST(request: Request) {
     const secretBuf = Buffer.from(webhookSecret)
     const valid = sigBuf.length === secretBuf.length && timingSafeEqual(sigBuf, secretBuf)
     if (!valid) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      logger.apiEnd('/api/webhooks/pinball', start, 401)
+      return apiError('Invalid signature', 401, 'INVALID_SIGNATURE')
     }
   } catch {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    logger.apiEnd('/api/webhooks/pinball', start, 401)
+    return apiError('Invalid signature', 401, 'INVALID_SIGNATURE')
   }
 
   let body: PinballWebhookPayload
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    logger.apiEnd('/api/webhooks/pinball', start, 400)
+    return apiError('Missing required fields', 400, 'INVALID_BODY')
   }
 
   const { email, first_name, last_name, products, order_id, amount } = body
 
   if (!email || !first_name || !last_name || !products || !order_id) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    logger.apiEnd('/api/webhooks/pinball', start, 400)
+    return apiError('Missing required fields', 400, 'MISSING_FIELDS')
   }
+
+  logger.info('Webhook received', { route: '/api/webhooks/pinball', action: 'webhook_received', productCount: products.length })
 
   const adminClient = createAdminClient()
 
@@ -66,9 +76,12 @@ export async function POST(request: Request) {
     .single()
 
   if (customerError || !customer) {
-    console.error('Customer upsert error:', customerError)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    logger.error('Customer upsert error', customerError, { route: '/api/webhooks/pinball' })
+    logger.apiEnd('/api/webhooks/pinball', start, 500)
+    return apiError('Database error', 500, 'DB_ERROR')
   }
+
+  logger.info('Customer upserted', { route: '/api/webhooks/pinball', action: 'customer_upserted', customerId: customer.id.slice(0, 8) + '...' })
 
   // Create purchase records for each product
   const validProducts = products.filter((p) => VALID_PRODUCT_TYPES.includes(p as ProductType))
@@ -86,8 +99,10 @@ export async function POST(request: Request) {
       .insert(purchaseRecords)
 
     if (purchaseError) {
-      console.error('Purchase insert error:', purchaseError)
+      logger.error('Purchase insert error', purchaseError, { route: '/api/webhooks/pinball' })
     }
+
+    logger.info('Purchases created', { route: '/api/webhooks/pinball', action: 'purchases_created', count: validProducts.length })
   }
 
   // Send magic link email via Supabase auth — redirect to /welcome
@@ -100,8 +115,9 @@ export async function POST(request: Request) {
   })
 
   if (magicLinkError) {
-    console.error('Magic link error:', magicLinkError)
+    logger.error('Magic link error', magicLinkError, { route: '/api/webhooks/pinball' })
   }
 
-  return NextResponse.json({ success: true }, { status: 200 })
+  logger.apiEnd('/api/webhooks/pinball', start, 200)
+  return apiSuccess({ success: true })
 }
