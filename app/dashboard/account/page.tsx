@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Customer, Purchase, Business } from '@/types'
 import { User, Loader, Building2, Plus, Lock, ExternalLink } from 'lucide-react'
@@ -73,8 +72,7 @@ export default function AccountPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [businesses, setBusinesses] = useState<Business[]>([])
-  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null)
-  const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({})
+  const [activeBizId, setActiveBizId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingAccount, setEditingAccount] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -92,47 +90,40 @@ export default function AccountPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
+      // Fetch customer using auth_user_id
       const { data: customerData } = await supabase
         .from('customers')
         .select('*')
         .eq('auth_user_id', user.id)
         .single()
 
-      if (customerData) setCustomer(customerData)
+      if (!customerData) { setLoading(false); return }
+      setCustomer(customerData)
 
+      // Fetch purchases using customer.id
       const { data: purchaseData } = await supabase
         .from('purchases')
         .select('*')
-        .eq('customer_id', customerData?.id)
+        .eq('customer_id', customerData.id)
         .order('created_at', { ascending: false })
 
       if (purchaseData) setPurchases(purchaseData)
 
-      // Fetch businesses
+      // Fetch businesses using the API route — not direct Supabase query
+      // The API route uses the admin client which bypasses RLS correctly
       try {
-        const res = await fetch('/api/businesses/list')
-        if (res.ok) {
-          const data = await res.json()
-          const bizList = data.businesses || []
-          setBusinesses(bizList)
-
-          const stored = localStorage.getItem('signalshot_active_business')
-          const active = bizList.find((b: Business) => b.id === stored) || bizList[0] || null
-          setActiveBusiness(active)
-
-          const counts: Record<string, number> = {}
-          for (const biz of bizList) {
-            const { count } = await supabase
-              .from('sessions')
-              .select('*', { count: 'exact', head: true })
-              .eq('business_id', biz.id)
-            counts[biz.id] = count ?? 0
-          }
-          setSessionCounts(counts)
+        const bizRes = await fetch('/api/businesses/list')
+        if (bizRes.ok) {
+          const bizData = await bizRes.json()
+          setBusinesses(bizData.businesses || [])
         }
       } catch {
-        // Non-fatal
+        // Non-fatal — businesses section shows empty
       }
+
+      // Read active business from localStorage
+      const activeBizId = localStorage.getItem('signalshot_active_business')
+      if (activeBizId) setActiveBizId(activeBizId)
 
       setLoading(false)
     }
@@ -172,7 +163,8 @@ export default function AccountPage() {
     }).catch(() => null)
 
     localStorage.setItem('signalshot_active_business', biz.id)
-    setActiveBusiness(biz)
+    setActiveBizId(biz.id)
+    window.location.reload()
   }
 
   if (loading) {
@@ -301,7 +293,7 @@ export default function AccountPage() {
 
         <div className="space-y-3">
           {businesses.map((biz) => {
-            const isActive = activeBusiness?.id === biz.id
+            const isActive = activeBizId === biz.id
             return (
               <div
                 key={biz.id}
@@ -346,18 +338,9 @@ export default function AccountPage() {
                     {biz.website_url} <ExternalLink size={10} />
                   </a>
                 )}
-                <div className="flex items-center gap-3 mt-1">
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>
-                    Created {formatDate(biz.created_at)} · {sessionCounts[biz.id] || 0} session{(sessionCounts[biz.id] || 0) !== 1 ? 's' : ''}
-                  </p>
-                  <Link
-                    href="/dashboard/business-signals"
-                    className="text-xs font-medium"
-                    style={{ color: '#43C6AC' }}
-                  >
-                    View in BusinessSignals™ →
-                  </Link>
-                </div>
+                <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                  Created {formatDate(biz.created_at)}
+                </p>
               </div>
             )
           })}
