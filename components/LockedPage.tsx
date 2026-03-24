@@ -130,7 +130,7 @@ export default function LockedPage({ name, description, productType, iconName }:
         >
           <Lock size={40} className="mx-auto mb-4" style={{ color: '#d1d5db' }} />
           <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#374151' }}>
-            Complete your Alex session to unlock this
+            Complete your SignalMap™ session to unlock this
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
             {name} is built from the ICP data Alex collects. Finish your session to generate your content.

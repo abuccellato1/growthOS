@@ -139,7 +139,7 @@ export default function DashboardPage() {
         .from('sessions')
         .select('*')
         .or(`business_id.eq.${currentBiz.id},and(business_id.is.null,customer_id.eq.${customerData.id})`)
-        .eq('archived', false)
+        .not('archived', 'is', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -264,7 +264,7 @@ export default function DashboardPage() {
             Welcome, {customer?.first_name}. Let&apos;s build your SignalMap™{businessName ? ` for ${businessName}` : ''}.
           </h1>
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
-            Alex is ready when you are. This session takes 20–30 minutes — you can pause and resume any time.
+            Your SignalMap™ session is ready when you are. This takes 20–30 minutes — you can pause and resume any time.
           </p>
 
           <Link href="/dashboard/alex">
@@ -293,14 +293,14 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
                   style={{ backgroundColor: '#43C6AC' }}
                 >
-                  Start Your Session <ArrowRight size={16} />
+                  Start Your SignalMap™ Session <ArrowRight size={16} />
                 </div>
               </div>
             </div>
           </Link>
 
           <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-            Unlocks after Alex completes
+            Unlocks after your SignalMap™ session is complete
           </h3>
           <LockedModuleCards />
         </div>
@@ -346,7 +346,7 @@ export default function DashboardPage() {
                     className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
                     style={{ backgroundColor: '#191654' }}
                   >
-                    Resume Your Session <ArrowRight size={16} />
+                    Resume Your SignalMap™ Session <ArrowRight size={16} />
                   </div>
                 </div>
 
@@ -367,7 +367,7 @@ export default function DashboardPage() {
             </Link>
 
             <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-              Unlocks after Alex completes
+              Unlocks after your SignalMap™ session is complete
             </h3>
             <LockedModuleCards />
           </div>
