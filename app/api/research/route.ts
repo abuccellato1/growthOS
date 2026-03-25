@@ -143,6 +143,8 @@ export async function POST(request: Request) {
 
   // Get real review text from Places API
   const placesData = await getPlaceReviews(businessName, cityForSearch, gmbUrl, placeId)
+  console.log('Places API reviews:', placesData.reviews.length)
+  console.log('Places API placeId:', placesData.resolvedPlaceId)
 
   // If Places returned a place_id, save it
   if (placesData.resolvedPlaceId && businessId && !placeId) {
@@ -227,15 +229,22 @@ export async function POST(request: Request) {
 
     // Parse call 1
     const textBlock1 = res1?.content?.find((b: { type: string }) => b.type === 'text')
+    console.log('Call 1 raw response type:', res1?.content?.map((b: { type: string }) => b.type))
+    console.log('Call 1 text block found:', !!textBlock1)
     if (textBlock1 && textBlock1.type === 'text') {
       const raw = (textBlock1 as { type: 'text'; text: string }).text.trim()
+      console.log('Call 1 raw text length:', raw.length)
+      console.log('Call 1 raw text preview:', raw.slice(0, 200))
+      console.log('Call 1 JSON match found:', !!raw.match(/\{[\s\S]*\}/))
       const jsonMatch = raw.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         call1Result = JSON.parse(jsonMatch[0])
       }
     }
+    console.log('Call 1 parsed result:', call1Result ? 'SUCCESS' : 'NULL')
 
     // Parse call 2
+    console.log('Call 2 ran:', res2 !== null)
     if (res2) {
       const textBlock2 = res2.content?.find((b: { type: string }) => b.type === 'text')
       if (textBlock2 && textBlock2.type === 'text') {
@@ -246,6 +255,7 @@ export async function POST(request: Request) {
         }
       }
     }
+    console.log('Call 2 parsed result:', call2Result ? 'SUCCESS' : 'NULL')
   } catch (err) {
     logger.warn('Business research failed', { route: '/api/research', businessId, error: String(err) })
     if (businessId) {
