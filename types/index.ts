@@ -46,6 +46,7 @@ export interface Business {
   business_type: string | null;
   business_research: BusinessResearch | null;
   gmb_url: string | null;
+  place_id: string | null;
   is_active: boolean;
   research_status: string | null;
   voice_of_customer: Record<string, unknown> | null;

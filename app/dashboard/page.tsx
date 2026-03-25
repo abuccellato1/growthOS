@@ -21,6 +21,7 @@ import {
   Loader,
 } from 'lucide-react'
 import SignalScoreWidget from '@/components/SignalScoreWidget'
+import PlaceVerificationBanner from '@/components/PlaceVerificationBanner'
 import { formatDistanceToNow } from '@/lib/utils'
 import IntakeGate from '@/components/IntakeGate'
 
@@ -423,6 +424,10 @@ export default function DashboardPage() {
             Your ICP document is ready in your deliverables.
           </p>
 
+          {activeBusiness && !activeBusiness.place_id && (
+            <PlaceVerificationBanner onVerifyClick={() => router.push('/dashboard/business-signals')} />
+          )}
+
           {/* Primary CTA — go to deliverables */}
           <Link href="/dashboard/deliverables">
             <div
@@ -485,6 +490,10 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
             Your SignalBoard is ready, {customer?.first_name}.
           </h1>
+
+          {activeBusiness && !activeBusiness.place_id && (
+            <PlaceVerificationBanner onVerifyClick={() => router.push('/dashboard/business-signals')} />
+          )}
 
           {/* VOC prompt card */}
           <div

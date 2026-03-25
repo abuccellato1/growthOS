@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Business, Session } from '@/types'
-import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare, ArrowRight } from 'lucide-react'
+import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare, ArrowRight, CheckCircle, MapPin } from 'lucide-react'
 import SignalScoreWidget from '@/components/SignalScoreWidget'
+import PlaceVerificationBanner from '@/components/PlaceVerificationBanner'
+import BusinessPlaceSearch from '@/components/BusinessPlaceSearch'
+import { SelectedBusiness } from '@/lib/use-place-search'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -69,6 +72,8 @@ export default function BusinessSignalsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [showPlaceSearch, setShowPlaceSearch] = useState(false)
+  const [verifying, setVerifying] = useState(false)
 
   // Edit form
   const [businessName, setBusinessName] = useState('')
@@ -305,6 +310,62 @@ export default function BusinessSignalsPage() {
         </div>
       )}
 
+      {/* Place verification banner */}
+      {!business.place_id && !showPlaceSearch && (
+        <PlaceVerificationBanner onVerifyClick={() => setShowPlaceSearch(true)} />
+      )}
+
+      {/* Place search overlay */}
+      {showPlaceSearch && (
+        <div
+          className="p-6 rounded-2xl border mb-6"
+          style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.04)' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+              Find your business on Google
+            </h3>
+            <button onClick={() => setShowPlaceSearch(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
+              ✕
+            </button>
+          </div>
+          <BusinessPlaceSearch
+            onSelect={async (place: SelectedBusiness) => {
+              setVerifying(true)
+              try {
+                const supabase = createClient()
+                await supabase.from('businesses').update({
+                  place_id: place.placeId,
+                  business_name: place.name,
+                  website_url: place.website || business?.website_url,
+                  updated_at: new Date().toISOString(),
+                }).eq('id', business!.id)
+                await fetch('/api/research', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    businessId: business!.id,
+                    businessName: place.name,
+                    websiteUrl: place.website || business?.website_url || '',
+                    primaryService: business?.primary_service || '',
+                    geographicMarket: business?.geographic_market || '',
+                    placeId: place.placeId,
+                  }),
+                }).catch(() => null)
+                window.location.reload()
+              } catch {
+                setVerifying(false)
+              }
+            }}
+          />
+          {verifying && (
+            <p className="text-sm text-center mt-4" style={{ color: '#43C6AC' }}>
+              Verifying and refreshing business data...
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Signal Score */}
       <SignalScoreWidget businessId={business.id} />
 
@@ -426,6 +487,23 @@ export default function BusinessSignalsPage() {
 
         {editing ? (
           <div className="space-y-4">
+            {/* Google verification status */}
+            <div className="mb-2">
+              {business.place_id ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: 'rgba(67,198,172,0.08)' }}>
+                  <CheckCircle size={16} style={{ color: '#43C6AC' }} />
+                  <p className="text-xs" style={{ color: '#43C6AC' }}>Google verified · Place ID confirmed</p>
+                  <button type="button" onClick={() => { setEditing(false); setShowPlaceSearch(true) }} className="text-xs ml-auto" style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Change business →
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => { setEditing(false); setShowPlaceSearch(true) }} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-semibold" style={{ borderColor: '#43C6AC', color: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.04)' }}>
+                  <MapPin size={16} />
+                  Verify Your Business on Google
+                </button>
+              )}
+            </div>
             <EditInput label="Business Name" value={businessName} onChange={setBusinessName} placeholder="e.g. Acme Marketing Co." />
             <EditInput label="Website URL" value={websiteUrl} onChange={setWebsiteUrl} placeholder="e.g. acmemarketing.com" />
             <EditInput label="Google My Business Profile URL" value={gmbUrl} onChange={setGmbUrl} placeholder="e.g. https://g.page/your-business" hint="Your GMB profile URL — helps Alex understand your local presence and review signals" required={false} />
