@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const adminClient = createAdminClient()
 
   let query = adminClient
+  const query = adminClient
     .from('businesses')
     .select('*')
     .eq('customer_id', auth.customer.id)
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
 
   if (!includeInactive) {
     query = query.eq('is_active', true)
+    query.eq('is_active', true)
   }
 
   const { data: businesses, error } = await query
