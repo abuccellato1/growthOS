@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Lock, CheckCircle, ArrowRight, Target, Share2, Mail, Map, Calendar } from 'lucide-react'
+import { checkBusinessReady, PreflightResult } from '@/lib/module-preflight'
+import PreflightBanner from '@/components/PreflightBanner'
+import { Business } from '@/types'
 
 const ICON_MAP = {
   Target,
@@ -25,6 +28,7 @@ interface LockedPageProps {
 
 export default function LockedPage({ name, description, productType, iconName }: LockedPageProps) {
   const [status, setStatus] = useState<'loading' | 'not-purchased' | 'alex-incomplete' | 'available'>('loading')
+  const [preflight, setPreflight] = useState<PreflightResult | null>(null)
   const router = useRouter()
   const Icon = ICON_MAP[iconName]
 
@@ -68,6 +72,19 @@ export default function LockedPage({ name, description, productType, iconName }:
         return
       }
 
+      // Fetch active business for preflight check
+      const activeBizId = localStorage.getItem('signalshot_active_business')
+      if (activeBizId) {
+        const { data: bizData } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('id', activeBizId)
+          .single()
+        if (bizData) {
+          setPreflight(checkBusinessReady(bizData as Business))
+        }
+      }
+
       setStatus('available')
     }
     check()
@@ -100,6 +117,10 @@ export default function LockedPage({ name, description, productType, iconName }:
           <p className="text-base mt-1" style={{ color: '#6b7280' }}>{description}</p>
         </div>
       </div>
+
+      {preflight && (
+        <PreflightBanner preflight={preflight} moduleName={name} />
+      )}
 
       {status === 'not-purchased' && (
         <div
