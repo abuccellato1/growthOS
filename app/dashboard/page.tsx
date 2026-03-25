@@ -25,11 +25,11 @@ import { formatDistanceToNow } from '@/lib/utils'
 import IntakeGate from '@/components/IntakeGate'
 
 const LOCKED_MODULES = [
-  { label: 'SignalAds™', icon: Target, productType: 'ad_pack', href: '/dashboard/ad-pack' },
-  { label: 'SignalContent™', icon: Share2, productType: 'social_pack', href: '/dashboard/social-pack' },
-  { label: 'SignalSequences™', icon: Mail, productType: 'email_pack', href: '/dashboard/email-pack' },
-  { label: 'SignalLaunch™', icon: Map, productType: 'gtm_plan', href: '/dashboard/gtm-plan' },
-  { label: 'SignalSprint™', icon: Calendar, productType: 'action_plan', href: '/dashboard/action-plan' },
+  { label: 'SignalAds', icon: Target, productType: 'ad_pack', href: '/dashboard/ad-pack' },
+  { label: 'SignalContent', icon: Share2, productType: 'social_pack', href: '/dashboard/social-pack' },
+  { label: 'SignalSequences', icon: Mail, productType: 'email_pack', href: '/dashboard/email-pack' },
+  { label: 'SignalLaunch', icon: Map, productType: 'gtm_plan', href: '/dashboard/gtm-plan' },
+  { label: 'SignalSprint', icon: Calendar, productType: 'action_plan', href: '/dashboard/action-plan' },
 ]
 
 export default function DashboardPage() {
@@ -303,20 +303,23 @@ export default function DashboardPage() {
             whiteSpace: 'nowrap',
           }}
         >
-          Alex is ready for you. Start your session when you are.
+          Alex is ready for you. Start your interview when you are.
         </div>
       )}
+
+      {/* Signal Score — always visible */}
+      <SignalScoreWidget businessId={activeBusiness?.id || ''} />
+      <div style={{ height: 20 }} />
 
       {/* State 1 — Not started */}
       {state === 'not_started' && (
         <div>
           <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            Welcome, {customer?.first_name}. Let&apos;s build your SignalMap™{businessName ? ` for ${businessName}` : ''}.
+            Welcome to your SignalBoard, {customer?.first_name}.
           </h1>
 
-          <SignalScoreWidget businessId={activeBusiness?.id || ''} />
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
-            Your SignalMap™ session is ready when you are. This takes 20–30 minutes — you can pause and resume any time.
+            Your SignalMap interview is ready when you are. This takes 20–30 minutes — you can pause and resume any time.
           </p>
 
           <Link href="/dashboard/alex">
@@ -334,7 +337,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                      SignalMap™ Session
+                      SignalMap Interview
                     </h2>
                     <p className="text-sm" style={{ color: '#6b7280' }}>
                       20–30 min · AI-powered discovery · Pause and resume anytime
@@ -345,14 +348,14 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
                   style={{ backgroundColor: '#43C6AC' }}
                 >
-                  Start Your SignalMap™ Session <ArrowRight size={16} />
+                  Start Your SignalMap Interview <ArrowRight size={16} />
                 </div>
               </div>
             </div>
           </Link>
 
           <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-            Unlocks after your SignalMap™ session is complete
+            Unlocks after your SignalMap interview is complete
           </h3>
           <LockedModuleCards />
         </div>
@@ -384,7 +387,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold mb-1" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-                        SignalMap™ Session
+                        SignalMap Interview
                       </h2>
                       <div className="flex items-center gap-4 text-sm" style={{ color: '#6b7280' }}>
                         <span>Phase {session?.phase} of 4</span>
@@ -398,7 +401,7 @@ export default function DashboardPage() {
                     className="flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm"
                     style={{ backgroundColor: '#191654' }}
                   >
-                    Resume Your SignalMap™ Session <ArrowRight size={16} />
+                    Resume Your SignalMap Interview <ArrowRight size={16} />
                   </div>
                 </div>
 
@@ -419,7 +422,7 @@ export default function DashboardPage() {
             </Link>
 
             <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
-              Unlocks after your SignalMap™ session is complete
+              Unlocks after your SignalMap interview is complete
             </h3>
             <LockedModuleCards />
           </div>
@@ -433,7 +436,7 @@ export default function DashboardPage() {
             className="text-3xl font-bold mb-2"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            Your SignalMap™ is complete, {customer?.first_name}.
+            Your SignalMap is complete, {customer?.first_name}.
           </h1>
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
             Your ICP document is ready in your deliverables.
@@ -466,7 +469,7 @@ export default function DashboardPage() {
                         color: '#191654'
                       }}
                     >
-                      View My SignalMap™
+                      View My SignalMap
                     </h2>
                     <p className="text-sm" style={{ color: '#6b7280' }}>
                       Your complete ICP document is ready to view and download
@@ -489,7 +492,7 @@ export default function DashboardPage() {
             className="text-sm font-semibold uppercase tracking-wide mb-3"
             style={{ color: '#9ca3af' }}
           >
-            Expand your SignalShot™
+            Expand your SignalShot
           </h3>
           <LockedModuleCards />
         </div>
@@ -499,10 +502,8 @@ export default function DashboardPage() {
       {state === 'complete' && (
         <div>
           <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            Everything is ready, {customer?.first_name}.
+            Your SignalBoard is ready, {customer?.first_name}.
           </h1>
-
-          <SignalScoreWidget businessId={activeBusiness!.id} />
 
           {/* VOC prompt card */}
           <div

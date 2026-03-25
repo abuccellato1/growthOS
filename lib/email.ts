@@ -12,7 +12,7 @@ export async function sendICPCompletionEmail(params: {
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL!,
     to: email,
-    subject: `Your SignalMap\u2122 is ready, ${firstName}`,
+    subject: `Your SignalMap is ready, ${firstName}`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -30,7 +30,7 @@ export async function sendICPCompletionEmail(params: {
           <tr>
             <td style="background:#191654;padding:32px 40px;text-align:center;">
               <p style="margin:0;font-size:22px;font-weight:700;color:#43C6AC;
-                         letter-spacing:-0.5px;">SignalShot\u2122</p>
+                         letter-spacing:-0.5px;">SignalShot</p>
               <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.6);">
                 Turn signals into smarter marketing decisions
               </p>
@@ -42,7 +42,7 @@ export async function sendICPCompletionEmail(params: {
             <td style="padding:40px 40px 32px;">
               <h1 style="margin:0 0 16px;font-size:26px;font-weight:700;
                           color:#191654;line-height:1.2;">
-                Your SignalMap\u2122 is ready, ${firstName}.
+                Your SignalMap is ready, ${firstName}.
               </h1>
               <p style="margin:0 0 16px;font-size:15px;color:#4b5563;line-height:1.7;">
                 Alex has finished your discovery session for
@@ -66,7 +66,7 @@ export async function sendICPCompletionEmail(params: {
                               color:#ffffff;font-size:15px;font-weight:700;
                               text-decoration:none;padding:14px 32px;
                               border-radius:10px;">
-                      View My SignalMap\u2122 \u2192
+                      View My SignalMap \u2192
                     </a>
                   </td>
                 </tr>
@@ -78,7 +78,7 @@ export async function sendICPCompletionEmail(params: {
                 <p style="margin:0 0 12px;font-size:13px;font-weight:700;
                            color:#191654;text-transform:uppercase;
                            letter-spacing:0.05em;">
-                  What to do with your SignalMap\u2122
+                  What to do with your SignalMap
                 </p>
                 <p style="margin:0 0 8px;font-size:14px;color:#4b5563;">
                   \u2192 Download the PDF and share it with your marketing team
@@ -107,7 +107,7 @@ export async function sendICPCompletionEmail(params: {
             <td style="padding:20px 40px;border-top:1px solid #f3f4f6;
                         text-align:center;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                Powered by SignalShot\u2122 \u00b7 Good Fellas Digital Marketing
+                Powered by SignalShot \u00b7 Good Fellas Digital Marketing
               </p>
             </td>
           </tr>

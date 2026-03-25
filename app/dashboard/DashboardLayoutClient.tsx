@@ -22,6 +22,7 @@ import {
   Menu,
   ChevronDown,
   Plus,
+  Mic,
 } from 'lucide-react'
 
 interface NavItem {
@@ -31,18 +32,32 @@ interface NavItem {
   productType?: string
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'SignalMap™ Session', href: '/dashboard/alex', icon: MessageSquare },
-  { label: 'My Deliverables', href: '/dashboard/deliverables', icon: FileText },
-  { label: 'BusinessSignals™', href: '/dashboard/business-signals', icon: Building2 },
-  { label: 'Voice of Customer', href: '/dashboard/voice-of-customer', icon: MessageSquare },
-  { label: 'SignalAds™', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
-  { label: 'SignalContent™', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
-  { label: 'SignalSequences™', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },
-  { label: 'SignalLaunch™', href: '/dashboard/gtm-plan', icon: Map, productType: 'gtm_plan' },
-  { label: 'SignalSprint™', href: '/dashboard/action-plan', icon: Calendar, productType: 'action_plan' },
-  { label: 'Account', href: '/dashboard/account', icon: User },
+interface NavSection {
+  label?: string
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { label: 'SignalBoard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Deliverables', href: '/dashboard/deliverables', icon: FileText },
+      { label: 'BusinessSignals', href: '/dashboard/business-signals', icon: Building2 },
+      { label: 'Voice of Customer', href: '/dashboard/voice-of-customer', icon: Mic },
+      { label: 'Account', href: '/dashboard/account', icon: User },
+    ],
+  },
+  {
+    label: 'MODULES',
+    items: [
+      { label: 'SignalMap Interview', href: '/dashboard/alex', icon: MessageSquare },
+      { label: 'SignalAds', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
+      { label: 'SignalContent', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
+      { label: 'SignalSequences', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },
+      { label: 'SignalLaunch', href: '/dashboard/gtm-plan', icon: Map, productType: 'gtm_plan' },
+      { label: 'SignalSprint', href: '/dashboard/action-plan', icon: Calendar, productType: 'action_plan' },
+    ],
+  },
 ]
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
@@ -249,7 +264,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <div className="flex flex-col h-full" style={{ backgroundColor: '#191654' }}>
         <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
           <div className="relative w-36 h-8">
-            <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain object-left" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:18px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'; }} />
+            <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain object-left" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:18px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot</span>'; }} />
           </div>
         </div>
 
@@ -259,41 +274,60 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         </div>
 
         <nav className="flex-1 py-2 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const state = getNavItemState(item)
-            const Icon = item.icon
-            const isActive = state === 'active'
-            const isLocked = state === 'not-purchased' || state === 'purchased-locked'
+          {NAV_SECTIONS.map((section, si) => (
+            <div key={si}>
+              {si > 0 && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', margin: '8px 0' }} />
+              )}
+              {section.label && (
+                <p style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  color: '#43C6AC',
+                  padding: '4px 12px 2px',
+                  textTransform: 'uppercase',
+                }}>
+                  {section.label}
+                </p>
+              )}
+              {section.items.map((item) => {
+                const state = getNavItemState(item)
+                const Icon = item.icon
+                const isActive = state === 'active'
+                const isLocked = state === 'not-purchased' || state === 'purchased-locked'
 
-            return (
-              <Link
-                key={item.href}
-                href={isLocked ? '#' : item.href}
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-all"
-                style={{
-                  backgroundColor: isActive ? 'rgba(67,198,172,0.15)' : 'transparent',
-                  borderLeft: isActive ? '3px solid #43C6AC' : '3px solid transparent',
-                  opacity: state === 'not-purchased' ? 0.4 : 1,
-                  cursor: isLocked ? 'not-allowed' : 'pointer',
-                }}
-              >
-                <Icon
-                  size={18}
-                  style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.75)', flexShrink: 0 }}
-                />
-                <span
-                  className="text-sm font-medium flex-1"
-                  style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.75)', fontFamily: 'DM Sans, sans-serif' }}
-                >
-                  {item.label}
-                </span>
-                {isLocked && (
-                  <Lock size={12} style={{ color: 'rgba(255,255,255,0.4)' }} />
-                )}
-              </Link>
-            )
-          })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={isLocked ? '#' : item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-all"
+                    style={{
+                      backgroundColor: isActive ? 'rgba(67,198,172,0.15)' : 'transparent',
+                      borderLeft: isActive ? '3px solid #43C6AC' : '3px solid transparent',
+                      opacity: state === 'not-purchased' ? 0.4 : 1,
+                      cursor: isLocked ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <Icon
+                      size={18}
+                      style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.75)', flexShrink: 0 }}
+                    />
+                    <span
+                      className="text-sm font-medium flex-1"
+                      style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.75)', fontFamily: 'DM Sans, sans-serif' }}
+                    >
+                      {item.label}
+                    </span>
+                    {isLocked && (
+                      <Lock size={12} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>

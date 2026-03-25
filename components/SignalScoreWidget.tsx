@@ -89,7 +89,7 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
       >
         <Lock size={24} className="mx-auto mb-2" style={{ color: '#d1d5db' }} />
         <p className="text-sm font-medium" style={{ color: '#6b7280' }}>
-          Complete your SignalMap™ session to unlock your Signal Score™
+          Complete your SignalMap interview to unlock your Signal Score
         </p>
       </div>
     )
@@ -125,7 +125,7 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
           </span>
         </div>
         <span className="text-xs font-medium" style={{ color: '#6b7280' }}>
-          Signal Score™
+          Signal Score
         </span>
       </div>
     )
@@ -153,7 +153,7 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
           )}
         </div>
         <span className="text-sm font-semibold" style={{ color: '#191654' }}>
-          Signal Score™
+          Signal Score
         </span>
       </div>
 

@@ -5,9 +5,9 @@ export function buildICPMarkdown(data: Record<string, unknown>): string {
 
   const lines: string[] = []
 
-  lines.push('# SignalMap™ — Ideal Customer Profile')
+  lines.push('# SignalMap — Ideal Customer Profile')
   lines.push(`## ${(data as Record<string, unknown> & { business_name?: string }).business_name || 'Your Business'}`)
-  lines.push('*Powered by SignalShot™*')
+  lines.push('*Powered by SignalShot*')
   lines.push('')
   lines.push('---')
   lines.push('')
@@ -215,7 +215,7 @@ export function buildICPMarkdown(data: Record<string, unknown>): string {
     }
   }
 
-  lines.push('*Powered by SignalShot™*')
+  lines.push('*Powered by SignalShot*')
   lines.push('*[ICP_COMPLETE]*')
 
   return lines.join('\n')

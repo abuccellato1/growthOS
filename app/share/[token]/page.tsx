@@ -65,7 +65,7 @@ export default function SharePage() {
             {error}
           </h1>
           <p className="text-sm" style={{ color: '#6b7280' }}>
-            This shared SignalMap™ link may have expired or been removed.
+            This shared SignalMap link may have expired or been removed.
           </p>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function SharePage() {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
-              SignalMap™ — {data.business_name}
+              SignalMap — {data.business_name}
             </h1>
             <p className="text-xs" style={{ color: '#9ca3af' }}>
               Shared by {data.business_name} · Expires {expiresDate}
@@ -106,7 +106,7 @@ export default function SharePage() {
       {/* Footer */}
       <footer className="text-center py-8">
         <p className="text-xs" style={{ color: '#9ca3af' }}>
-          Powered by SignalShot™
+          Powered by SignalShot
         </p>
       </footer>
     </div>
