@@ -522,7 +522,7 @@ export default function BusinessSignalsPage() {
         {vocCount > 0 && vocDetail ? (
           <>
             <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
-              {vocCount} {vocCount === 1 ? 'source' : 'sources'} · {vocPhraseCount} phrases extracted · Alex uses these to ask sharper questions
+              {vocCount} {vocCount === 1 ? 'source' : 'sources'} · {vocPhraseCount} phrases extracted{(vocDetail?.raw_reviews as unknown[] | null)?.length ? ` · ${(vocDetail!.raw_reviews as unknown[]).length} reviews analyzed` : ''} · Alex uses these to ask sharper questions
             </p>
             {((vocDetail.top_phrases as string[]) || []).length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">

@@ -2,6 +2,9 @@
   Run in Supabase before deploying:
   ALTER TABLE public.businesses
   ADD COLUMN IF NOT EXISTS last_research_at timestamptz;
+
+  ALTER TABLE public.voice_of_customer
+  ADD COLUMN IF NOT EXISTS raw_reviews jsonb;
 */
 
 import Anthropic from '@anthropic-ai/sdk'
@@ -282,18 +285,22 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }).eq('id', businessId)
 
-    // Save VOC to voice_of_customer table
-    if (call2Result) {
-      const voc = call2Result as Record<string, unknown>
-      const phrases = voc.extractedPhrases as string[] | undefined
-      const reviewsFound = voc.reviewsFound as boolean | undefined
+    // Save VOC to voice_of_customer table — runs when Places API returns reviews OR Call 2 extracts phrases
+    try {
+      const hasRealReviews = placesData.reviews.length > 0
+      const hasExtractedPhrases = !!(
+        call2Result &&
+        (call2Result as Record<string, unknown>).reviewsFound &&
+        ((call2Result as Record<string, unknown>).extractedPhrases as string[] | undefined)?.length
+      )
 
-      if (reviewsFound && phrases && phrases.length > 0) {
-        const rawText = placesData.reviews.length > 0
-          ? placesData.reviews.map(r => `${r.rating}★ — ${r.authorName}:\n"${r.text}"`).join('\n\n')
-          : JSON.stringify(call2Result)
+      if (hasRealReviews || hasExtractedPhrases) {
+        const voc = (call2Result || {}) as Record<string, unknown>
 
-        // Check for existing Places API VOC entry
+        const rawReviewText = placesData.reviews.length > 0
+          ? placesData.reviews.map((r, i) => `Review ${i + 1} — ${r.authorName} (${r.rating}★):\n"${r.text}"`).join('\n\n')
+          : JSON.stringify(call2Result || {})
+
         const { data: existingVoc } = await adminClient
           .from('voice_of_customer')
           .select('id')
@@ -301,30 +308,35 @@ export async function POST(request: Request) {
           .eq('source', 'google_places_api')
           .maybeSingle()
 
-        if (existingVoc) {
-          await adminClient.from('voice_of_customer').update({
-            raw_text: rawText,
-            extracted_phrases: voc.extractedPhrases || null,
-            outcome_language: voc.outcomeLanguage || null,
-            emotional_language: voc.emotionalLanguage || null,
-            problem_language: voc.problemLanguage || null,
-            top_phrases: voc.topPhrases || null,
-            updated_at: new Date().toISOString(),
-          }).eq('id', existingVoc.id)
-        } else {
-          await adminClient.from('voice_of_customer').insert({
-            business_id: businessId,
-            source: placesData.reviews.length > 0 ? 'google_places_api' : 'web_search',
-            source_url: gmbUrl || websiteUrl,
-            raw_text: rawText,
-            extracted_phrases: voc.extractedPhrases || null,
-            outcome_language: voc.outcomeLanguage || null,
-            emotional_language: voc.emotionalLanguage || null,
-            problem_language: voc.problemLanguage || null,
-            top_phrases: voc.topPhrases || null,
-          })
+        const vocPayload = {
+          business_id: businessId,
+          source: 'google_places_api',
+          source_url: gmbUrl || websiteUrl,
+          raw_text: rawReviewText,
+          raw_reviews: placesData.reviews.length > 0 ? placesData.reviews : null,
+          extracted_phrases: (voc.extractedPhrases as string[]) || null,
+          outcome_language: (voc.outcomeLanguage as string[]) || null,
+          emotional_language: (voc.emotionalLanguage as string[]) || null,
+          problem_language: (voc.problemLanguage as string[]) || null,
+          top_phrases: (voc.topPhrases as string[]) || null,
+          updated_at: new Date().toISOString(),
         }
+
+        if (existingVoc) {
+          await adminClient.from('voice_of_customer').update(vocPayload).eq('id', existingVoc.id)
+        } else {
+          await adminClient.from('voice_of_customer').insert(vocPayload)
+        }
+
+        logger.info('VOC saved', {
+          route: '/api/research',
+          businessId: businessId.slice(0, 8),
+          reviewCount: placesData.reviews.length,
+          hasExtractedPhrases,
+        })
       }
+    } catch (vocErr) {
+      logger.warn('VOC save failed (non-fatal)', { route: '/api/research', error: String(vocErr) })
     }
   } else if (customerId) {
     await adminClient.from('customers').update({

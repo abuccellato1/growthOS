@@ -24,12 +24,15 @@ interface VocEntry {
   outcome_language: string[] | null
   emotional_language: string[] | null
   problem_language: string[] | null
+  raw_reviews: Array<{ text: string; rating: number; authorName: string }> | null
 }
 
 const SOURCE_LABELS: Record<string, string> = {
   google_reviews: 'Google Reviews',
+  google_places_api: 'Google Places',
   testimonials: 'Testimonials',
   email_replies: 'Email Replies',
+  web_search: 'Web Search',
   other: 'Other',
 }
 
@@ -62,6 +65,8 @@ export default function VoiceOfCustomerPage() {
   const [extracted, setExtracted] = useState<ExtractedData | null>(null)
   const [history, setHistory] = useState<VocEntry[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [rawReviews, setRawReviews] = useState<Array<{ text: string; rating: number; authorName: string }>>([])
+  const [showAllReviews, setShowAllReviews] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -78,11 +83,18 @@ export default function VoiceOfCustomerPage() {
       // Fetch VOC history
       const { data: vocData } = await supabase
         .from('voice_of_customer')
-        .select('id, source, created_at, top_phrases, extracted_phrases, outcome_language, emotional_language, problem_language')
+        .select('id, source, created_at, top_phrases, extracted_phrases, outcome_language, emotional_language, problem_language, raw_reviews')
         .eq('business_id', bizId)
         .order('created_at', { ascending: false })
 
-      if (vocData) setHistory(vocData as VocEntry[])
+      if (vocData) {
+        setHistory(vocData as VocEntry[])
+        // Load raw reviews from first entry that has them
+        const withReviews = (vocData as VocEntry[]).find(v => v.raw_reviews && v.raw_reviews.length > 0)
+        if (withReviews?.raw_reviews) {
+          setRawReviews(withReviews.raw_reviews)
+        }
+      }
       setLoading(false)
     }
     load()
@@ -113,7 +125,7 @@ export default function VoiceOfCustomerPage() {
         const supabase = createClient()
         const { data: vocData } = await supabase
           .from('voice_of_customer')
-          .select('id, source, created_at, top_phrases, extracted_phrases, outcome_language, emotional_language, problem_language')
+          .select('id, source, created_at, top_phrases, extracted_phrases, outcome_language, emotional_language, problem_language, raw_reviews')
           .eq('business_id', businessId)
           .order('created_at', { ascending: false })
 
@@ -280,6 +292,52 @@ export default function VoiceOfCustomerPage() {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Source Reviews */}
+      {rawReviews.length > 0 && (
+        <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Source Reviews</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#43C6AC' }}>
+              {rawReviews.length} from Google
+            </span>
+          </div>
+          <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
+            These are the actual reviews Alex analyzed to extract your CustomerSignals phrases.
+          </p>
+          <div className="space-y-4">
+            {(showAllReviews ? rawReviews : rawReviews.slice(0, 2)).map((review, i) => (
+              <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: '#f8f9fc' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: '#191654' }}>
+                    {review.authorName[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#191654' }}>{review.authorName}</p>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: review.rating }).map((_, j) => (
+                        <span key={j} style={{ color: '#f59e0b', fontSize: 10 }}>★</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>
+                  &ldquo;{review.text}&rdquo;
+                </p>
+              </div>
+            ))}
+          </div>
+          {rawReviews.length > 2 && (
+            <button
+              onClick={() => setShowAllReviews(!showAllReviews)}
+              className="mt-4 text-xs font-medium w-full text-center"
+              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              {showAllReviews ? 'Show less' : `Show all ${rawReviews.length} reviews`}
+            </button>
           )}
         </div>
       )}
