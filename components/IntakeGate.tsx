@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Customer, Business } from '@/types'
-import { Loader, CheckCircle } from 'lucide-react'
+import { Loader, CheckCircle, Building2 } from 'lucide-react'
+import { usePlaceSearch } from '@/lib/use-place-search'
 
 export function isIntakeComplete(customer: Customer): boolean {
   return !!(
@@ -49,10 +50,37 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
   const [apiComplete, setApiComplete] = useState(false)
   const [researchResult, setResearchResult] = useState<Record<string, unknown> | null>(null)
   const [businessRef, setBusinessRef] = useState<Business | null>(null)
+  const [manualEntry, setManualEntry] = useState(!!existingBusiness)
+
+  const {
+    locationQuery, locationSuggestions, selectedLocation,
+    locationLoading, searchLocations, selectLocation, clearLocation,
+    businessQuery, businessSuggestions, selectedBusiness,
+    businessLoading, searchBusinesses, selectBusiness, clearBusiness,
+  } = usePlaceSearch()
+
+  useEffect(() => {
+    if (selectedBusiness) {
+      setBusinessName(selectedBusiness.name)
+      if (selectedBusiness.website) {
+        setWebsiteUrl(selectedBusiness.website.replace(/\/$/, ''))
+      }
+      if (selectedLocation) {
+        setGeographicMarket(
+          selectedLocation.name + (selectedLocation.address ? ', ' + selectedLocation.address : '')
+        )
+      }
+    }
+  }, [selectedBusiness, selectedLocation])
 
   function validate(): Record<string, string> {
     const errs: Record<string, string> = {}
-    if (!businessName.trim()) errs.businessName = 'Business name is required'
+    if (!manualEntry && !selectedBusiness && !businessName.trim()) {
+      errs.businessName = 'Please find your business or enter manually'
+    }
+    if (manualEntry && !businessName.trim()) {
+      errs.businessName = 'Business name is required'
+    }
     if (!websiteUrl.trim()) errs.websiteUrl = 'Website URL is required'
     if (!primaryService.trim()) errs.primaryService = 'Primary service is required'
     if (!geographicMarket.trim()) errs.geographicMarket = 'Geographic market is required'
@@ -136,6 +164,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
             primaryService: primaryService.trim(),
             geographicMarket: geographicMarket.trim(),
             gmbUrl: gmbUrl.trim() || undefined,
+            placeId: selectedBusiness?.placeId || undefined,
           }),
         }),
         new Promise((resolve) => setTimeout(resolve, 1000)),
@@ -290,7 +319,110 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
               <input type="text" name="website_url_confirm" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <input type="email" name="confirm_email_address" value={secondHoneypot} onChange={(e) => setSecondHoneypot(e.target.value)} style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <div className="space-y-4">
-                <Field label="Business Name" placeholder="e.g. Acme Marketing Co." hint="The name of your company or brand" value={businessName} onChange={setBusinessName} error={errors.businessName} />
+                {/* Place search — location + business */}
+                {!manualEntry && (
+                  <div className="space-y-4">
+                    {!selectedLocation ? (
+                      <div className="relative">
+                        <label className="block text-sm font-medium mb-1" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
+                          Where is your business located?
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text" value={locationQuery} onChange={(e) => searchLocations(e.target.value)}
+                            placeholder="City, region, or country..." autoComplete="off"
+                            className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
+                            style={{ borderColor: '#e5e7eb', fontFamily: 'DM Sans, sans-serif' }}
+                          />
+                          {locationLoading && <div className="absolute right-3 top-3"><Loader size={14} className="animate-spin" style={{ color: '#9ca3af' }} /></div>}
+                        </div>
+                        <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>Start typing your city — works worldwide</p>
+                        {locationSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 z-50 bg-white border rounded-xl shadow-lg mt-1 overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
+                            {locationSuggestions.map((s) => (
+                              <button key={s.placeId} type="button" onClick={() => selectLocation(s)} className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 flex items-start gap-2" style={{ borderColor: '#f3f4f6' }}>
+                                <span style={{ fontSize: 16, flexShrink: 0 }}>📍</span>
+                                <div>
+                                  <p className="text-sm font-medium" style={{ color: '#191654' }}>{s.name}</p>
+                                  {s.address && <p className="text-xs" style={{ color: '#9ca3af' }}>{s.address}</p>}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5" style={{ backgroundColor: 'rgba(67,198,172,0.12)', color: '#43C6AC' }}>
+                            📍 {selectedLocation.name}{selectedLocation.address && `, ${selectedLocation.address}`}
+                            <button type="button" onClick={clearLocation} className="ml-1 hover:opacity-70" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#43C6AC', fontSize: 16, lineHeight: 1 }}>×</button>
+                          </span>
+                        </div>
+                        {!selectedBusiness ? (
+                          <div className="relative">
+                            <label className="block text-sm font-medium mb-1" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>Find your business on Google</label>
+                            <div className="relative">
+                              <input
+                                type="text" value={businessQuery} onChange={(e) => searchBusinesses(e.target.value)}
+                                placeholder="Start typing your business name..." autoComplete="off" autoFocus
+                                className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
+                                style={{ borderColor: '#e5e7eb', fontFamily: 'DM Sans, sans-serif' }}
+                              />
+                              {businessLoading && <div className="absolute right-3 top-3"><Loader size={14} className="animate-spin" style={{ color: '#9ca3af' }} /></div>}
+                            </div>
+                            {businessSuggestions.length > 0 && (
+                              <div className="absolute top-full left-0 right-0 z-50 bg-white border rounded-xl shadow-lg mt-1 overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
+                                {businessSuggestions.map((s) => (
+                                  <button key={s.placeId} type="button" onClick={() => selectBusiness(s)} className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
+                                    <p className="text-sm font-medium" style={{ color: '#191654' }}>{s.name}</p>
+                                    <p className="text-xs" style={{ color: '#9ca3af' }}>{s.address}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-4 rounded-xl border" style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.04)' }}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#191654' }}>
+                                  <Building2 size={16} style={{ color: '#43C6AC' }} />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold" style={{ color: '#191654' }}>✓ {selectedBusiness.name}</p>
+                                  <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>{selectedBusiness.address}</p>
+                                  {selectedBusiness.rating && (
+                                    <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                                      ⭐ {selectedBusiness.rating} · {selectedBusiness.reviewCount} reviews{selectedBusiness.category && ` · ${selectedBusiness.category}`}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <button type="button" onClick={clearBusiness} className="text-xs font-medium flex-shrink-0 ml-2" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>Change</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!manualEntry && !selectedBusiness && (
+                  <button type="button" onClick={() => setManualEntry(true)} className="text-xs w-full text-center pt-1" style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    My business isn&apos;t on Google — enter manually
+                  </button>
+                )}
+                {manualEntry && (
+                  <div className="space-y-4">
+                    <button type="button" onClick={() => setManualEntry(false)} className="text-xs flex items-center gap-1" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      ← Search Google instead
+                    </button>
+                    <Field label="Business Name" placeholder="e.g. Acme Marketing Co." hint="The name of your company or brand" value={businessName} onChange={setBusinessName} error={errors.businessName} />
+                  </div>
+                )}
+                {errors.businessName && !manualEntry && (
+                  <p className="text-xs" style={{ color: '#ef4444' }}>{errors.businessName}</p>
+                )}
                 <Field label="Website URL" placeholder="e.g. acmemarketing.com" hint="Your main website" value={websiteUrl} onChange={setWebsiteUrl} error={errors.websiteUrl} />
                 <Field label="Primary Service or Product" placeholder="e.g. SEO & content marketing for B2B SaaS" hint="The core thing you sell" value={primaryService} onChange={setPrimaryService} error={errors.primaryService} />
                 <Field label="Primary Geographic Market" placeholder="e.g. United States, North America, Global" hint="Where your customers are located" value={geographicMarket} onChange={setGeographicMarket} error={errors.geographicMarket} />

@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Public routes — allow through
-  const publicRoutes = ['/login', '/auth/callback', '/beta', '/api/beta', '/share', '/api/share']
+  const publicRoutes = ['/login', '/auth/callback', '/beta', '/api/beta', '/share', '/api/share', '/api/places']
   const isPublicRoute = publicRoutes.some(route => path.startsWith(route))
   const isWebhook = path.startsWith('/api/webhooks')
 

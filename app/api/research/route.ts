@@ -15,6 +15,7 @@ interface ResearchRequest {
   primaryService: string
   geographicMarket: string
   gmbUrl?: string
+  placeId?: string
 }
 
 export async function POST(request: Request) {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     return apiError('Invalid request body', 400, 'INVALID_BODY')
   }
 
-  const { businessId, customerId, businessName, websiteUrl, primaryService, geographicMarket, gmbUrl } = body
+  const { businessId, customerId, businessName, websiteUrl, primaryService, geographicMarket, gmbUrl, placeId } = body
 
   if (!businessName || !websiteUrl || !primaryService) {
     logger.apiEnd('/api/research', start, 400)
@@ -39,9 +40,9 @@ export async function POST(request: Request) {
 
   // Set research_status to running
   if (businessId) {
-    await adminClient.from('businesses').update({
-      research_status: 'running',
-    }).eq('id', businessId)
+    const statusUpdate: Record<string, unknown> = { research_status: 'running' }
+    if (placeId) statusUpdate.place_id = placeId
+    await adminClient.from('businesses').update(statusUpdate).eq('id', businessId)
   }
 
   let call1Result: Record<string, unknown> | null = null

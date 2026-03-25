@@ -13,6 +13,7 @@ interface CreateBusinessRequest {
   primaryService?: string
   geographicMarket?: string
   gmbUrl?: string
+  placeId?: string
   migratingFromCustomer?: boolean
 }
 
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     return apiError(validation.errors.join(', '), 400, 'VALIDATION_ERROR')
   }
 
-  const { businessName, websiteUrl, primaryService, geographicMarket, gmbUrl, migratingFromCustomer } = body
+  const { businessName, websiteUrl, primaryService, geographicMarket, gmbUrl, placeId, migratingFromCustomer } = body
 
   const adminClient = createAdminClient()
 
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
       primary_service: primaryService?.trim() || null,
       geographic_market: geographicMarket?.trim() || null,
       gmb_url: gmbUrl?.trim() || null,
+      place_id: placeId || null,
       is_active: true,
     })
     .select()
