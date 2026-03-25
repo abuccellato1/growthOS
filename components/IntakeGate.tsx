@@ -227,12 +227,14 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
             <div className="p-8 pt-6 text-center">
               {/* Logo */}
               <div className="flex justify-center mb-6">
-                <img
+                <Image
                   src="/images/signalshot-logo.png"
                   alt="SignalShot"
-                  style={{ width: 140, height: 'auto' }}
+                  width={140}
+                  height={50}
+                  style={{ objectFit: 'contain' }}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none'
+                    (e.currentTarget as HTMLImageElement).style.display = 'none'
                   }}
                 />
               </div>

@@ -221,7 +221,6 @@ export default function DashboardPage() {
   }
 
   const purchasedTypes = purchases.map((p) => p.product_type)
-  const businessName = activeBusiness?.business_name || customer?.business_name || ''
 
   function determineState(): 'not_started' | 'in_progress' | 'generating' | 'complete' {
     if (!session || session.status === 'not_started') {
