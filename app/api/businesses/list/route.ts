@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { logger } from '@/lib/logger'
 import { apiError, apiSuccess } from '@/lib/api-response'
 
-export async function GET(request: Request) {
+export async function GET() {
   const start = logger.apiStart('/api/businesses/list')
 
   const auth = await requireAuth()
@@ -12,24 +12,14 @@ export async function GET(request: Request) {
     return auth.error
   }
 
-  const url = new URL(request.url)
-  const includeInactive = url.searchParams.get('includeInactive') === 'true'
-
   const adminClient = createAdminClient()
 
-  let query = adminClient
-  const query = adminClient
+  const { data: businesses, error } = await adminClient
     .from('businesses')
     .select('*')
     .eq('customer_id', auth.customer.id)
+    .eq('is_active', true)
     .order('created_at', { ascending: true })
-
-  if (!includeInactive) {
-    query = query.eq('is_active', true)
-    query.eq('is_active', true)
-  }
-
-  const { data: businesses, error } = await query
 
   if (error) {
     logger.error('Business list error', error, { route: '/api/businesses/list', customerId: auth.customer.id })
