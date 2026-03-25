@@ -64,6 +64,31 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
     async function load() {
       if (!businessId) { setLoading(false); return }
       const supabase = createClient()
+
+      // Try signal_scores table first (most accurate)
+      const { data: latestScore } = await supabase
+        .from('signal_scores')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('calculated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (latestScore) {
+        setScore({
+          total: latestScore.score_total,
+          foundation: latestScore.score_foundation,
+          messaging: latestScore.score_messaging,
+          competitive: latestScore.score_competitive,
+          content: latestScore.score_content,
+          ads: latestScore.score_ads,
+          calculated_at: latestScore.calculated_at,
+        })
+        setLoading(false)
+        return
+      }
+
+      // Fall back to business.signal_score jsonb
       const { data } = await supabase
         .from('businesses')
         .select('signal_score')
@@ -80,7 +105,6 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
 
   if (loading) return null
 
-  // Locked state — no score exists
   if (!score) {
     return (
       <div
@@ -97,66 +121,35 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
 
   const color = getScoreColor(score.total)
 
-  // Compact mode
   if (compact) {
     return (
       <div className="flex flex-col items-center gap-1">
         <div className="relative w-16 h-16">
           <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
-            <path
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke="#e5e7eb"
-              strokeWidth="3"
-            />
-            <path
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke={color}
-              strokeWidth="3"
-              strokeDasharray={`${score.total}, 100`}
-            />
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={color} strokeWidth="3" strokeDasharray={`${score.total}, 100`} />
           </svg>
-          <span
-            className="absolute inset-0 flex items-center justify-center text-lg font-bold"
-            style={{ color: '#191654' }}
-          >
-            {score.total}
-          </span>
+          <span className="absolute inset-0 flex items-center justify-center text-lg font-bold" style={{ color: '#191654' }}>{score.total}</span>
         </div>
-        <span className="text-xs font-medium" style={{ color: '#6b7280' }}>
-          Signal Score
-        </span>
+        <span className="text-xs font-medium" style={{ color: '#6b7280' }}>Signal Score</span>
       </div>
     )
   }
 
-  // Full mode
   return (
-    <div
-      className="p-6 rounded-xl border mb-6"
-      style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
-    >
+    <div className="p-6 rounded-xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
       <div className="flex items-center gap-4 mb-5">
         <div>
-          <span className="text-4xl font-bold" style={{ color: '#191654' }}>
-            {score.total}
-          </span>
+          <span className="text-4xl font-bold" style={{ color: '#191654' }}>{score.total}</span>
           <span className="text-lg" style={{ color: '#9ca3af' }}>/100</span>
           {score.total >= 81 && (
-            <span
-              className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}
-            >
-              ✓ Strong
+            <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}>
+              Strong
             </span>
           )}
         </div>
-        <span className="text-sm font-semibold" style={{ color: '#191654' }}>
-          Signal Score
-        </span>
+        <span className="text-sm font-semibold" style={{ color: '#191654' }}>Signal Score</span>
       </div>
-
       <div className="space-y-3">
         <ScoreBar label="Foundation" score={score.foundation} />
         <ScoreBar label="Messaging" score={score.messaging} />
@@ -164,11 +157,8 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
         <ScoreBar label="Content" score={score.content} />
         <ScoreBar label="Ads Ready" score={score.ads} />
       </div>
-
       {score.calculated_at && (
-        <p className="text-xs mt-4" style={{ color: '#9ca3af' }}>
-          Last updated: {formatRelativeTime(score.calculated_at)}
-        </p>
+        <p className="text-xs mt-4" style={{ color: '#9ca3af' }}>Last updated: {formatRelativeTime(score.calculated_at)}</p>
       )}
     </div>
   )

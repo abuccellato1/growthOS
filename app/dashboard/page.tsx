@@ -44,7 +44,6 @@ export default function DashboardPage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
   const [loading, setLoading] = useState(true)
   const [showIntakeGate, setShowIntakeGate] = useState(isOnboarding)
-  const [showToast, setShowToast] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -206,10 +205,8 @@ export default function DashboardPage() {
     setActiveBusiness(business)
     localStorage.setItem('signalshot_active_business', business.id)
     setShowIntakeGate(false)
-    setShowToast(true)
-    setTimeout(() => setShowToast(false), 3000)
-    // Reload to ensure dashboard has correct business context
-    window.location.reload()
+    // Navigate to BusinessSignals instead of reloading dashboard
+    router.push('/dashboard/business-signals')
   }
 
   if (loading) {
@@ -289,21 +286,6 @@ export default function DashboardPage() {
           existingBusiness={isNewBusiness ? null : activeBusiness}
           onComplete={handleIntakeComplete}
         />
-      )}
-
-      {/* Success toast */}
-      {showToast && (
-        <div
-          className="fixed top-4 left-1/2 z-[9999] px-6 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
-          style={{
-            backgroundColor: '#43C6AC',
-            transform: 'translateX(-50%)',
-            fontFamily: 'DM Sans, sans-serif',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Alex is ready for you. Start your interview when you are.
-        </div>
       )}
 
       {/* Signal Score — always visible */}

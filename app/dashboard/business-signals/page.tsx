@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Business, Session } from '@/types'
-import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare } from 'lucide-react'
+import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare, ArrowRight } from 'lucide-react'
 import SignalScoreWidget from '@/components/SignalScoreWidget'
 
 function formatDate(dateStr: string) {
@@ -65,6 +65,10 @@ export default function BusinessSignalsPage() {
   const [vocCount, setVocCount] = useState(0)
   const [vocPhraseCount, setVocPhraseCount] = useState(0)
   const [vocTopPhrases, setVocTopPhrases] = useState<string[]>([])
+  const [vocDetail, setVocDetail] = useState<Record<string, unknown> | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   // Edit form
   const [businessName, setBusinessName] = useState('')
@@ -105,10 +109,11 @@ export default function BusinessSignalsPage() {
       // Fetch VOC data
       const { data: vocData } = await supabase
         .from('voice_of_customer')
-        .select('id, extracted_phrases, top_phrases')
+        .select('*')
         .eq('business_id', activeBizId)
+        .order('created_at', { ascending: false })
 
-      if (vocData) {
+      if (vocData && vocData.length > 0) {
         setVocCount(vocData.length)
         let phraseTotal = 0
         const phrases: string[] = []
@@ -118,12 +123,31 @@ export default function BusinessSignalsPage() {
         }
         setVocPhraseCount(phraseTotal)
         setVocTopPhrases(phrases.slice(0, 3))
+        setVocDetail(vocData[0] as Record<string, unknown>)
       }
 
       setLoading(false)
     }
     load()
   }, [router])
+
+  // Poll research_status while running
+  useEffect(() => {
+    if (business?.research_status !== 'running') return
+    const supabase = createClient()
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('businesses')
+        .select('research_status, business_research')
+        .eq('id', business.id)
+        .single()
+      if (data?.research_status === 'complete') {
+        setBusiness(prev => prev ? { ...prev, research_status: data.research_status, business_research: data.business_research } : prev)
+        clearInterval(interval)
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [business?.research_status, business?.id])
 
   function openEdit() {
     if (!business) return
@@ -150,7 +174,6 @@ export default function BusinessSignalsPage() {
       updated_at: new Date().toISOString(),
     }).eq('id', business.id)
 
-    // Run research in background
     fetch('/api/research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -171,6 +194,7 @@ export default function BusinessSignalsPage() {
       gmb_url: gmbUrl.trim() || null,
       primary_service: primaryService.trim() || null,
       geographic_market: geographicMarket.trim() || null,
+      research_status: 'running',
     }
     setBusiness(updated)
     setEditing(false)
@@ -182,6 +206,7 @@ export default function BusinessSignalsPage() {
   async function handleRefreshResearch() {
     if (!business) return
     setRefreshing(true)
+    setBusiness(prev => prev ? { ...prev, research_status: 'running' } : prev)
     try {
       const res = await fetch('/api/research', {
         method: 'POST',
@@ -196,7 +221,6 @@ export default function BusinessSignalsPage() {
         }),
       })
       if (res.ok) {
-        // Refetch business to get updated research
         const supabase = createClient()
         const { data: updated } = await supabase
           .from('businesses')
@@ -217,6 +241,29 @@ export default function BusinessSignalsPage() {
     setRefreshing(false)
   }
 
+  async function handleDeleteBusiness() {
+    if (!business || deleteConfirmText !== business.business_name) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/businesses/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: business.id,
+          confirmName: deleteConfirmText,
+        }),
+      })
+      if (res.ok) {
+        localStorage.removeItem('signalshot_active_business')
+        router.push('/dashboard')
+      }
+    } catch (err) {
+      console.error('Delete error:', err)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -229,6 +276,7 @@ export default function BusinessSignalsPage() {
 
   const research = business.business_research
   const completedSessions = sessions.filter((s) => s.status === 'completed')
+  const hasNoSession = sessions.length === 0 || sessions.every(s => s.status === 'not_started')
 
   return (
     <div className="max-w-2xl">
@@ -247,8 +295,44 @@ export default function BusinessSignalsPage() {
         </div>
       </div>
 
+      {/* Research running indicator */}
+      {business.research_status === 'running' && (
+        <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ backgroundColor: 'rgba(67,198,172,0.08)', border: '1px solid rgba(67,198,172,0.2)' }}>
+          <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: '#43C6AC' }} />
+          <p className="text-sm" style={{ color: '#191654' }}>
+            Alex is researching your business profile. Some data may update in a moment.
+          </p>
+        </div>
+      )}
+
       {/* Signal Score */}
       <SignalScoreWidget businessId={business.id} />
+
+      {/* Start Interview CTA — show when no completed session */}
+      {hasNoSession && (
+        <div
+          className="p-5 rounded-xl border-2 mb-6 cursor-pointer hover:shadow-md transition-all"
+          style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.04)' }}
+          onClick={() => router.push('/dashboard/alex')}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#191654' }}>
+                <MessageSquare size={22} style={{ color: '#43C6AC' }} />
+              </div>
+              <div>
+                <p className="font-bold text-base" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+                  Start Your SignalMap Interview
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+                  Alex is ready. This takes 20-30 minutes and unlocks all your modules.
+                </p>
+              </div>
+            </div>
+            <ArrowRight size={18} style={{ color: '#43C6AC' }} />
+          </div>
+        </div>
+      )}
 
       {/* Voice of Customer Summary */}
       <div className="p-5 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
@@ -266,21 +350,13 @@ export default function BusinessSignalsPage() {
             {vocTopPhrases.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {vocTopPhrases.map((p, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-full text-xs"
-                    style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#374151' }}
-                  >
+                  <span key={i} className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#374151' }}>
                     {p}
                   </span>
                 ))}
               </div>
             )}
-            <Link
-              href="/dashboard/voice-of-customer"
-              className="text-xs font-medium"
-              style={{ color: '#43C6AC' }}
-            >
+            <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
               Add More Customer Voices →
             </Link>
           </>
@@ -289,23 +365,50 @@ export default function BusinessSignalsPage() {
             <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>
               No customer voice data yet
             </p>
-            <Link
-              href="/dashboard/voice-of-customer"
-              className="text-xs font-medium"
-              style={{ color: '#43C6AC' }}
-            >
+            <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
               Add reviews and testimonials to make your marketing smarter →
             </Link>
           </>
         )}
       </div>
 
+      {/* What Your Customers Say — detailed VOC card */}
+      {vocDetail && (vocDetail.top_phrases as string[] | undefined)?.length && (
+        <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
+            What Your Customers Say
+          </h2>
+          <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
+            Phrases extracted from real customer reviews — Alex uses these to ask sharper questions.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {((vocDetail.top_phrases as string[]) || []).slice(0, 8).map((phrase: string, i: number) => (
+              <span key={i} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(67,198,172,0.12)', color: '#43C6AC' }}>
+                &ldquo;{phrase}&rdquo;
+              </span>
+            ))}
+          </div>
+          {(vocDetail.outcome_language as string[] | undefined)?.length && (vocDetail.outcome_language as string[] | undefined)!.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold mb-2" style={{ color: '#374151' }}>Results customers mention:</p>
+              <ul className="space-y-1">
+                {((vocDetail.outcome_language as string[]) || []).slice(0, 3).map((item: string, i: number) => (
+                  <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#6b7280' }}>
+                    <span style={{ color: '#43C6AC' }}>→</span> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Link href="/dashboard/voice-of-customer" className="text-xs font-medium mt-4 inline-block" style={{ color: '#43C6AC' }}>
+            Add more customer voices →
+          </Link>
+        </div>
+      )}
+
       {/* Success toast */}
       {successMsg && (
-        <div
-          className="mb-6 px-4 py-3 rounded-xl text-sm font-medium"
-          style={{ backgroundColor: '#f0fdf9', color: '#43C6AC', border: '1px solid rgba(67,198,172,0.2)' }}
-        >
+        <div className="mb-6 px-4 py-3 rounded-xl text-sm font-medium" style={{ backgroundColor: '#f0fdf9', color: '#43C6AC', border: '1px solid rgba(67,198,172,0.2)' }}>
           {successMsg}
         </div>
       )}
@@ -313,15 +416,9 @@ export default function BusinessSignalsPage() {
       {/* Card 1 — Business Profile */}
       <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-            Business Profile
-          </h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Business Profile</h2>
           {!editing && (
-            <button
-              onClick={openEdit}
-              className="text-sm font-medium"
-              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
+            <button onClick={openEdit} className="text-sm font-medium" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>
               Edit Business Profile
             </button>
           )}
@@ -331,69 +428,24 @@ export default function BusinessSignalsPage() {
           <div className="space-y-4">
             <EditInput label="Business Name" value={businessName} onChange={setBusinessName} placeholder="e.g. Acme Marketing Co." />
             <EditInput label="Website URL" value={websiteUrl} onChange={setWebsiteUrl} placeholder="e.g. acmemarketing.com" />
-            <EditInput
-              label="Google My Business Profile URL"
-              value={gmbUrl}
-              onChange={setGmbUrl}
-              placeholder="e.g. https://g.page/your-business"
-              hint="Your GMB profile URL — helps Alex understand your local presence and review signals"
-              required={false}
-            />
+            <EditInput label="Google My Business Profile URL" value={gmbUrl} onChange={setGmbUrl} placeholder="e.g. https://g.page/your-business" hint="Your GMB profile URL — helps Alex understand your local presence and review signals" required={false} />
             <EditInput label="Primary Service or Product" value={primaryService} onChange={setPrimaryService} placeholder="e.g. SEO & content marketing for B2B SaaS" />
             <EditInput label="Primary Geographic Market" value={geographicMarket} onChange={setGeographicMarket} placeholder="e.g. United States, North America, Global" />
-
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full py-3 rounded-xl font-semibold text-white text-sm mt-2 disabled:opacity-60"
-              style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
-            >
+            <button onClick={handleSave} disabled={saving} className="w-full py-3 rounded-xl font-semibold text-white text-sm mt-2 disabled:opacity-60" style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}>
               {saving ? 'Saving and refreshing research...' : 'Save & Refresh Alex\'s Research'}
             </button>
-            <button
-              onClick={() => { setEditing(false); setSuccessMsg('') }}
-              disabled={saving}
-              className="w-full text-center text-sm py-1"
-              style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
+            <button onClick={() => { setEditing(false); setSuccessMsg('') }} disabled={saving} className="w-full text-center text-sm py-1" style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>
               Cancel
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Business Name</p>
-              <p className="text-sm font-medium" style={{ color: '#191654' }}>{business.business_name}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Website</p>
-              <p className="text-sm" style={{ color: '#374151' }}>
-                {business.website_url ? (
-                  <a href={business.website_url.startsWith('http') ? business.website_url : `https://${business.website_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1" style={{ color: '#43C6AC' }}>
-                    {business.website_url} <ExternalLink size={12} />
-                  </a>
-                ) : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Google My Business</p>
-              <p className="text-sm" style={{ color: '#374151' }}>
-                {business.gmb_url ? (
-                  <a href={business.gmb_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1" style={{ color: '#43C6AC' }}>
-                    View GMB Profile <ExternalLink size={12} />
-                  </a>
-                ) : <span style={{ color: '#9ca3af' }}>Not set</span>}
-              </p>
-            </div>
+            <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Business Name</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{business.business_name}</p></div>
+            <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Website</p><p className="text-sm" style={{ color: '#374151' }}>{business.website_url ? <a href={business.website_url.startsWith('http') ? business.website_url : `https://${business.website_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1" style={{ color: '#43C6AC' }}>{business.website_url} <ExternalLink size={12} /></a> : '—'}</p></div>
+            <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Google My Business</p><p className="text-sm" style={{ color: '#374151' }}>{business.gmb_url ? <a href={business.gmb_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1" style={{ color: '#43C6AC' }}>View GMB Profile <ExternalLink size={12} /></a> : <span style={{ color: '#9ca3af' }}>Not set</span>}</p></div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Primary Service</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{business.primary_service || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Geographic Market</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{business.geographic_market || '—'}</p>
-              </div>
+              <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Primary Service</p><p className="text-sm" style={{ color: '#374151' }}>{business.primary_service || '—'}</p></div>
+              <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Geographic Market</p><p className="text-sm" style={{ color: '#374151' }}>{business.geographic_market || '—'}</p></div>
             </div>
           </div>
         )}
@@ -403,71 +455,25 @@ export default function BusinessSignalsPage() {
       {research && (
         <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-              Alex&apos;s Research
-            </h2>
-            <button
-              onClick={handleRefreshResearch}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 text-sm font-medium disabled:opacity-50"
-              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Alex&apos;s Research</h2>
+            <button onClick={handleRefreshResearch} disabled={refreshing} className="flex items-center gap-1.5 text-sm font-medium disabled:opacity-50" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
               {refreshing ? 'Refreshing...' : 'Refresh Research'}
             </button>
           </div>
-
-          <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>
-            Last scanned: {formatDate(business.updated_at)}
-          </p>
-
+          <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>Last scanned: {formatDate(business.updated_at)}</p>
           <div className="space-y-3">
-            {research.whatTheyDo && (
-              <div>
-                <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>What they do</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{research.whatTheyDo}</p>
-              </div>
-            )}
-            {research.apparentTargetCustomer && (
-              <div>
-                <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Apparent target customer</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{research.apparentTargetCustomer}</p>
-              </div>
-            )}
-            {research.differentiators && (
-              <div>
-                <p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Differentiators</p>
-                <p className="text-sm" style={{ color: '#374151' }}>{research.differentiators}</p>
-              </div>
-            )}
+            {research.whatTheyDo && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>What they do</p><p className="text-sm" style={{ color: '#374151' }}>{research.whatTheyDo}</p></div>}
+            {research.apparentTargetCustomer && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Apparent target customer</p><p className="text-sm" style={{ color: '#374151' }}>{research.apparentTargetCustomer}</p></div>}
+            {research.differentiators && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Differentiators</p><p className="text-sm" style={{ color: '#374151' }}>{research.differentiators}</p></div>}
             {research.gmbData && (
               <div className="mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
                 <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#9ca3af' }}>GMB Signals</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {research.gmbData.reviewCount && (
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Reviews</p>
-                      <p className="text-sm font-medium" style={{ color: '#191654' }}>{research.gmbData.reviewCount}</p>
-                    </div>
-                  )}
-                  {research.gmbData.averageRating && (
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Avg Rating</p>
-                      <p className="text-sm font-medium" style={{ color: '#191654' }}>{research.gmbData.averageRating}</p>
-                    </div>
-                  )}
-                  {research.gmbData.categories && (
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Categories</p>
-                      <p className="text-sm" style={{ color: '#374151' }}>{research.gmbData.categories}</p>
-                    </div>
-                  )}
-                  {research.gmbData.serviceArea && (
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Service Area</p>
-                      <p className="text-sm" style={{ color: '#374151' }}>{research.gmbData.serviceArea}</p>
-                    </div>
-                  )}
+                  {research.gmbData.reviewCount && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Reviews</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{research.gmbData.reviewCount}</p></div>}
+                  {research.gmbData.averageRating && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Avg Rating</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{research.gmbData.averageRating}</p></div>}
+                  {research.gmbData.categories && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Categories</p><p className="text-sm" style={{ color: '#374151' }}>{research.gmbData.categories}</p></div>}
+                  {research.gmbData.serviceArea && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Service Area</p><p className="text-sm" style={{ color: '#374151' }}>{research.gmbData.serviceArea}</p></div>}
                 </div>
               </div>
             )}
@@ -476,54 +482,93 @@ export default function BusinessSignalsPage() {
       )}
 
       {/* Card 3 — Session History */}
-      <div className="p-6 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
-          Session History
-        </h2>
+      <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+        <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>Session History</h2>
         <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
           {completedSessions.length} completed SignalMap interview{completedSessions.length !== 1 ? 's' : ''}
         </p>
-
         {sessions.length === 0 ? (
           <p className="text-sm" style={{ color: '#9ca3af' }}>No sessions yet for this business.</p>
         ) : (
           <div className="space-y-3">
             {sessions.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between py-3 border-b last:border-0"
-                style={{ borderColor: '#f3f4f6' }}
-              >
+              <div key={s.id} className="flex items-center justify-between py-3 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
                 <div className="flex items-center gap-3">
-                  {s.status === 'completed' ? (
-                    <FileText size={16} style={{ color: '#43C6AC' }} />
-                  ) : (
-                    <Clock size={16} style={{ color: '#9ca3af' }} />
-                  )}
+                  {s.status === 'completed' ? <FileText size={16} style={{ color: '#43C6AC' }} /> : <Clock size={16} style={{ color: '#9ca3af' }} />}
                   <div>
                     <p className="text-sm font-medium" style={{ color: '#191654' }}>
                       {s.status === 'completed' ? 'SignalMap Complete' : `Phase ${s.phase} of 4`}
                       {s.archived && <span className="text-xs ml-2" style={{ color: '#9ca3af' }}>(Archived)</span>}
                     </p>
-                    <p className="text-xs" style={{ color: '#9ca3af' }}>
-                      {formatDate(s.created_at)}
-                    </p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>{formatDate(s.created_at)}</p>
                   </div>
                 </div>
                 {s.status === 'completed' && !s.archived && (
-                  <Link
-                    href="/dashboard/deliverables"
-                    className="text-xs font-medium"
-                    style={{ color: '#43C6AC' }}
-                  >
-                    View →
-                  </Link>
+                  <Link href="/dashboard/deliverables" className="text-xs font-medium" style={{ color: '#43C6AC' }}>View →</Link>
                 )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Danger Zone */}
+      <div className="mt-8 p-6 rounded-2xl border-2" style={{ borderColor: '#fca5a5', backgroundColor: '#fff5f5' }}>
+        <h2 className="text-sm font-semibold uppercase tracking-wide mb-1" style={{ color: '#ef4444' }}>Danger Zone</h2>
+        <p className="text-xs mb-4" style={{ color: '#6b7280' }}>Destructive actions that cannot be easily undone.</p>
+        <div className="flex items-center justify-between p-4 rounded-xl border" style={{ borderColor: '#fca5a5', backgroundColor: '#ffffff' }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: '#374151' }}>Delete this business</p>
+            <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>Your business data is archived for 30 days, then permanently deleted. Your business slot remains used during this period.</p>
+          </div>
+          <button onClick={() => setShowDeleteModal(true)} className="px-4 py-2 rounded-lg text-sm font-semibold text-white flex-shrink-0 ml-4" style={{ backgroundColor: '#ef4444' }}>
+            Delete Business
+          </button>
+        </div>
+      </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
+              Delete {business?.business_name}?
+            </h3>
+            <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
+              This will archive your business and all associated data for 30 days. After 30 days everything is permanently deleted and cannot be recovered. Your business slot remains used during the 30-day period.
+            </p>
+            <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: '#fff5f5', border: '1px solid #fca5a5' }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: '#ef4444' }}>What will be deleted:</p>
+              <ul className="text-xs space-y-1" style={{ color: '#6b7280' }}>
+                <li>All SignalMap Interview transcripts</li>
+                <li>Your ICP document and all deliverables</li>
+                <li>Business research and signals data</li>
+                <li>Voice of customer data</li>
+                <li>Signal Score history</li>
+              </ul>
+            </div>
+            <p className="text-sm mb-2" style={{ color: '#374151' }}>
+              Type <strong>{business?.business_name}</strong> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={business?.business_name}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none mb-4"
+              style={{ borderColor: '#e5e7eb' }}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => { setShowDeleteModal(false); setDeleteConfirmText('') }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ backgroundColor: '#f3f4f6', color: '#374151' }}>
+                Cancel
+              </button>
+              <button onClick={handleDeleteBusiness} disabled={deleteConfirmText !== business?.business_name || deleting} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-40" style={{ backgroundColor: '#ef4444' }}>
+                {deleting ? 'Deleting...' : 'Delete Business'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

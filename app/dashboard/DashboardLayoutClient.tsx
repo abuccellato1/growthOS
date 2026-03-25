@@ -196,6 +196,12 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           >
             {displayName}
           </span>
+          {activeBusiness?.research_status === 'running' && (
+            <span
+              className="w-2 h-2 rounded-full animate-pulse ml-1 flex-shrink-0 inline-block"
+              style={{ backgroundColor: '#43C6AC' }}
+            />
+          )}
           <ChevronDown
             size={14}
             style={{
