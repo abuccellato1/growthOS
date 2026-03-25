@@ -143,8 +143,6 @@ export async function POST(request: Request) {
 
   // Get real review text from Places API
   const placesData = await getPlaceReviews(businessName, cityForSearch, gmbUrl, placeId)
-  console.log('Places API reviews:', placesData.reviews.length)
-  console.log('Places API placeId:', placesData.resolvedPlaceId)
 
   // If Places returned a place_id, save it
   if (placesData.resolvedPlaceId && businessId && !placeId) {
@@ -227,26 +225,21 @@ export async function POST(request: Request) {
 
     const [res1, res2] = await Promise.all([call1Promise, call2Promise])
 
-    // Parse call 1
-    const textBlock1 = res1?.content?.find((b: { type: string }) => b.type === 'text')
-    console.log('Call 1 raw response type:', res1?.content?.map((b: { type: string }) => b.type))
-    console.log('Call 1 text block found:', !!textBlock1)
+    // Parse call 1 — use last text block (first is often preamble)
+    const textBlocks1 = res1?.content?.filter((b: { type: string }) => b.type === 'text')
+    const textBlock1 = textBlocks1?.[textBlocks1.length - 1]
     if (textBlock1 && textBlock1.type === 'text') {
       const raw = (textBlock1 as { type: 'text'; text: string }).text.trim()
-      console.log('Call 1 raw text length:', raw.length)
-      console.log('Call 1 raw text preview:', raw.slice(0, 200))
-      console.log('Call 1 JSON match found:', !!raw.match(/\{[\s\S]*\}/))
       const jsonMatch = raw.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         call1Result = JSON.parse(jsonMatch[0])
       }
     }
-    console.log('Call 1 parsed result:', call1Result ? 'SUCCESS' : 'NULL')
 
-    // Parse call 2
-    console.log('Call 2 ran:', res2 !== null)
+    // Parse call 2 — use last text block
     if (res2) {
-      const textBlock2 = res2.content?.find((b: { type: string }) => b.type === 'text')
+      const textBlocks2 = res2.content?.filter((b: { type: string }) => b.type === 'text')
+      const textBlock2 = textBlocks2?.[textBlocks2.length - 1]
       if (textBlock2 && textBlock2.type === 'text') {
         const raw = (textBlock2 as { type: 'text'; text: string }).text.trim()
         const jsonMatch = raw.match(/\{[\s\S]*\}/)
@@ -255,7 +248,6 @@ export async function POST(request: Request) {
         }
       }
     }
-    console.log('Call 2 parsed result:', call2Result ? 'SUCCESS' : 'NULL')
   } catch (err) {
     logger.warn('Business research failed', { route: '/api/research', businessId, error: String(err) })
     if (businessId) {
