@@ -264,16 +264,14 @@ export async function POST(request: Request) {
       }).eq('id', sessionId)
 
       // Calculate and save Signal Score (non-fatal)
-      if (sessionData.customer_id) {
-        const { data: sessionBiz } = await adminClient
-          .from('sessions')
-          .select('business_id')
-          .eq('id', sessionId)
-          .single()
+      const { data: sessionRecord } = await adminClient
+        .from('sessions')
+        .select('business_id')
+        .eq('id', sessionId)
+        .single()
 
-        if (sessionBiz?.business_id) {
-          saveSignalScore(sessionBiz.business_id, parsedData).catch(() => {})
-        }
+      if (sessionRecord?.business_id && parsedData.signal_score_inputs) {
+        await saveSignalScore(sessionRecord.business_id, parsedData).catch(() => {})
       }
     }
 

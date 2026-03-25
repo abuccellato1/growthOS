@@ -19,6 +19,7 @@ export async function GET() {
     .select('*')
     .eq('customer_id', auth.customer.id)
     .eq('is_active', true)
+    .not('status', 'eq', 'deleted')
     .order('created_at', { ascending: true })
 
   if (error) {

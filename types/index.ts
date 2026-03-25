@@ -15,11 +15,24 @@ export interface BusinessResearch {
   apparentTargetCustomer: string;
   differentiators: string;
   websiteFound: boolean;
+  services?: string[];
+  serviceAreas?: string[];
+  teamSize?: string;
+  foundedYear?: string;
+  certifications?: string[];
+  awards?: string[];
+  testimonialThemes?: string[];
+  websiteQuality?: string;
+  blogTopics?: string[];
+  pricingSignals?: string;
+  voiceOfCustomer?: Record<string, unknown> | null;
   gmbData?: {
     reviewCount: string;
     averageRating: string;
     categories: string;
     serviceArea: string;
+    hoursAvailable?: boolean;
+    photosCount?: string;
   } | null;
 }
 
@@ -34,6 +47,7 @@ export interface Business {
   business_research: BusinessResearch | null;
   gmb_url: string | null;
   is_active: boolean;
+  research_status: string | null;
   voice_of_customer: Record<string, unknown> | null;
   signal_score: Record<string, unknown> | null;
   created_at: string;
