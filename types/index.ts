@@ -51,6 +51,7 @@ export interface Business {
   research_status: string | null;
   voice_of_customer: Record<string, unknown> | null;
   signal_score: Record<string, unknown> | null;
+  last_research_at: string | null;
   created_at: string;
   updated_at: string;
 }

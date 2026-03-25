@@ -1,3 +1,9 @@
+/*
+  Run in Supabase before deploying:
+  ALTER TABLE public.businesses
+  ADD COLUMN IF NOT EXISTS last_research_at timestamptz;
+*/
+
 import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
@@ -270,6 +276,7 @@ export async function POST(request: Request) {
     await adminClient.from('businesses').update({
       business_research: enhancedResearch,
       research_status: 'complete',
+      last_research_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('id', businessId)
 

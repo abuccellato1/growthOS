@@ -182,7 +182,7 @@ export default function AccountPage() {
     : '?'
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <div className="flex items-center gap-4 mb-8">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
           <User size={26} style={{ color: '#43C6AC' }} />

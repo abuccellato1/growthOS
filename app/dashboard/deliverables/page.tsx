@@ -182,7 +182,7 @@ export default function DeliverablesPage() {
     !session.archived
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       {/* Page header */}
       <div className="flex items-center gap-4 mb-8">
         <div

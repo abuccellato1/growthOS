@@ -137,7 +137,7 @@ export default function VoiceOfCustomerPage() {
   const totalPhrases = history.reduce((sum, e) => sum + (e.extracted_phrases?.length || 0), 0)
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-6xl">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
