@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { Session } from '@/types'
-import { FileText, Lock, Loader, ArrowRight } from 'lucide-react'
+import { FileText, Lock, Loader, ArrowRight, Share2, Copy, Check, X } from 'lucide-react'
 import Link from 'next/link'
 
 const ICPDisplay = dynamic(() => import('@/components/ICPDisplay'), {
@@ -23,6 +23,9 @@ export default function DeliverablesPage() {
   const [regenerating, setRegenerating] = useState(false)
   const [recovering, setRecovering] = useState(false)
   const [recoverError, setRecoverError] = useState<string | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
   const router = useRouter()
 
   async function handleRegenerateICP() {
@@ -64,6 +67,26 @@ export default function DeliverablesPage() {
       setRecoverError('Connection error. Please try again.')
     } finally {
       setRecovering(false)
+    }
+  }
+
+  async function handleShare() {
+    if (!session) return
+    setSharing(true)
+    try {
+      const res = await fetch('/api/icp/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: session.id }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setShareUrl(data.data?.shareUrl || data.shareUrl)
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -324,8 +347,17 @@ export default function DeliverablesPage() {
             <ICPDisplay icpMarkdown={session.icp_html!} sessionId={session.id} />
           </div>
 
-          {/* Rebuild link */}
-          <div className="text-center mt-6">
+          {/* Share + Rebuild links */}
+          <div className="flex items-center justify-center gap-6 mt-6">
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="text-xs font-medium flex items-center gap-1"
+              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <Share2 size={13} />
+              {sharing ? 'Creating link...' : 'Share with your team →'}
+            </button>
             <Link
               href="/dashboard/alex"
               className="text-xs"
@@ -334,6 +366,48 @@ export default function DeliverablesPage() {
               Want to rebuild your ICP? Go to your SignalMap™ Session →
             </Link>
           </div>
+
+          {/* Share modal */}
+          {shareUrl && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold" style={{ color: '#191654' }}>
+                    Share Your SignalMap™
+                  </h3>
+                  <button
+                    onClick={() => { setShareUrl(null); setShareCopied(false) }}
+                    className="p-1 rounded hover:bg-gray-100"
+                  >
+                    <X size={18} style={{ color: '#9ca3af' }} />
+                  </button>
+                </div>
+                <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
+                  Anyone with this link can view your ICP document. Link expires in 30 days.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: '#e5e7eb', color: '#374151' }}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareUrl)
+                      setShareCopied(true)
+                      setTimeout(() => setShareCopied(false), 2000)
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-1"
+                    style={{ backgroundColor: '#43C6AC' }}
+                  >
+                    {shareCopied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

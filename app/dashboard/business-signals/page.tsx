@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Business, Session } from '@/types'
-import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock } from 'lucide-react'
+import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare } from 'lucide-react'
+import SignalScoreWidget from '@/components/SignalScoreWidget'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -61,6 +62,9 @@ export default function BusinessSignalsPage() {
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [vocCount, setVocCount] = useState(0)
+  const [vocPhraseCount, setVocPhraseCount] = useState(0)
+  const [vocTopPhrases, setVocTopPhrases] = useState<string[]>([])
 
   // Edit form
   const [businessName, setBusinessName] = useState('')
@@ -97,6 +101,25 @@ export default function BusinessSignalsPage() {
         .order('created_at', { ascending: false })
 
       if (sessionData) setSessions(sessionData)
+
+      // Fetch VOC data
+      const { data: vocData } = await supabase
+        .from('voice_of_customer')
+        .select('id, extracted_phrases, top_phrases')
+        .eq('business_id', activeBizId)
+
+      if (vocData) {
+        setVocCount(vocData.length)
+        let phraseTotal = 0
+        const phrases: string[] = []
+        for (const v of vocData) {
+          if (v.extracted_phrases) phraseTotal += (v.extracted_phrases as string[]).length
+          if (v.top_phrases) phrases.push(...(v.top_phrases as string[]))
+        }
+        setVocPhraseCount(phraseTotal)
+        setVocTopPhrases(phrases.slice(0, 3))
+      }
+
       setLoading(false)
     }
     load()
@@ -222,6 +245,59 @@ export default function BusinessSignalsPage() {
             Your business profile — the foundation Alex uses for every SignalMap™ session.
           </p>
         </div>
+      </div>
+
+      {/* Signal Score */}
+      <SignalScoreWidget businessId={business.id} />
+
+      {/* Voice of Customer Summary */}
+      <div className="p-5 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <MessageSquare size={18} style={{ color: '#43C6AC' }} />
+          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
+            Voice of Customer
+          </h2>
+        </div>
+        {vocCount > 0 ? (
+          <>
+            <p className="text-sm mb-3" style={{ color: '#6b7280' }}>
+              {vocCount} customer voice {vocCount === 1 ? 'entry' : 'entries'} · {vocPhraseCount} phrases extracted
+            </p>
+            {vocTopPhrases.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {vocTopPhrases.map((p, i) => (
+                  <span
+                    key={i}
+                    className="px-2.5 py-1 rounded-full text-xs"
+                    style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#374151' }}
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
+            )}
+            <Link
+              href="/dashboard/voice-of-customer"
+              className="text-xs font-medium"
+              style={{ color: '#43C6AC' }}
+            >
+              Add More Customer Voices →
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>
+              No customer voice data yet
+            </p>
+            <Link
+              href="/dashboard/voice-of-customer"
+              className="text-xs font-medium"
+              style={{ color: '#43C6AC' }}
+            >
+              Add reviews and testimonials to make your marketing smarter →
+            </Link>
+          </>
+        )}
       </div>
 
       {/* Success toast */}

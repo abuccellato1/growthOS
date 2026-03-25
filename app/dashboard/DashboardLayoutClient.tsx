@@ -36,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'SignalMap™ Session', href: '/dashboard/alex', icon: MessageSquare },
   { label: 'My Deliverables', href: '/dashboard/deliverables', icon: FileText },
   { label: 'BusinessSignals™', href: '/dashboard/business-signals', icon: Building2 },
+  { label: 'Voice of Customer', href: '/dashboard/voice-of-customer', icon: MessageSquare },
   { label: 'SignalAds™', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
   { label: 'SignalContent™', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
   { label: 'SignalSequences™', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },

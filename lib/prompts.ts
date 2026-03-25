@@ -214,6 +214,50 @@ Return this exact JSON structure populated with everything discovered:
     "positioning_edge": "",
     "anti_icp": ""
   },
+  "targeting_data": {
+    "job_titles": [],
+    "industries": [],
+    "company_sizes": [],
+    "income_ranges": [],
+    "age_ranges": [],
+    "interests": [],
+    "linkedin_groups": [],
+    "geographic_targets": []
+  },
+  "proof_assets": {
+    "testimonial_themes": [],
+    "result_metrics": [],
+    "case_study_angles": [],
+    "credential_signals": [],
+    "social_proof_types": []
+  },
+  "anti_icp_signals": {
+    "who_to_exclude": "",
+    "wrong_searches": [],
+    "wrong_messaging": [],
+    "disqualifiers": [],
+    "negative_keywords": []
+  },
+  "voice_of_customer_signals": {
+    "exact_phrases": [],
+    "problem_descriptions": [],
+    "outcome_descriptions": [],
+    "emotional_language": [],
+    "repeated_themes": []
+  },
+  "signal_score_inputs": {
+    "icp_confidence": 0,
+    "messaging_clarity": 0,
+    "competitive_position": 0,
+    "content_coverage": 0,
+    "data_completeness": 0,
+    "score_rationale": ""
+  },
+  "shareability": {
+    "one_page_summary": "",
+    "sales_team_brief": "",
+    "agency_brief": ""
+  },
   "content_data": {
     "awareness_searches": [],
     "problem_clusters": [],
@@ -234,6 +278,15 @@ Return this exact JSON structure populated with everything discovered:
     "budget_by_segment": ""
   }
 }
+
+For signal_score_inputs: score each dimension 0-100 based on the depth and specificity of data collected in the conversation. A score of 100 means every field has rich, specific, evidenced data. A score of 0 means the field is empty or aspirational only. Be honest — most scores will be 50-80. Write a 1-2 sentence score_rationale explaining the overall confidence level.
+
+For voice_of_customer_signals: extract any specific language the business owner used that sounds like it came directly from customer feedback — exact quotes they mentioned, specific phrases customers use, results customers described. These are the highest-value copy inputs in the entire document.
+
+For shareability: write three ultra-compact versions of the ICP:
+- one_page_summary: 150 words max, plain language, suitable for a sales team member to read before a call
+- sales_team_brief: bullet points only, the 5 things a salesperson must know about this customer to have a great conversation
+- agency_brief: structured brief a marketing agency could use to execute campaigns immediately, includes ICP, messaging angles, channels, and proof points
 
 Use ONLY what was discovered in the conversation. Never invent. If a field lacks data write null. End your response with [ICP_COMPLETE] after the closing brace of the JSON.`,
   },
