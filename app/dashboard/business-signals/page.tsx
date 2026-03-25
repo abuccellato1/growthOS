@@ -279,7 +279,8 @@ export default function BusinessSignalsPage() {
 
   if (!business) return null
 
-  const research = business.business_research
+  const research = business?.business_research as Record<string, unknown> | null
+  const gmbData = research?.gmbData as Record<string, unknown> | null
   const completedSessions = sessions.filter((s) => s.status === 'completed')
   const hasNoSession = sessions.length === 0 || sessions.every(s => s.status === 'not_started')
 
@@ -395,18 +396,18 @@ export default function BusinessSignalsPage() {
         </div>
       )}
 
-      {/* Voice of Customer Summary */}
+      {/* CustomerSignals Summary */}
       <div className="p-5 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
         <div className="flex items-center gap-3 mb-3">
           <MessageSquare size={18} style={{ color: '#43C6AC' }} />
           <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-            Voice of Customer
+            CustomerSignals
           </h2>
         </div>
         {vocCount > 0 ? (
           <>
             <p className="text-sm mb-3" style={{ color: '#6b7280' }}>
-              {vocCount} customer voice {vocCount === 1 ? 'entry' : 'entries'} · {vocPhraseCount} phrases extracted
+              {vocCount} customer signals {vocCount === 1 ? 'entry' : 'entries'} · {vocPhraseCount} phrases extracted
             </p>
             {vocTopPhrases.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
@@ -418,26 +419,26 @@ export default function BusinessSignalsPage() {
               </div>
             )}
             <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
-              Add More Customer Voices →
+              Add More to CustomerSignals →
             </Link>
           </>
         ) : (
           <>
             <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>
-              No customer voice data yet
+              No customer signals data yet
             </p>
             <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
-              Add reviews and testimonials to make your marketing smarter →
+              Add reviews to CustomerSignals to make your marketing smarter →
             </Link>
           </>
         )}
       </div>
 
-      {/* What Your Customers Say — detailed VOC card */}
+      {/* CustomerSignals — detailed VOC card */}
       {vocDetail && (vocDetail.top_phrases as string[] | undefined)?.length && (
         <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
-            What Your Customers Say
+            CustomerSignals
           </h2>
           <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
             Phrases extracted from real customer reviews — Alex uses these to ask sharper questions.
@@ -462,7 +463,7 @@ export default function BusinessSignalsPage() {
             </div>
           )}
           <Link href="/dashboard/voice-of-customer" className="text-xs font-medium mt-4 inline-block" style={{ color: '#43C6AC' }}>
-            Add more customer voices →
+            Add more customer signalss →
           </Link>
         </div>
       )}
@@ -541,17 +542,17 @@ export default function BusinessSignalsPage() {
           </div>
           <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>Last scanned: {formatDate(business.updated_at)}</p>
           <div className="space-y-3">
-            {research.whatTheyDo && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>What they do</p><p className="text-sm" style={{ color: '#374151' }}>{research.whatTheyDo}</p></div>}
-            {research.apparentTargetCustomer && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Apparent target customer</p><p className="text-sm" style={{ color: '#374151' }}>{research.apparentTargetCustomer}</p></div>}
-            {research.differentiators && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Differentiators</p><p className="text-sm" style={{ color: '#374151' }}>{research.differentiators}</p></div>}
-            {research.gmbData && (
+            {Boolean(research?.whatTheyDo) && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>What they do</p><p className="text-sm" style={{ color: '#374151' }}>{String(research!.whatTheyDo)}</p></div>}
+            {Boolean(research?.apparentTargetCustomer) && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Apparent target customer</p><p className="text-sm" style={{ color: '#374151' }}>{String(research!.apparentTargetCustomer)}</p></div>}
+            {Boolean(research?.differentiators) && <div><p className="text-xs uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Differentiators</p><p className="text-sm" style={{ color: '#374151' }}>{String(research!.differentiators)}</p></div>}
+            {gmbData && (
               <div className="mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
                 <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#9ca3af' }}>GMB Signals</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {research.gmbData.reviewCount && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Reviews</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{research.gmbData.reviewCount}</p></div>}
-                  {research.gmbData.averageRating && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Avg Rating</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{research.gmbData.averageRating}</p></div>}
-                  {research.gmbData.categories && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Categories</p><p className="text-sm" style={{ color: '#374151' }}>{research.gmbData.categories}</p></div>}
-                  {research.gmbData.serviceArea && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Service Area</p><p className="text-sm" style={{ color: '#374151' }}>{research.gmbData.serviceArea}</p></div>}
+                  {Boolean(gmbData.reviewCount) && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Reviews</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{String(gmbData.reviewCount)}</p></div>}
+                  {Boolean(gmbData.averageRating) && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Avg Rating</p><p className="text-sm font-medium" style={{ color: '#191654' }}>{String(gmbData.averageRating)}</p></div>}
+                  {Boolean(gmbData.categories) && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Categories</p><p className="text-sm" style={{ color: '#374151' }}>{String(gmbData.categories)}</p></div>}
+                  {Boolean(gmbData.serviceArea) && <div><p className="text-xs" style={{ color: '#9ca3af' }}>Service Area</p><p className="text-sm" style={{ color: '#374151' }}>{String(gmbData.serviceArea)}</p></div>}
                 </div>
               </div>
             )}

@@ -205,7 +205,7 @@ export function buildICPMarkdown(data: Record<string, unknown>): string {
     const voc = data.voice_of_customer_signals as Record<string, unknown>
     const phrases = voc.exact_phrases as string[] | null
     if (phrases && phrases.length > 0) {
-      lines.push('## Voice of Customer')
+      lines.push('## CustomerSignals')
       lines.push('*Exact language from real customers — use this in your copy.*')
       lines.push('')
       phrases.forEach(p => lines.push(`> "${p}"`))

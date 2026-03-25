@@ -511,7 +511,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold" style={{ color: '#191654' }}>
-                    Add Your Customer Voice
+                    Add to CustomerSignals
                   </p>
                   <p className="text-xs" style={{ color: '#6b7280' }}>
                     Paste reviews to make every module smarter

@@ -145,10 +145,10 @@ export default function VoiceOfCustomerPage() {
         </div>
         <div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            Voice of Customer
+            CustomerSignals
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
-            Your customers already wrote your best copy. Let&apos;s find it.
+            Your customers are sending signals. Here&apos;s what they&apos;re saying.
           </p>
         </div>
       </div>
@@ -288,7 +288,7 @@ export default function VoiceOfCustomerPage() {
       {history.length > 0 && (
         <div className="p-4 rounded-xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
           <p className="text-sm" style={{ color: '#6b7280' }}>
-            {history.length} customer voice {history.length === 1 ? 'entry' : 'entries'} · {totalPhrases} phrases extracted
+            {history.length} customer signals {history.length === 1 ? 'entry' : 'entries'} · {totalPhrases} phrases extracted
           </p>
         </div>
       )}
