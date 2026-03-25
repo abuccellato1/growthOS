@@ -369,7 +369,7 @@ export default function AlexPage() {
           )
         }
 
-        const completionMsg = `That's everything. Your **SignalMap™** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
+        const completionMsg = `That's everything. Your **SignalMap** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
         const withCompletion: Message[] = [
           ...finalMessages,
           { role: 'assistant', content: completionMsg },
@@ -492,10 +492,10 @@ export default function AlexPage() {
             className="text-2xl font-bold mb-2"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            Starting your SignalMap™ session...
+            Starting your SignalMap interview...
           </h2>
           <p style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-            Setting up your session
+            Setting up your interview
           </p>
         </div>
         <Loader size={24} className="animate-spin" style={{ color: '#43C6AC' }} />
@@ -513,7 +513,7 @@ export default function AlexPage() {
             className="text-2xl font-bold mb-3"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            Your SignalMap™ is complete.
+            Your SignalMap is complete.
           </h2>
           <p className="mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
             Alex has already built your customer intelligence for{' '}
@@ -525,7 +525,7 @@ export default function AlexPage() {
               className="w-full py-3 rounded-xl text-white font-semibold text-sm mb-4"
               style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
             >
-              View My SignalMap™ →
+              View My SignalMap →
             </button>
           </Link>
 
@@ -564,7 +564,7 @@ export default function AlexPage() {
                   Are you sure?
                 </h3>
                 <p className="text-sm mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-                  Starting a new session will archive your current SignalMap™. Your previous ICP will still be
+                  Starting a new session will archive your current SignalMap. Your previous ICP will still be
                   accessible in your session history but your active deliverables will be replaced.
                 </p>
                 <button
@@ -602,7 +602,7 @@ export default function AlexPage() {
         style={{ backgroundColor: '#f9fafb', borderRight: '1px solid #e5e7eb' }}
       >
         <h3 className="text-xs font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
-          SignalMap™ Progress
+          SignalMap Progress
         </h3>
         <div className="space-y-1">
           {([1, 2, 3, 4] as Phase[]).map((phaseNum) => {
@@ -708,7 +708,7 @@ export default function AlexPage() {
               <CheckCircle size={24} style={{ color: '#43C6AC', flexShrink: 0 }} />
               <div>
                 <p className="font-semibold text-sm" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
-                  Your SignalMap™ is ready
+                  Your SignalMap is ready
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
                   View, download as PDF, or copy for Google Docs

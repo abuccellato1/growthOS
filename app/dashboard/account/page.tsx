@@ -8,15 +8,15 @@ import { Customer, Purchase, Business } from '@/types'
 import { User, Loader, Building2, Plus, Lock, ExternalLink } from 'lucide-react'
 
 const PRODUCT_LABELS: Record<string, string> = {
-  icp_blueprint: 'SignalMap™',
-  complete_alex_pack: 'SignalSuite™',
-  complete_intelligence_stack: 'SignalSuite™',
+  icp_blueprint: 'SignalMap',
+  complete_alex_pack: 'SignalSuite',
+  complete_intelligence_stack: 'SignalSuite',
   founders_circle: "Founder's Circle",
-  ad_pack: 'SignalAds™',
-  social_pack: 'SignalContent™',
-  email_pack: 'SignalSequences™',
-  gtm_plan: 'SignalLaunch™',
-  action_plan: 'SignalSprint™',
+  ad_pack: 'SignalAds',
+  social_pack: 'SignalContent',
+  email_pack: 'SignalSequences',
+  gtm_plan: 'SignalLaunch',
+  action_plan: 'SignalSprint',
 }
 
 function formatDate(dateStr: string) {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SignalShot™ — Turn Signals Into Smarter Marketing Decisions",
+  title: "SignalShot — SignalBoard",
   description: "Discover your ideal customer, build your marketing strategy, and execute with precision — powered by Alex.",
 };
 

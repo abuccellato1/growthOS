@@ -29,7 +29,7 @@ export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) 
     void sessionId
     return (
       <div className="p-8 text-center" style={{ color: '#6b7280' }}>
-        <p>Your SignalMap™ document could not be loaded.</p>
+        <p>Your SignalMap document could not be loaded.</p>
         <p className="text-xs mt-2">Please contact support if this persists.</p>
       </div>
     )
@@ -96,7 +96,7 @@ export default function ICPDisplay({ icpMarkdown, sessionId }: ICPDisplayProps) 
         }}
       >
         <p className="text-sm font-semibold" style={{ color: '#191654', fontFamily: 'DM Sans, sans-serif' }}>
-          SignalMap™
+          SignalMap
         </p>
         <div className="flex items-center gap-2">
           <button

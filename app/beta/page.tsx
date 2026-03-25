@@ -94,7 +94,7 @@ export default function BetaSignupPage() {
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
                 e.currentTarget.parentElement!.innerHTML =
-                  '<span style="font-size:24px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'
+                  '<span style="font-size:24px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot</span>'
               }}
             />
           </div>
@@ -105,7 +105,7 @@ export default function BetaSignupPage() {
           className="text-3xl font-bold text-center mb-2"
           style={{ fontFamily: 'Playfair Display, serif', color: '#ffffff' }}
         >
-          Join the SignalShot™ Beta
+          Join the SignalShot Beta
         </h1>
         <p
           className="text-center text-sm mb-8"

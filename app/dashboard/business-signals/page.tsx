@@ -239,10 +239,10 @@ export default function BusinessSignalsPage() {
         </div>
         <div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-            BusinessSignals™
+            BusinessSignals
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
-            Your business profile — the foundation Alex uses for every SignalMap™ session.
+            Your business profile — the foundation Alex uses for every SignalMap interview.
           </p>
         </div>
       </div>
@@ -481,7 +481,7 @@ export default function BusinessSignalsPage() {
           Session History
         </h2>
         <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
-          {completedSessions.length} completed SignalMap™ session{completedSessions.length !== 1 ? 's' : ''}
+          {completedSessions.length} completed SignalMap interview{completedSessions.length !== 1 ? 's' : ''}
         </p>
 
         {sessions.length === 0 ? (
@@ -502,7 +502,7 @@ export default function BusinessSignalsPage() {
                   )}
                   <div>
                     <p className="text-sm font-medium" style={{ color: '#191654' }}>
-                      {s.status === 'completed' ? 'SignalMap™ Complete' : `Phase ${s.phase} of 4`}
+                      {s.status === 'completed' ? 'SignalMap Complete' : `Phase ${s.phase} of 4`}
                       {s.archived && <span className="text-xs ml-2" style={{ color: '#9ca3af' }}>(Archived)</span>}
                     </p>
                     <p className="text-xs" style={{ color: '#9ca3af' }}>

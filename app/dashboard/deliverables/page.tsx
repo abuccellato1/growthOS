@@ -199,7 +199,7 @@ export default function DeliverablesPage() {
             My Deliverables
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-            Your SignalMap™ generated from your Alex session.
+            Your SignalMap generated from your Alex session.
           </p>
         </div>
       </div>
@@ -218,7 +218,7 @@ export default function DeliverablesPage() {
             Your deliverables will appear here
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Complete your SignalMap™ session to generate your SignalMap™.
+            Complete your SignalMap interview to generate your deliverables.
           </p>
           <Link
             href="/dashboard/alex"
@@ -244,7 +244,7 @@ export default function DeliverablesPage() {
             Session in progress
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Finish your Alex session to unlock your SignalMap™.
+            Finish your Alex session to unlock your SignalMap.
           </p>
           <Link
             href="/dashboard/alex"
@@ -272,11 +272,11 @@ export default function DeliverablesPage() {
             className="text-xl font-bold mb-2"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            Your session is complete.
+            Your interview is complete.
           </h2>
           <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
             All three phases are saved. Click below to generate your
-            complete ICP document from your session data.
+            complete ICP document from your interview data.
           </p>
           {recoverError && (
             <p className="text-sm mb-4" style={{ color: '#ef4444' }}>
@@ -295,12 +295,12 @@ export default function DeliverablesPage() {
             {recovering ? (
               <>
                 <Loader size={18} className="animate-spin" />
-                Generating your SignalMap™... (this takes 30-60 seconds)
+                Generating your SignalMap... (this takes 30-60 seconds)
               </>
             ) : (
               <>
                 <FileText size={18} />
-                Generate My SignalMap™
+                Generate My SignalMap
               </>
             )}
           </button>
@@ -317,7 +317,7 @@ export default function DeliverablesPage() {
           style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
         >
           <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
-            Your session is complete but your SignalMap™ document needs to be generated.
+            Your interview is complete but your SignalMap document needs to be generated.
           </p>
           <button
             onClick={handleRegenerateICP}
@@ -328,10 +328,10 @@ export default function DeliverablesPage() {
             {regenerating ? (
               <>
                 <Loader size={16} className="animate-spin" />
-                Generating your SignalMap™...
+                Generating your SignalMap...
               </>
             ) : (
-              'Generate My SignalMap™'
+              'Generate My SignalMap'
             )}
           </button>
         </div>
@@ -363,7 +363,7 @@ export default function DeliverablesPage() {
               className="text-xs"
               style={{ color: '#9ca3af' }}
             >
-              Want to rebuild your ICP? Go to your SignalMap™ Session →
+              Want to rebuild your ICP? Go to your SignalMap Interview →
             </Link>
           </div>
 
@@ -373,7 +373,7 @@ export default function DeliverablesPage() {
               <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold" style={{ color: '#191654' }}>
-                    Share Your SignalMap™
+                    Share Your SignalMap
                   </h3>
                   <button
                     onClick={() => { setShareUrl(null); setShareCopied(false) }}

@@ -23,10 +23,10 @@ interface IntakeGateProps {
 
 export default function IntakeGate({ customer, existingBusiness, onComplete }: IntakeGateProps) {
   const [stage, setStage] = useState<'intro' | 'form' | 'loading'>('intro')
-  const [businessName, setBusinessName] = useState(existingBusiness?.business_name || customer.business_name || '')
-  const [websiteUrl, setWebsiteUrl] = useState(existingBusiness?.website_url || customer.website_url || '')
-  const [primaryService, setPrimaryService] = useState(existingBusiness?.primary_service || customer.primary_service || '')
-  const [geographicMarket, setGeographicMarket] = useState(existingBusiness?.geographic_market || customer.geographic_market || '')
+  const [businessName, setBusinessName] = useState(existingBusiness?.business_name || '')
+  const [websiteUrl, setWebsiteUrl] = useState(existingBusiness?.website_url || '')
+  const [primaryService, setPrimaryService] = useState(existingBusiness?.primary_service || '')
+  const [geographicMarket, setGeographicMarket] = useState(existingBusiness?.geographic_market || '')
   const [gmbUrl, setGmbUrl] = useState(existingBusiness?.gmb_url || '')
   const [honeypot, setHoneypot] = useState('')
   const [secondHoneypot, setSecondHoneypot] = useState('')
@@ -35,6 +35,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
   const [step1, setStep1] = useState(false)
   const [step2, setStep2] = useState(false)
   const [step3, setStep3] = useState(false)
+  const [step4, setStep4] = useState(false)
 
   function validate(): Record<string, string> {
     const errs: Record<string, string> = {}
@@ -67,6 +68,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
     setStep1(true)
     setTimeout(() => setStep2(true), 1500)
     setTimeout(() => setStep3(true), 3000)
+    setTimeout(() => setStep4(true), 4000)
 
     let business: Business | null = null
 
@@ -151,7 +153,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 gmbUrl: gmbUrl.trim() || undefined,
               }),
             }).catch(() => null),
-            new Promise((resolve) => setTimeout(resolve, 3000)),
+            new Promise((resolve) => setTimeout(resolve, 5000)),
           ])
 
           // Fetch updated business with research
@@ -216,7 +218,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
             /* Logo — shown on form and loading stages */
             <div className="flex justify-center pt-8 pb-0">
               <div className="relative w-36 h-10">
-                <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain" priority onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:20px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot\u2122</span>'; }} />
+                <Image src="/images/signalshot-logo.png" alt="SignalShot" fill className="object-contain" priority onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span style="font-size:20px;font-weight:700;color:#43C6AC;letter-spacing:-0.5px">SignalShot</span>'; }} />
               </div>
             </div>
           )}
@@ -238,7 +240,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 className="text-2xl font-bold mb-3"
                 style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
               >
-                Welcome to SignalShot™
+                Welcome to SignalShot
               </h2>
               <p
                 className="text-sm mb-4 leading-relaxed"
@@ -325,7 +327,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 className="text-sm text-center mb-6"
                 style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}
               >
-                Alex will use this to skip the basics and start your SignalMap™ session with smarter, more specific questions.
+                Alex will use this to skip the basics and start your SignalMap interview with smarter, more specific questions.
               </p>
 
               {/* Honeypot fields — hidden from real users */}
@@ -409,7 +411,7 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
                 className="text-2xl font-bold mb-6"
                 style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
               >
-                Alex is getting ready for your session...
+                Alex is getting ready for your interview...
               </h2>
               <div className="flex justify-center mb-8">
                 <Loader size={32} className="animate-spin" style={{ color: '#43C6AC' }} />
@@ -417,7 +419,8 @@ export default function IntakeGate({ customer, existingBusiness, onComplete }: I
               <div className="space-y-4 text-left">
                 <ResearchStep active={step1} label="Reviewing your website" />
                 <ResearchStep active={step2} label="Researching your market position" />
-                <ResearchStep active={step3} label="Preparing your SignalMap™ session" />
+                <ResearchStep active={step3} label="Preparing your SignalMap interview" />
+                <ResearchStep active={step4} label="Saving your business profile" />
               </div>
               <div className="h-6" />
             </div>
