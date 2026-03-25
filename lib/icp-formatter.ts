@@ -168,6 +168,53 @@ export function buildICPMarkdown(data: Record<string, unknown>): string {
     lines.push('')
   }
 
+  // Positioning Toolkit sections
+  if (data.shareability) {
+    const share = data.shareability as Record<string, unknown>
+    if (share.sales_team_brief) {
+      lines.push('## Sales Team Brief')
+      lines.push('*Share this with anyone who sells for your business.*')
+      lines.push('')
+      lines.push(String(share.sales_team_brief))
+      lines.push('')
+      lines.push('---')
+      lines.push('')
+    }
+  }
+
+  if (data.proof_assets) {
+    const pa = data.proof_assets as Record<string, unknown>
+    lines.push('## Proof Assets')
+    lines.push('*The evidence that makes your customer feel safe enough to buy.*')
+    lines.push('')
+    if (pa.result_metrics && Array.isArray(pa.result_metrics) && pa.result_metrics.length > 0) {
+      lines.push('**Results to highlight:**')
+      ;(pa.result_metrics as string[]).forEach(m => lines.push(`- ${m}`))
+      lines.push('')
+    }
+    if (pa.testimonial_themes && Array.isArray(pa.testimonial_themes) && pa.testimonial_themes.length > 0) {
+      lines.push('**What customers consistently praise:**')
+      ;(pa.testimonial_themes as string[]).forEach(t => lines.push(`- ${t}`))
+      lines.push('')
+    }
+    lines.push('---')
+    lines.push('')
+  }
+
+  if (data.voice_of_customer_signals) {
+    const voc = data.voice_of_customer_signals as Record<string, unknown>
+    const phrases = voc.exact_phrases as string[] | null
+    if (phrases && phrases.length > 0) {
+      lines.push('## Voice of Customer')
+      lines.push('*Exact language from real customers — use this in your copy.*')
+      lines.push('')
+      phrases.forEach(p => lines.push(`> "${p}"`))
+      lines.push('')
+      lines.push('---')
+      lines.push('')
+    }
+  }
+
   lines.push('*Powered by SignalShot™*')
   lines.push('*[ICP_COMPLETE]*')
 

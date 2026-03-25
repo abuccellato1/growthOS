@@ -34,6 +34,8 @@ export interface Business {
   business_research: BusinessResearch | null;
   gmb_url: string | null;
   is_active: boolean;
+  voice_of_customer: Record<string, unknown> | null;
+  signal_score: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +102,12 @@ export interface Session {
   messaging_data: Record<string, unknown> | null;
   competitive_data: Record<string, unknown> | null;
   content_data: Record<string, unknown> | null;
+  targeting_data: Record<string, unknown> | null;
+  proof_assets: Record<string, unknown> | null;
+  anti_icp_signals: Record<string, unknown> | null;
+  voice_of_customer_signals: Record<string, unknown> | null;
+  signal_score_inputs: Record<string, unknown> | null;
+  shareability: Record<string, unknown> | null;
   gtm_data: Record<string, unknown> | null;
   segment_data: Record<string, unknown> | null;
   status: SessionStatus;
@@ -126,6 +134,49 @@ export interface Deliverable {
   pdf_url: string | null;
   status: 'pending' | 'complete';
   generated_at: string | null;
+  created_at: string;
+}
+
+export interface VoiceOfCustomer {
+  id: string;
+  business_id: string;
+  source: string;
+  source_url: string | null;
+  raw_text: string;
+  extracted_phrases: string[] | null;
+  outcome_language: string[] | null;
+  emotional_language: string[] | null;
+  problem_language: string[] | null;
+  top_phrases: string[] | null;
+  times_used_in_generation: number;
+  performance_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SignalScore {
+  id: string;
+  business_id: string;
+  score_total: number;
+  score_foundation: number;
+  score_messaging: number;
+  score_competitive: number;
+  score_content: number;
+  score_ads: number;
+  score_breakdown: Record<string, unknown> | null;
+  calculated_at: string;
+}
+
+export interface Feedback {
+  id: string;
+  business_id: string;
+  deliverable_type: string;
+  content_block_id: string | null;
+  content_text: string | null;
+  rating: number | null;
+  feedback_text: string | null;
+  voc_phrases_used: string[] | null;
+  used_in_regeneration: boolean;
   created_at: string;
 }
 

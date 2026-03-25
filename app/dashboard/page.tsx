@@ -20,6 +20,7 @@ import {
   CheckCircle,
   Loader,
 } from 'lucide-react'
+import SignalScoreWidget from '@/components/SignalScoreWidget'
 import { formatDistanceToNow } from '@/lib/utils'
 import IntakeGate from '@/components/IntakeGate'
 
@@ -312,6 +313,8 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
             Welcome, {customer?.first_name}. Let&apos;s build your SignalMap™{businessName ? ` for ${businessName}` : ''}.
           </h1>
+
+          <SignalScoreWidget businessId={activeBusiness?.id || ''} />
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
             Your SignalMap™ session is ready when you are. This takes 20–30 minutes — you can pause and resume any time.
           </p>
@@ -498,6 +501,35 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
             Everything is ready, {customer?.first_name}.
           </h1>
+
+          <SignalScoreWidget businessId={activeBusiness!.id} />
+
+          {/* VOC prompt card */}
+          <div
+            className="p-5 rounded-xl border mb-6 cursor-pointer hover:shadow-md transition-all"
+            style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
+            onClick={() => router.push('/dashboard/voice-of-customer')}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(67,198,172,0.1)' }}
+                >
+                  <MessageSquare size={20} style={{ color: '#43C6AC' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#191654' }}>
+                    Add Your Customer Voice
+                  </p>
+                  <p className="text-xs" style={{ color: '#6b7280' }}>
+                    Paste reviews to make every module smarter
+                  </p>
+                </div>
+              </div>
+              <ArrowRight size={16} style={{ color: '#9ca3af' }} />
+            </div>
+          </div>
 
           {/* Unlocked deliverables */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">

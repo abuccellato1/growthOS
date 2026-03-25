@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSystemPrompt } from '@/lib/prompts'
 import { buildICPMarkdown } from '@/lib/icp-formatter'
+import { saveSignalScore } from '@/lib/signal-score'
 import { Phase, Message, Customer } from '@/types'
 import { sanitizeMessage } from '@/lib/sanitize'
 import { checkRateLimit, getIpIdentifier } from '@/lib/ratelimit'
@@ -249,12 +250,31 @@ export async function POST(request: Request) {
         messaging_data: parsedData.messaging_data || null,
         competitive_data: parsedData.competitive_data || null,
         content_data: parsedData.content_data || null,
+        targeting_data: parsedData.targeting_data || null,
+        proof_assets: parsedData.proof_assets || null,
+        anti_icp_signals: parsedData.anti_icp_signals || null,
+        voice_of_customer_signals: parsedData.voice_of_customer_signals || null,
+        signal_score_inputs: parsedData.signal_score_inputs || null,
+        shareability: parsedData.shareability || null,
         gtm_data: parsedData.gtm_data || null,
         icp_data: parsedData,
         icp_html: cleanText,
         status: 'completed',
         completed_at: new Date().toISOString(),
       }).eq('id', sessionId)
+
+      // Calculate and save Signal Score (non-fatal)
+      if (sessionData.customer_id) {
+        const { data: sessionBiz } = await adminClient
+          .from('sessions')
+          .select('business_id')
+          .eq('id', sessionId)
+          .single()
+
+        if (sessionBiz?.business_id) {
+          saveSignalScore(sessionBiz.business_id, parsedData).catch(() => {})
+        }
+      }
     }
 
     const icpMarkdown = buildICPMarkdown(parsedData)
