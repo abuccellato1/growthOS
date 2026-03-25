@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Business, Session } from '@/types'
-import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare, ArrowRight, CheckCircle, MapPin } from 'lucide-react'
+import { Building2, Loader, ExternalLink, RefreshCw, FileText, Clock, MessageSquare, ArrowRight, CheckCircle, MapPin, Mic } from 'lucide-react'
 import SignalScoreWidget from '@/components/SignalScoreWidget'
 import PlaceVerificationBanner from '@/components/PlaceVerificationBanner'
 import BusinessPlaceSearch from '@/components/BusinessPlaceSearch'
@@ -396,77 +396,61 @@ export default function BusinessSignalsPage() {
         </div>
       )}
 
-      {/* CustomerSignals Summary */}
-      <div className="p-5 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-        <div className="flex items-center gap-3 mb-3">
-          <MessageSquare size={18} style={{ color: '#43C6AC' }} />
-          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-            CustomerSignals
-          </h2>
+      {/* CustomerSignals */}
+      <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Mic size={16} style={{ color: '#43C6AC' }} />
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
+              CustomerSignals
+            </h2>
+          </div>
+          <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
+            View All →
+          </Link>
         </div>
-        {vocCount > 0 ? (
+        {vocCount > 0 && vocDetail ? (
           <>
-            <p className="text-sm mb-3" style={{ color: '#6b7280' }}>
-              {vocCount} customer signals {vocCount === 1 ? 'entry' : 'entries'} · {vocPhraseCount} phrases extracted
+            <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
+              {vocCount} {vocCount === 1 ? 'source' : 'sources'} · {vocPhraseCount} phrases extracted · Alex uses these to ask sharper questions
             </p>
-            {vocTopPhrases.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {vocTopPhrases.map((p, i) => (
-                  <span key={i} className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#374151' }}>
-                    {p}
+            {((vocDetail.top_phrases as string[]) || []).length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {((vocDetail.top_phrases as string[]) || []).slice(0, 6).map((phrase: string, i: number) => (
+                  <span key={i} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(67,198,172,0.12)', color: '#43C6AC' }}>
+                    &ldquo;{phrase}&rdquo;
                   </span>
                 ))}
               </div>
             )}
+            {((vocDetail.outcome_language as string[]) || []).length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold mb-2" style={{ color: '#374151' }}>Results customers mention:</p>
+                <ul className="space-y-1">
+                  {((vocDetail.outcome_language as string[]) || []).slice(0, 3).map((item: string, i: number) => (
+                    <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#6b7280' }}>
+                      <span style={{ color: '#43C6AC' }}>→</span> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
-              Add More to CustomerSignals →
+              Add more to CustomerSignals →
             </Link>
           </>
         ) : (
-          <>
-            <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>
-              No customer signals data yet
+          <div className="text-center py-4">
+            <p className="text-sm mb-1 font-medium" style={{ color: '#374151' }}>No customer signals yet</p>
+            <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>
+              Run business research or add reviews manually to extract customer language for your modules.
             </p>
-            <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>
-              Add reviews to CustomerSignals to make your marketing smarter →
+            <Link href="/dashboard/voice-of-customer" className="text-xs font-semibold" style={{ color: '#43C6AC' }}>
+              Add to CustomerSignals →
             </Link>
-          </>
+          </div>
         )}
       </div>
-
-      {/* CustomerSignals — detailed VOC card */}
-      {vocDetail && (vocDetail.top_phrases as string[] | undefined)?.length && (
-        <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
-            CustomerSignals
-          </h2>
-          <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
-            Phrases extracted from real customer reviews — Alex uses these to ask sharper questions.
-          </p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {((vocDetail.top_phrases as string[]) || []).slice(0, 8).map((phrase: string, i: number) => (
-              <span key={i} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(67,198,172,0.12)', color: '#43C6AC' }}>
-                &ldquo;{phrase}&rdquo;
-              </span>
-            ))}
-          </div>
-          {(vocDetail.outcome_language as string[] | undefined)?.length && (vocDetail.outcome_language as string[] | undefined)!.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: '#374151' }}>Results customers mention:</p>
-              <ul className="space-y-1">
-                {((vocDetail.outcome_language as string[]) || []).slice(0, 3).map((item: string, i: number) => (
-                  <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#6b7280' }}>
-                    <span style={{ color: '#43C6AC' }}>→</span> {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <Link href="/dashboard/voice-of-customer" className="text-xs font-medium mt-4 inline-block" style={{ color: '#43C6AC' }}>
-            Add more customer signalss →
-          </Link>
-        </div>
-      )}
 
       {/* Success toast */}
       {successMsg && (
