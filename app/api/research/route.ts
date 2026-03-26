@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     // CALL 1 — Website and GMB deep scan
     const call1Promise = anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
+      max_tokens: 2000,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }] as Parameters<typeof anthropic.messages.create>[0]['tools'],
       system: `You are researching a business before a marketing discovery session. Search for the business website and Google Business Profile. Extract as much factual intelligence as possible. Return ONLY valid JSON, no markdown, no preamble:
 {
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
     const call2Promise = (gmbUrl || websiteUrl)
       ? anthropic.messages.create({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 600,
+          max_tokens: 1500,
           tools: [{ type: 'web_search_20250305', name: 'web_search' }] as Parameters<typeof anthropic.messages.create>[0]['tools'],
           system: `You are extracting voice of customer data from business reviews. Search for customer reviews of this business on Google, Yelp, Facebook, or any review platform. Return ONLY valid JSON, no markdown:
 {
@@ -244,11 +244,6 @@ export async function POST(request: Request) {
         call1Result = JSON.parse(jsonMatch[0])
       }
     }
-    console.log('[research] Call 1 result keys:', call1Result ? Object.keys(call1Result) : 'NULL')
-    console.log('[research] Call 1 whatTheyDo:', (call1Result as Record<string, unknown> | null)?.whatTheyDo || 'MISSING')
-    console.log('[research] Call 1 websiteFound:', (call1Result as Record<string, unknown> | null)?.websiteFound)
-    console.log('[research] Call 1 services count:', ((call1Result as Record<string, unknown> | null)?.services as string[] | undefined)?.length || 0)
-
     // Parse call 2 — use last text block
     if (res2) {
       const textBlocks2 = res2.content?.filter((b: { type: string }) => b.type === 'text')
@@ -285,9 +280,6 @@ export async function POST(request: Request) {
     actualReviews: placesData.reviews,
     voiceOfCustomer: call2Result,
   }
-  console.log('[research] enhancedResearch keys:', Object.keys(enhancedResearch))
-  console.log('[research] saving whatTheyDo:', (enhancedResearch as Record<string, unknown>).whatTheyDo || 'MISSING')
-
   // Save to businesses table
   if (businessId) {
     await adminClient.from('businesses').update({
