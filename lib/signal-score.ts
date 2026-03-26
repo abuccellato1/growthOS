@@ -221,6 +221,7 @@ export async function calculateAndSaveScore(businessId: string): Promise<Dimensi
 // Backward compatibility alias
 export async function saveSignalScore(
   businessId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _sessionData: Record<string, unknown>
 ): Promise<void> {
   await calculateAndSaveScore(businessId)
