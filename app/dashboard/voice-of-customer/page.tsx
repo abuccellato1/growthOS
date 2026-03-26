@@ -118,7 +118,15 @@ export default function VoiceOfCustomerPage() {
           .select('id, source, created_at, top_phrases, extracted_phrases, outcome_language, emotional_language, problem_language, raw_reviews')
           .eq('business_id', businessId)
           .order('created_at', { ascending: false })
-        if (vocData) setHistory(vocData as VocEntry[])
+        if (vocData) {
+          setHistory(vocData as VocEntry[])
+          const withReviews = (vocData as VocEntry[]).find(v => v.raw_reviews && v.raw_reviews.length > 0)
+          if (withReviews?.raw_reviews) setRawReviews(withReviews.raw_reviews)
+        }
+        setRawText('')
+        setSourceUrl('')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        setTimeout(() => setExtracted(null), 100)
       }
     } catch { /* Non-fatal */ } finally { setSubmitting(false) }
   }
@@ -149,6 +157,94 @@ export default function VoiceOfCustomerPage() {
           The most converting marketing copy comes directly from your customers&apos; words. Paste in Google reviews, testimonials, or email replies and SignalShot will extract the exact phrases that resonate — then use them to make every module smarter.
         </p>
       </div>
+
+      {/* Summary section — shows aggregated signals when history exists */}
+      {history.length > 0 && (() => {
+        const allOutcomes = history.flatMap(e => e.outcome_language || []).filter((p, i, arr) => arr.indexOf(p) === i).slice(0, 5)
+        const allEmotional = history.flatMap(e => e.emotional_language || []).filter((p, i, arr) => arr.indexOf(p) === i).slice(0, 5)
+        const topPhrases = history.flatMap(e => e.top_phrases || []).filter((p, i, arr) => arr.indexOf(p) === i).slice(0, 6)
+
+        return (
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Your CustomerSignals</h2>
+              <span className="text-xs" style={{ color: '#9ca3af' }}>{history.length} {history.length === 1 ? 'source' : 'sources'} · {totalPhrases} phrases</span>
+            </div>
+
+            {topPhrases.length > 0 && (
+              <div className="p-5 rounded-2xl border" style={{ borderColor: 'rgba(67,198,172,0.2)', backgroundColor: 'rgba(67,198,172,0.04)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#43C6AC' }}>Top Copy Phrases</p>
+                <div className="flex flex-wrap gap-2">
+                  {topPhrases.map((p, i) => (
+                    <span key={i} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(67,198,172,0.12)', color: '#191654' }}>&ldquo;{p}&rdquo;</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(allOutcomes.length > 0 || allEmotional.length > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {allOutcomes.length > 0 && (
+                  <div className="p-4 rounded-xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>How Customers Describe Results</p>
+                    <ul className="space-y-1.5">
+                      {allOutcomes.map((o, i) => (
+                        <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#374151' }}>
+                          <span style={{ color: '#43C6AC', flexShrink: 0 }}>→</span> {o}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {allEmotional.length > 0 && (
+                  <div className="p-4 rounded-xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>Emotional Language Used</p>
+                    <ul className="space-y-1.5">
+                      {allEmotional.map((e, i) => (
+                        <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#374151' }}>
+                          <span style={{ color: '#43C6AC', flexShrink: 0 }}>→</span> {e}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {rawReviews.length > 0 && (
+              <div className="p-5 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Source Reviews</p>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#43C6AC' }}>{rawReviews.length} from Google</span>
+                </div>
+                <div className="space-y-3">
+                  {(showAllReviews ? rawReviews : rawReviews.slice(0, 2)).map((review, i) => (
+                    <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: '#f8f9fc' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: '#191654' }}>{review.authorName[0]?.toUpperCase() || '?'}</div>
+                        <div>
+                          <p className="text-xs font-semibold" style={{ color: '#191654' }}>{review.authorName}</p>
+                          <div className="flex items-center">{Array.from({ length: Math.min(review.rating, 5) }).map((_, j) => <span key={j} style={{ color: '#f59e0b', fontSize: 10 }}>★</span>)}</div>
+                        </div>
+                      </div>
+                      <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>&ldquo;{review.text}&rdquo;</p>
+                    </div>
+                  ))}
+                </div>
+                {rawReviews.length > 2 && (
+                  <button onClick={() => setShowAllReviews(!showAllReviews)} className="mt-4 text-xs font-medium w-full text-center" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    {showAllReviews ? 'Show less' : `Show all ${rawReviews.length} reviews`}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="border-t pt-2" style={{ borderColor: '#f3f4f6' }}>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Add More Customer Signals</p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Input section */}
       <div className="p-6 rounded-xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
@@ -226,47 +322,6 @@ export default function VoiceOfCustomerPage() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Source Reviews */}
-      {rawReviews.length > 0 && (
-        <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Source Reviews</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#43C6AC' }}>{rawReviews.length} from Google</span>
-          </div>
-          <p className="text-xs mb-4" style={{ color: '#6b7280' }}>These are the actual reviews Alex analyzed to extract your CustomerSignals phrases.</p>
-          <div className="space-y-4">
-            {(showAllReviews ? rawReviews : rawReviews.slice(0, 2)).map((review, i) => (
-              <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: '#f8f9fc' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: '#191654' }}>
-                    {review.authorName[0]?.toUpperCase() || '?'}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold" style={{ color: '#191654' }}>{review.authorName}</p>
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: review.rating }).map((_, j) => <span key={j} style={{ color: '#f59e0b', fontSize: 10 }}>★</span>)}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>&ldquo;{review.text}&rdquo;</p>
-              </div>
-            ))}
-          </div>
-          {rawReviews.length > 2 && (
-            <button onClick={() => setShowAllReviews(!showAllReviews)} className="mt-4 text-xs font-medium w-full text-center" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>
-              {showAllReviews ? 'Show less' : `Show all ${rawReviews.length} reviews`}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Impact meter */}
-      {history.length > 0 && (
-        <div className="p-4 rounded-xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
-          <p className="text-sm" style={{ color: '#6b7280' }}>{history.length} {history.length === 1 ? 'source' : 'sources'} · {totalPhrases} phrases extracted</p>
         </div>
       )}
 

@@ -33,7 +33,17 @@ export async function POST(request: Request) {
     return apiError('rawText must be between 50 and 10000 characters', 400, 'VALIDATION_ERROR')
   }
 
-  const validSources = ['google_reviews', 'testimonials', 'email_replies', 'other']
+  const validSources = [
+    'google_reviews',
+    'google_places_api',
+    'facebook_reviews',
+    'email_testimonials',
+    'case_studies',
+    'testimonials',
+    'email_replies',
+    'web_search',
+    'other',
+  ]
   if (!validSources.includes(source)) {
     return apiError('Invalid source type', 400, 'VALIDATION_ERROR')
   }
