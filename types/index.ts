@@ -196,6 +196,110 @@ export interface Feedback {
   created_at: string;
 }
 
+// Module output types
+export type ModuleType =
+  | 'signal_ads'
+  | 'signal_content'
+  | 'signal_sequences'
+  | 'signal_launch'
+  | 'signal_sprint'
+  | 'gmb_audit'
+  | 'keyword_suggester'
+  | 'seo_scanner'
+  | 'content_writer'
+  | 'competitive_intel'
+  | 'funnel_auditor'
+
+export interface ModuleOutput {
+  id: string;
+  business_id: string;
+  session_id: string | null;
+  module_type: ModuleType;
+  generation_number: number;
+  input_snapshot: Record<string, unknown> | null;
+  output_data: Record<string, unknown> | null;
+  feedback_rating: number | null;
+  feedback_text: string | null;
+  feedback_used: boolean;
+  status: string;
+  regenerations_used: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Job types for agent orchestration
+export type JobType =
+  | 'research'
+  | 'voc_extraction'
+  | 'signal_score_calculation'
+  | 'ads_generation'
+  | 'content_generation'
+  | 'email_generation'
+  | 'gtm_generation'
+  | 'sprint_generation'
+  | 'gmb_audit'
+  | 'keyword_research'
+  | 'competitive_research'
+
+export interface Job {
+  id: string;
+  business_id: string;
+  job_type: JobType;
+  status: 'pending' | 'running' | 'complete' | 'failed';
+  priority: number;
+  input_data: Record<string, unknown> | null;
+  output_data: Record<string, unknown> | null;
+  error_message: string | null;
+  retry_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+// Agent context — the standardized data package passed to every agent/module
+export interface AgentContext {
+  business: Business;
+  session: Session | null;
+  icpCore: Record<string, unknown> | null;
+  messagingData: Record<string, unknown> | null;
+  competitiveData: Record<string, unknown> | null;
+  contentData: Record<string, unknown> | null;
+  gtmData: Record<string, unknown> | null;
+  targetingData: Record<string, unknown> | null;
+  proofAssets: Record<string, unknown> | null;
+  antiIcpSignals: Record<string, unknown> | null;
+  voiceOfCustomerSignals: Record<string, unknown> | null;
+  shareability: Record<string, unknown> | null;
+  vocSummary: {
+    totalEntries: number;
+    totalPhrases: number;
+    topPhrases: string[];
+    outcomeLanguage: string[];
+    emotionalLanguage: string[];
+    problemLanguage: string[];
+    reviewHighlights: string[];
+    rawReviews: Array<{ text: string; rating: number; authorName: string }>;
+  } | null;
+  signalScore: SignalScore | null;
+  moduleOutputs: ModuleOutput[];
+  feedbackHistory: Feedback[];
+  researchComplete: boolean;
+  placeId: string | null;
+  lastResearchAt: string | null;
+  readiness: {
+    hasInterview: boolean;
+    hasResearch: boolean;
+    hasPlaceId: boolean;
+    hasVocData: boolean;
+    hasSignalScore: boolean;
+    hasSignalAds: boolean;
+    hasSignalContent: boolean;
+    hasSignalSequences: boolean;
+    hasSignalLaunch: boolean;
+    hasSignalSprint: boolean;
+  };
+}
+
 export interface PinballWebhookPayload {
   email: string;
   first_name: string;
