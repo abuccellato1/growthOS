@@ -502,6 +502,56 @@ export default function BusinessSignalsPage() {
                     </div>
                   </div>
                 )}
+                {/* Testimonial quotes */}
+                {(research?.testimonialQuotes as string[] | undefined)?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#9ca3af' }}>Customer Quotes Found</p>
+                    <div className="space-y-2">
+                      {(research!.testimonialQuotes as string[]).slice(0, 3).map((q, i) => (
+                        <div key={i} className="p-3 rounded-xl text-xs italic" style={{ backgroundColor: '#f8f9fc', color: '#374151', borderLeft: '3px solid #43C6AC' }}>
+                          &ldquo;{String(q)}&rdquo;
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {/* Case study highlights */}
+                {(research?.caseStudyHighlights as string[] | undefined)?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#9ca3af' }}>Case Study Highlights</p>
+                    <ul className="space-y-1">
+                      {(research!.caseStudyHighlights as string[]).map((c, i) => (
+                        <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#6b7280' }}>
+                          <span style={{ color: '#43C6AC' }}>→</span> {String(c)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {/* Press & media */}
+                {(research?.pressOrMediaMentions as string[] | undefined)?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#9ca3af' }}>Press & Media</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(research!.pressOrMediaMentions as string[]).map((m, i) => (
+                        <span key={i} className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: '#f3f4f6', color: '#374151' }}>{String(m)}</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {/* Before/After stories */}
+                {(research?.beforeAfterStories as string[] | undefined)?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#9ca3af' }}>Before / After Stories</p>
+                    <ul className="space-y-1">
+                      {(research!.beforeAfterStories as string[]).map((s, i) => (
+                        <li key={i} className="text-xs flex items-start gap-2" style={{ color: '#6b7280' }}>
+                          <span style={{ color: '#43C6AC' }}>→</span> {String(s)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </>
           ) : (

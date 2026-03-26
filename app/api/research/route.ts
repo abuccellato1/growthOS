@@ -176,6 +176,11 @@ export async function POST(request: Request) {
   "certifications": [],
   "awards": [],
   "testimonialThemes": [],
+  "testimonialQuotes": [],
+  "caseStudyHighlights": [],
+  "pressOrMediaMentions": [],
+  "awardsOrRecognition": [],
+  "beforeAfterStories": [],
   "websiteQuality": "strong/moderate/weak",
   "blogTopics": [],
   "pricingSignals": "premium/mid/budget/unknown",
@@ -190,7 +195,7 @@ export async function POST(request: Request) {
 }`,
       messages: [{
         role: 'user',
-        content: `Research this business thoroughly:\nBusiness Name: ${businessName}\nWebsite: ${websiteUrl}\nPrimary Service: ${primaryService}\nGeographic Market: ${geographicMarket}${gmbUrl ? `\nGoogle Business Profile: ${gmbUrl}` : ''}\n\nSearch for their website, Google Business Profile, and any business directory listings. Extract every detail available.`,
+        content: `Research this business thoroughly:\nBusiness Name: ${businessName}\nWebsite: ${websiteUrl}\nPrimary Service: ${primaryService}\nGeographic Market: ${geographicMarket}${gmbUrl ? `\nGoogle Business Profile: ${gmbUrl}` : ''}\n\nSEARCH INSTRUCTIONS:\n1. Visit their website and look specifically for:\n   - Testimonials or reviews page\n   - Case studies or success stories\n   - About page (often has founding story)\n   - Any quoted customer language\n   - Before/after or results sections\n   - Press or media mentions\n   - Awards or certifications page\n2. Search Google for: "${businessName}" reviews testimonials\n3. Search for: "${businessName}" site:${websiteUrl.replace(/https?:\/\//, '').replace(/\/$/, '')} testimonials OR "case study"\n4. Check their Google Business Profile if provided\n\nExtract every detail available including verbatim customer quotes where found.`,
       }],
     })
 

@@ -10,7 +10,12 @@ import { Customer, Phase, Message, Business, Session } from '@/types'
 import { Send, CheckCircle, Loader, MessageSquare, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
-function buildCustomerContext(business: Business): string {
+function buildCustomerContext(business: Business, voc?: {
+  topPhrases: string[]
+  outcomeLanguage: string[]
+  emotionalLanguage: string[]
+  reviewHighlights: string[]
+} | null): string {
   let ctx = `CUSTOMER CONTEXT — collected during onboarding, do not ask again:
 - Business Name: ${business.business_name}
 - Website: ${business.website_url || 'Not provided'}
@@ -24,14 +29,15 @@ function buildCustomerContext(business: Business): string {
   ctx += `\nUse this context to skip basic discovery questions you already know.
 Start Phase 1 with more specific, deeper questions.`
 
-  if (business.business_research?.websiteFound) {
-    const r = business.business_research
-    ctx += `\n\nPRE-SESSION RESEARCH:\n`
-    ctx += `What they do: ${r.whatTheyDo}\n`
-    ctx += `Years in business: ${r.yearsInBusiness}\n`
-    ctx += `Apparent target customer: ${r.apparentTargetCustomer}\n`
-    ctx += `Differentiators: ${r.differentiators}\n`
-    ctx += `Note: Surface-level only. Find who is ACTUALLY buying.\n`
+  if (business.business_research) {
+    const r = business.business_research as unknown as Record<string, unknown>
+    if (r.websiteFound) {
+      ctx += `\n\nPRE-SESSION RESEARCH (surface level only — find what is ACTUALLY driving purchases):`
+      if (r.whatTheyDo) ctx += `\nWhat they do: ${r.whatTheyDo}`
+      if (r.apparentTargetCustomer) ctx += `\nApparent target customer: ${r.apparentTargetCustomer}`
+      if (r.differentiators) ctx += `\nDifferentiators: ${r.differentiators}`
+      if (r.yearsInBusiness) ctx += `\nYears in business: ${r.yearsInBusiness}`
+    }
   }
 
   if (business.business_research?.gmbData) {
@@ -43,12 +49,75 @@ Start Phase 1 with more specific, deeper questions.`
     if (gmb.serviceArea) ctx += `- Service area: ${gmb.serviceArea}\n`
   }
 
+  // Inject CustomerSignals when available
+  if (voc && (voc.topPhrases.length > 0 || voc.reviewHighlights.length > 0)) {
+    ctx += `\n\nCUSTOMER SIGNALS — real language from actual customer reviews. Use these to ask sharper, more specific questions. Do NOT ask about things already evidenced here — dig deeper instead:\n`
+
+    if (voc.topPhrases.length > 0) {
+      ctx += `\nTop phrases customers use:\n${voc.topPhrases.map(p => `  • "${p}"`).join('\n')}`
+    }
+    if (voc.outcomeLanguage.length > 0) {
+      ctx += `\nHow customers describe results:\n${voc.outcomeLanguage.map(o => `  • ${o}`).join('\n')}`
+    }
+    if (voc.emotionalLanguage.length > 0) {
+      ctx += `\nEmotional language they use:\n${voc.emotionalLanguage.map(e => `  • ${e}`).join('\n')}`
+    }
+    if (voc.reviewHighlights.length > 0) {
+      ctx += `\n\nReal customer quotes to reference:\n${voc.reviewHighlights.map(r => `  ${r}`).join('\n')}`
+    }
+
+    ctx += `\n\nIMPORTANT: The above customer language is real and verified. Use it to:
+1. Skip surface-level questions you already have answers for
+2. Ask about the SPECIFIC situations that produced these outcomes
+3. Probe deeper into WHY customers use this language
+4. Find the pattern behind what makes this business different`
+  }
+
   return ctx
 }
 
 function buildOpeningMessage(customer: Customer): string {
   const firstName = customer.first_name || 'there'
   return `Hi ${firstName}! I'm Alex, your Client Discovery Strategist at SignalShot. I've reviewed what you shared about your business during setup, and I'm ready to dig in. Let's start by making sure I have a clear picture of what's actually happening in your business right now. What does your business do — and what's the core problem you solve for your customers?`
+}
+
+async function fetchVocData(businessId: string): Promise<{
+  topPhrases: string[]
+  outcomeLanguage: string[]
+  emotionalLanguage: string[]
+  reviewHighlights: string[]
+} | null> {
+  try {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('voice_of_customer')
+      .select('top_phrases, outcome_language, emotional_language, raw_reviews')
+      .eq('business_id', businessId)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    if (!data || data.length === 0) return null
+
+    const topPhrases = data.flatMap(d => (d.top_phrases as string[] | null) || []).slice(0, 10)
+    const outcomeLanguage = data.flatMap(d => (d.outcome_language as string[] | null) || []).slice(0, 5)
+    const emotionalLanguage = data.flatMap(d => (d.emotional_language as string[] | null) || []).slice(0, 5)
+
+    const reviewHighlights: string[] = []
+    for (const entry of data) {
+      const reviews = entry.raw_reviews as Array<{ text: string; rating: number; authorName: string }> | null
+      if (reviews) {
+        const best = [...reviews].sort((a, b) => b.text.length - a.text.length)[0]
+        if (best && best.text.length > 50) {
+          reviewHighlights.push(`"${best.text.slice(0, 200)}${best.text.length > 200 ? '...' : ''}" — ${best.authorName}`)
+        }
+      }
+      if (reviewHighlights.length >= 2) break
+    }
+
+    return { topPhrases, outcomeLanguage, emotionalLanguage, reviewHighlights }
+  } catch {
+    return null
+  }
 }
 
 async function persistSession(
@@ -99,6 +168,12 @@ export default function AlexPage() {
   // ICP Already Complete state
   const [completedSession, setCompletedSession] = useState<Session | null>(null)
   const [showRebuildConfirm, setShowRebuildConfirm] = useState(false)
+  const [vocContext, setVocContext] = useState<{
+    topPhrases: string[]
+    outcomeLanguage: string[]
+    emotionalLanguage: string[]
+    reviewHighlights: string[]
+  } | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -145,6 +220,10 @@ export default function AlexPage() {
 
       setCustomer(customerData)
       setActiveBusiness(bizData)
+
+      // Fetch CustomerSignals for context injection (non-fatal)
+      const voc = await fetchVocData(bizData.id)
+      if (voc) setVocContext(voc)
 
       // Check for completed non-archived session for this business
       const { data: existingCompleted } = await supabase
@@ -420,7 +499,7 @@ export default function AlexPage() {
   useEffect(() => {
     if (!phaseComplete || !customer || !sessionId || !sessionUuid || !activeBusiness) return
     setPhaseComplete(false)
-    const ctx = buildCustomerContext(activeBusiness)
+    const ctx = buildCustomerContext(activeBusiness, vocContext)
     callAlexApi(
       messages,
       [],
@@ -442,7 +521,7 @@ export default function AlexPage() {
 
     setInput('')
 
-    const ctx = buildCustomerContext(activeBusiness)
+    const ctx = buildCustomerContext(activeBusiness, vocContext)
 
     let updatedMessages: Message[]
     let updatedPhaseMessages: Message[]
