@@ -211,7 +211,7 @@ export default function SignalScoreWidget({ businessId, compact }: SignalScoreWi
     <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Signal Score</p>
+          <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>Signal Score</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-3xl font-bold" style={{ color: '#191654' }}>{scores.total}</span>
             <span className="text-sm" style={{ color: '#9ca3af' }}>/100</span>

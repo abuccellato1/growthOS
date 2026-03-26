@@ -412,7 +412,7 @@ export default function BusinessSignalsPage() {
         <div className="p-6 rounded-2xl border h-fit" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Business Profile</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>Business Profile</h2>
               {business.place_id && (
                 <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(67,198,172,0.12)', color: '#43C6AC' }}>
                   <CheckCircle size={10} /> Google Verified
@@ -476,7 +476,7 @@ export default function BusinessSignalsPage() {
         {/* Alex Research card — right column */}
         <div className="p-6 rounded-2xl border h-fit" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Alex&apos;s Research</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>Alex&apos;s Research</h2>
             {researchAllowed && (
               <button onClick={handleRefreshResearch} disabled={refreshing || researchRunning} className="flex items-center gap-1.5 text-sm font-medium disabled:opacity-50" style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
@@ -565,7 +565,7 @@ export default function BusinessSignalsPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Mic size={16} style={{ color: '#43C6AC' }} />
-            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>CustomerSignals</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>CustomerSignals</h2>
           </div>
           <Link href="/dashboard/voice-of-customer" className="text-xs font-medium" style={{ color: '#43C6AC' }}>View All →</Link>
         </div>
@@ -604,7 +604,7 @@ export default function BusinessSignalsPage() {
 
       {/* 7. Session History — full width */}
       <div className="p-6 rounded-2xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>Session History</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#374151' }}>Session History</h2>
         {sessions.length === 0 ? (
           <p className="text-sm" style={{ color: '#9ca3af' }}>No sessions yet. Start your SignalMap Interview to build your ICP.</p>
         ) : (

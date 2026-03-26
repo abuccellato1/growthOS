@@ -244,6 +244,10 @@ export async function POST(request: Request) {
         call1Result = JSON.parse(jsonMatch[0])
       }
     }
+    console.log('[research] Call 1 result keys:', call1Result ? Object.keys(call1Result) : 'NULL')
+    console.log('[research] Call 1 whatTheyDo:', (call1Result as Record<string, unknown> | null)?.whatTheyDo || 'MISSING')
+    console.log('[research] Call 1 websiteFound:', (call1Result as Record<string, unknown> | null)?.websiteFound)
+    console.log('[research] Call 1 services count:', ((call1Result as Record<string, unknown> | null)?.services as string[] | undefined)?.length || 0)
 
     // Parse call 2 — use last text block
     if (res2) {
@@ -281,6 +285,8 @@ export async function POST(request: Request) {
     actualReviews: placesData.reviews,
     voiceOfCustomer: call2Result,
   }
+  console.log('[research] enhancedResearch keys:', Object.keys(enhancedResearch))
+  console.log('[research] saving whatTheyDo:', (enhancedResearch as Record<string, unknown>).whatTheyDo || 'MISSING')
 
   // Save to businesses table
   if (businessId) {
@@ -296,7 +302,7 @@ export async function POST(request: Request) {
       console.error('Score calc error:', err)
     )
 
-    // Save VOC to voice_of_customer table — runs when Places API returns reviews OR Call 2 extracts phrases
+    // Save VOC to voice_of_customer table
     try {
       const hasRealReviews = placesData.reviews.length > 0
       const hasExtractedPhrases = !!(
@@ -305,38 +311,56 @@ export async function POST(request: Request) {
         ((call2Result as Record<string, unknown>).extractedPhrases as string[] | undefined)?.length
       )
 
-      if (hasRealReviews || hasExtractedPhrases) {
-        const voc = (call2Result || {}) as Record<string, unknown>
+      // Always check for existing entry first
+      const { data: existingVoc } = await adminClient
+        .from('voice_of_customer')
+        .select('id, extracted_phrases, raw_reviews')
+        .eq('business_id', businessId)
+        .eq('source', 'google_places_api')
+        .maybeSingle()
 
+      const shouldSaveVoc = hasRealReviews || hasExtractedPhrases || !!existingVoc
+
+      if (shouldSaveVoc) {
         const rawReviewText = placesData.reviews.length > 0
           ? placesData.reviews.map((r, i) => `Review ${i + 1} — ${r.authorName} (${r.rating}★):\n"${r.text}"`).join('\n\n')
-          : JSON.stringify(call2Result || {})
+          : ''
 
-        const { data: existingVoc } = await adminClient
-          .from('voice_of_customer')
-          .select('id')
-          .eq('business_id', businessId)
-          .eq('source', 'google_places_api')
-          .maybeSingle()
-
-        const vocPayload = {
-          business_id: businessId,
+        // Only update fields that have actual data — never overwrite good data with null
+        const vocUpdatePayload: Record<string, unknown> = {
           source: 'google_places_api',
           source_url: gmbUrl || websiteUrl,
-          raw_text: rawReviewText,
-          raw_reviews: placesData.reviews.length > 0 ? placesData.reviews : null,
-          extracted_phrases: (voc.extractedPhrases as string[]) || null,
-          outcome_language: (voc.outcomeLanguage as string[]) || null,
-          emotional_language: (voc.emotionalLanguage as string[]) || null,
-          problem_language: (voc.problemLanguage as string[]) || null,
-          top_phrases: (voc.topPhrases as string[]) || null,
           updated_at: new Date().toISOString(),
         }
 
+        if (placesData.reviews.length > 0) {
+          vocUpdatePayload.raw_reviews = placesData.reviews
+          vocUpdatePayload.raw_text = rawReviewText
+        }
+
+        if (call2Result) {
+          const voc = call2Result as Record<string, unknown>
+          if (voc.extractedPhrases && Array.isArray(voc.extractedPhrases) && (voc.extractedPhrases as string[]).length > 0) {
+            vocUpdatePayload.extracted_phrases = voc.extractedPhrases
+          }
+          if (voc.outcomeLanguage && Array.isArray(voc.outcomeLanguage) && (voc.outcomeLanguage as string[]).length > 0) {
+            vocUpdatePayload.outcome_language = voc.outcomeLanguage
+          }
+          if (voc.emotionalLanguage && Array.isArray(voc.emotionalLanguage) && (voc.emotionalLanguage as string[]).length > 0) {
+            vocUpdatePayload.emotional_language = voc.emotionalLanguage
+          }
+          if (voc.problemLanguage && Array.isArray(voc.problemLanguage) && (voc.problemLanguage as string[]).length > 0) {
+            vocUpdatePayload.problem_language = voc.problemLanguage
+          }
+          if (voc.topPhrases && Array.isArray(voc.topPhrases) && (voc.topPhrases as string[]).length > 0) {
+            vocUpdatePayload.top_phrases = voc.topPhrases
+          }
+        }
+
         if (existingVoc) {
-          await adminClient.from('voice_of_customer').update(vocPayload).eq('id', existingVoc.id)
-        } else {
-          await adminClient.from('voice_of_customer').insert(vocPayload)
+          await adminClient.from('voice_of_customer').update(vocUpdatePayload).eq('id', existingVoc.id)
+        } else if (placesData.reviews.length > 0 || vocUpdatePayload.extracted_phrases) {
+          await adminClient.from('voice_of_customer').insert({ business_id: businessId, ...vocUpdatePayload })
         }
 
         logger.info('VOC saved', {
@@ -344,6 +368,7 @@ export async function POST(request: Request) {
           businessId: businessId.slice(0, 8),
           reviewCount: placesData.reviews.length,
           hasExtractedPhrases,
+          isUpdate: !!existingVoc,
         })
       }
     } catch (vocErr) {

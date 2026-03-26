@@ -167,7 +167,7 @@ export default function VoiceOfCustomerPage() {
         return (
           <div className="mb-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Your CustomerSignals</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>Your CustomerSignals</h2>
               <span className="text-xs" style={{ color: '#9ca3af' }}>{history.length} {history.length === 1 ? 'source' : 'sources'} · {totalPhrases} phrases</span>
             </div>
 
@@ -328,7 +328,7 @@ export default function VoiceOfCustomerPage() {
       {/* History section */}
       {history.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>Previous Submissions</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#374151' }}>Previous Submissions</h2>
           <div className="space-y-3">
             {history.map((entry) => {
               const isExpanded = expandedId === entry.id

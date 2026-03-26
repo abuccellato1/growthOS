@@ -336,7 +336,7 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#374151' }}>
             Unlocks after your SignalMap interview is complete
           </h3>
           <LockedModuleCards />
@@ -403,7 +403,7 @@ export default function DashboardPage() {
               </div>
             </Link>
 
-            <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
+            <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#374151' }}>
               Unlocks after your SignalMap interview is complete
             </h3>
             <LockedModuleCards />
@@ -547,7 +547,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Upsell locked cards */}
-          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#9ca3af' }}>
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#374151' }}>
             Expand your SignalShot
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

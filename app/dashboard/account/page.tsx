@@ -201,7 +201,7 @@ export default function AccountPage() {
         {/* My Account card — left column */}
         <div className="p-6 rounded-2xl border h-fit" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>
               My Account
             </h2>
             {!editingAccount && (
@@ -289,7 +289,7 @@ export default function AccountPage() {
         {/* My Businesses card — right column */}
         <div className="p-6 rounded-2xl border h-fit" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: '#9ca3af' }}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: '#374151' }}>
               <Building2 size={14} /> My Businesses
             </h2>
           </div>
@@ -392,7 +392,7 @@ export default function AccountPage() {
 
       {/* SECTION 3 — Purchase History */}
       <div className="p-6 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#9ca3af' }}>
+        <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#374151' }}>
           Purchase History
         </h2>
 
