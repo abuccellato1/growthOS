@@ -195,6 +195,11 @@ export async function calculateAndSaveScore(businessId: string): Promise<Dimensi
       score_competitive: scores.reach,
       score_content: scores.conversion,
       score_ads: scores.visibility,
+      score_visibility: scores.visibility,
+      score_credibility: scores.credibility,
+      score_clarity: scores.clarity,
+      score_reach: scores.reach,
+      score_conversion: scores.conversion,
       score_breakdown: { inputs, scores },
     })
 
