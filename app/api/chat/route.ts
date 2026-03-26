@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSystemPrompt } from '@/lib/prompts'
 import { buildICPMarkdown } from '@/lib/icp-formatter'
-import { saveSignalScore } from '@/lib/signal-score'
+import { saveSignalScore, calculateAndSaveScore } from '@/lib/signal-score'
 import { Phase, Message, Customer } from '@/types'
 import { sanitizeMessage } from '@/lib/sanitize'
 import { checkRateLimit, getIpIdentifier } from '@/lib/ratelimit'
@@ -270,8 +270,10 @@ export async function POST(request: Request) {
         .eq('id', sessionId)
         .single()
 
-      if (sessionRecord?.business_id && parsedData.signal_score_inputs) {
-        await saveSignalScore(sessionRecord.business_id, parsedData).catch(() => {})
+      if (sessionRecord?.business_id) {
+        calculateAndSaveScore(sessionRecord.business_id).catch(err =>
+          console.error('Score calc error:', err)
+        )
       }
     }
 

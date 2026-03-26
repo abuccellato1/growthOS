@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
+import { calculateAndSaveScore } from '@/lib/signal-score'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -155,6 +156,13 @@ export async function POST(request: Request) {
       last_updated: new Date().toISOString(),
     },
   }).eq('id', businessId)
+
+  // Recalculate Signal Score with new VOC data
+  if (businessId) {
+    calculateAndSaveScore(businessId).catch(err =>
+      console.error('Score calc error:', err)
+    )
+  }
 
   return apiSuccess({ extracted: parsedData })
 }

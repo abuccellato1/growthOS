@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import { apiError, apiSuccess } from '@/lib/api-response'
+import { calculateAndSaveScore } from '@/lib/signal-score'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -289,6 +290,11 @@ export async function POST(request: Request) {
       last_research_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('id', businessId)
+
+    // Recalculate Signal Score with new research data
+    calculateAndSaveScore(businessId).catch(err =>
+      console.error('Score calc error:', err)
+    )
 
     // Save VOC to voice_of_customer table — runs when Places API returns reviews OR Call 2 extracts phrases
     try {
