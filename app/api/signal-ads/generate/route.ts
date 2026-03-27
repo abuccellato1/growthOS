@@ -193,13 +193,18 @@ CRITICAL RULES:
 4. Address primary objections in descriptions
 5. Use specific numbers from proof assets when available
 
-CHARACTER LIMITS:
-Google Search Headlines: max 30 chars each
-Google Search Descriptions: max 90 chars each
-Meta Primary Text: max 125 chars recommended
-Meta Headline: max 40 chars
-LinkedIn Intro: max 150 chars
-LinkedIn Headline: max 70 chars
+HARD CHARACTER LIMITS — THESE ARE ABSOLUTE MAXIMUMS, NOT GUIDELINES.
+DO NOT EXCEED THESE UNDER ANY CIRCUMSTANCES:
+Google Search Headlines: EXACTLY 30 chars max — count every character
+Google Search Descriptions: EXACTLY 90 chars max
+Meta Primary Text: 125 chars recommended max
+Meta Headline: EXACTLY 40 chars max
+LinkedIn Intro Text: EXACTLY 150 chars max
+LinkedIn Headline: EXACTLY 70 chars max
+
+Before finalizing your JSON, verify EVERY text field character count.
+If any field exceeds its limit, rewrite it until it fits.
+Character count includes spaces and punctuation.
 
 Return ONLY valid JSON. No markdown. No preamble.`,
     messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nFor strategySignals.dataSourcesUsed: list only the sources marked YES above, using these exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals", "Competitor Research".\n\nFor strategySignals.whyItWins: explain in 2-3 sentences specifically which data points drove the primary angle — reference actual facts from the context (e.g. specific differentiators, VOC phrases, competitor gaps).\n\nReturn ONLY valid JSON, no markdown, no preamble:\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "negativeKeywords": [],\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}]\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],

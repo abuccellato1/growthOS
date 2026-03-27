@@ -98,9 +98,13 @@ function charColor(count: number, limit: number) {
 }
 
 function CharBadge({ text, limit }: { text: string; limit: number }) {
+  const count = text.length
+  const over = count > limit
   return (
-    <span className="text-xs font-mono font-bold" style={{ color: charColor(text.length, limit) }}>
-      {text.length}/{limit}
+    <span className="flex items-center gap-0.5 text-xs font-mono font-bold flex-shrink-0"
+      style={{ color: charColor(count, limit) }}>
+      {over && <span title="Exceeds platform limit">⚠</span>}
+      {count}/{limit}
     </span>
   )
 }
@@ -177,32 +181,34 @@ function AdFeedbackWidget({
 
   if (showReasons) {
     return (
-      <div className="mt-2 p-3 rounded-xl border w-full" style={{ borderColor: '#fecaca', backgroundColor: '#fef2f2' }}>
-        <p className="text-xs font-bold mb-2" style={{ color: '#dc2626' }}>Why didn&apos;t this work?</p>
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {REJECTION_REASONS.map(r => (
-            <button key={r} onClick={() => toggleReason(r)}
-              className="text-xs px-2 py-1 rounded-md border font-medium transition-all"
-              style={{
-                borderColor: selectedReasons.includes(r) ? '#dc2626' : '#fecaca',
-                backgroundColor: selectedReasons.includes(r) ? '#dc2626' : '#fff',
-                color: selectedReasons.includes(r) ? '#fff' : '#dc2626',
-              }}>
-              {r}
+      <div className="mt-2 w-full">
+        <div className="p-3 rounded-xl border" style={{ borderColor: '#fecaca', backgroundColor: '#fef2f2' }}>
+          <p className="text-xs font-bold mb-2" style={{ color: '#dc2626' }}>Why didn&apos;t this work?</p>
+          <div className="flex flex-wrap gap-1.5 mb-3" style={{ maxHeight: '120px', overflowY: 'auto' }}>
+            {REJECTION_REASONS.map(r => (
+              <button key={r} onClick={() => toggleReason(r)}
+                className="text-xs px-2 py-1 rounded-md border font-medium transition-all"
+                style={{
+                  borderColor: selectedReasons.includes(r) ? '#dc2626' : '#fecaca',
+                  backgroundColor: selectedReasons.includes(r) ? '#dc2626' : '#fff',
+                  color: selectedReasons.includes(r) ? '#fff' : '#dc2626',
+                }}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={confirmReasons}
+              className="text-xs px-3 py-1 rounded-lg text-white font-semibold"
+              style={{ backgroundColor: '#dc2626' }}>
+              Flag this ad
             </button>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button onClick={confirmReasons}
-            className="text-xs px-3 py-1 rounded-lg text-white font-semibold"
-            style={{ backgroundColor: '#dc2626' }}>
-            Flag this ad
-          </button>
-          <button onClick={() => setShowReasons(false)}
-            className="text-xs px-3 py-1 rounded-lg font-semibold"
-            style={{ color: '#9ca3af' }}>
-            Cancel
-          </button>
+            <button onClick={() => setShowReasons(false)}
+              className="text-xs px-3 py-1 rounded-lg font-semibold"
+              style={{ color: '#9ca3af' }}>
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -234,14 +240,16 @@ function GeneratingScreen({ steps, generationNumber }: {
   useEffect(() => {
     let stepIndex = 0
     let timeout: ReturnType<typeof setTimeout>
+
     function advance() {
-      if (stepIndex < steps.length - 1) {
-        setCompletedSteps(prev => [...prev, stepIndex])
-        stepIndex++
+      setCompletedSteps(prev => [...prev, stepIndex])
+      stepIndex++
+      if (stepIndex < steps.length) {
         setCurrentStep(stepIndex)
         timeout = setTimeout(advance, steps[stepIndex].duration)
       }
     }
+
     timeout = setTimeout(advance, steps[0].duration)
     return () => clearTimeout(timeout)
   }, [steps])
@@ -506,20 +514,20 @@ function AdPackModule() {
     const hasCompetitors = form.competitors.some(c => c.name || c.website)
     const steps = hasCompetitors
       ? [
-          { label: 'Reading your SignalMap Interview data', duration: 3000 },
-          { label: 'Pulling CustomerSignals voice-of-customer language', duration: 3000 },
-          { label: 'Loading BusinessSignals research', duration: 3000 },
+          { label: 'Reading your SignalMap Interview Data', duration: 3000 },
+          { label: 'Checking CustomerSignals Data', duration: 3000 },
+          { label: 'Loading BusinessSignals Research', duration: 3000 },
           { label: `Scanning Google Ads Transparency Center for ${competitorNames}`, duration: 5000 },
           { label: `Scanning Meta Ad Library for ${competitorNames}`, duration: 5000 },
-          { label: 'Identifying competitor gaps and differentiation angles', duration: 4000 },
-          { label: 'Writing your ad library with Sonnet', duration: 6000 },
+          { label: 'Identifying Competitor Gaps and Differentiation Angles', duration: 4000 },
+          { label: 'Writing your SignalAds Libraries', duration: 6000 },
         ]
       : [
-          { label: 'Reading your SignalMap Interview data', duration: 3000 },
-          { label: 'Pulling CustomerSignals voice-of-customer language', duration: 3000 },
-          { label: 'Loading BusinessSignals research', duration: 3000 },
-          { label: 'Analyzing ICP messaging angles', duration: 3000 },
-          { label: 'Writing your ad library with Sonnet', duration: 6000 },
+          { label: 'Reading your SignalMap Interview Data', duration: 3000 },
+          { label: 'Checking CustomerSignals Data', duration: 3000 },
+          { label: 'Loading BusinessSignals Research', duration: 3000 },
+          { label: 'Analyzing SignalMap Messaging Angles', duration: 3000 },
+          { label: 'Writing your SignalAds Libraries', duration: 6000 },
         ]
     return <GeneratingScreen steps={steps} generationNumber={generationNumber} />
   }
@@ -567,7 +575,7 @@ function AdPackModule() {
                         <p className="text-sm font-medium" style={{ color: '#191654' }}>{h.text}</p>
                         <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{h.angle}</p>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-start gap-2 flex-wrap flex-shrink-0">
                         <CharBadge text={h.text} limit={CHAR_LIMIT_GOOGLE_HEADLINE} />
                         <CopyButton text={h.text} />
                         <AdFeedbackWidget blockId={`google_headline_${i}`} contentText={h.text} adFeedback={adFeedback} onRate={handleAdRate} />
@@ -584,7 +592,7 @@ function AdPackModule() {
                   <div key={i} className="p-3 rounded-xl" style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm flex-1" style={{ color: '#191654' }}>{d.text}</p>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-start gap-2 flex-wrap flex-shrink-0">
                         <CharBadge text={d.text} limit={CHAR_LIMIT_GOOGLE_DESC} />
                         <CopyButton text={d.text} />
                         <AdFeedbackWidget blockId={`google_desc_${i}`} contentText={d.text} adFeedback={adFeedback} onRate={handleAdRate} />
@@ -602,7 +610,7 @@ function AdPackModule() {
                     <div key={i} className="p-4 rounded-xl" style={{ border: '1px solid #e5e7eb' }}>
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold" style={{ color: '#191654' }}>{v.name}</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-start gap-2 flex-wrap">
                           <CopyButton text={`Headlines:\n${v.headlines.join('\n')}\n\nDescriptions:\n${v.descriptions.join('\n')}`} variant="button" label="Copy set" />
                           <AdFeedbackWidget blockId={`google_variation_${i}`} contentText={v.headlines.join(' | ')} adFeedback={adFeedback} onRate={handleAdRate} />
                         </div>
@@ -630,7 +638,7 @@ function AdPackModule() {
                   <div key={i} className="p-3 rounded-xl" style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm flex-1" style={{ color: '#191654' }}>{t.text}</p>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-start gap-2 flex-wrap flex-shrink-0">
                         <CharBadge text={t.text} limit={CHAR_LIMIT_META_TEXT} />
                         <CopyButton text={t.text} />
                         <AdFeedbackWidget blockId={`meta_text_${i}`} contentText={t.text} adFeedback={adFeedback} onRate={handleAdRate} />
@@ -647,7 +655,7 @@ function AdPackModule() {
                 {ads.metaAds.headlines.map((h, i) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
                     <p className="text-sm flex-1" style={{ color: '#191654' }}>{h.text}</p>
-                    <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <div className="flex items-start gap-2 flex-wrap ml-3 flex-shrink-0">
                       <CharBadge text={h.text} limit={CHAR_LIMIT_META_HEADLINE} />
                       <CopyButton text={h.text} />
                       <AdFeedbackWidget blockId={`meta_headline_${i}`} contentText={h.text} adFeedback={adFeedback} onRate={handleAdRate} />
@@ -664,7 +672,7 @@ function AdPackModule() {
                     <div key={i} className="p-4 rounded-xl" style={{ border: '1px solid #e5e7eb' }}>
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-xs font-bold" style={{ color: '#191654' }}>{s.name}</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-start gap-2 flex-wrap">
                           <CopyButton text={`Primary Text: ${s.primaryText}\nHeadline: ${s.headline}\nDescription: ${s.description}\nCTA: ${s.cta}`} variant="button" label="Copy set" />
                           <AdFeedbackWidget blockId={`meta_adset_${i}`} contentText={s.primaryText} adFeedback={adFeedback} onRate={handleAdRate} />
                         </div>
@@ -712,7 +720,7 @@ function AdPackModule() {
                   <div key={i} className="p-4 rounded-xl" style={{ border: '1px solid #e5e7eb' }}>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold" style={{ color: '#9ca3af' }}>Ad {i + 1}</span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2 flex-wrap">
                         <CopyButton text={`Intro: ${s.introText}\nHeadline: ${s.headline}\nDescription: ${s.description}\nCTA: ${s.cta}`} variant="button" label="Copy ad" />
                         <AdFeedbackWidget blockId={`li_ad_${i}`} contentText={s.introText} adFeedback={adFeedback} onRate={handleAdRate} />
                       </div>
@@ -794,7 +802,7 @@ function StrategySignalsBlock({ ss }: { ss: NonNullable<AdOutput['strategySignal
         </div>
         {ss.whyItWins && (
           <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
-            <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>WHY THIS WAS GENERATED</p>
+            <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>WHAT SIGNALS DROVE THIS STRATEGY</p>
             <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{ss.whyItWins}</p>
           </div>
         )}
