@@ -38,9 +38,9 @@ export async function POST(request: Request) {
   const adminClient = createAdminClient()
 
   // Verify ownership
-  const { data: biz } = await adminClient.from('businesses').select('customer_id').eq('id', businessId).single()
-  if (!biz) return apiError('Business not found', 404, 'NOT_FOUND')
-  const { data: cust } = await adminClient.from('customers').select('id').eq('id', biz.customer_id).eq('auth_user_id', auth.user.id).single()
+  const { data: bizOwner } = await adminClient.from('businesses').select('customer_id').eq('id', businessId).single()
+  if (!bizOwner) return apiError('Business not found', 404, 'NOT_FOUND')
+  const { data: cust } = await adminClient.from('customers').select('id').eq('id', bizOwner.customer_id).eq('auth_user_id', auth.user.id).single()
   if (!cust) return apiError('Access denied', 403, 'FORBIDDEN')
 
   // Build context
@@ -77,11 +77,39 @@ export async function POST(request: Request) {
   const targeting = context.targetingData as Record<string, unknown> | null
   const antiIcp = context.antiIcpSignals as Record<string, unknown> | null
   const proof = context.proofAssets as Record<string, unknown> | null
+  const competitive = context.competitiveData as Record<string, unknown> | null
   const voc = context.vocSummary
+  const biz = context.business
+  const research = biz.business_research
 
   const adContext = `
-BUSINESS: ${context.business.business_name}
-PRIMARY SERVICE: ${context.business.primary_service}
+BUSINESS: ${biz.business_name}
+PRIMARY SERVICE: ${biz.primary_service}
+WEBSITE: ${biz.website_url || 'not provided'}
+GEOGRAPHIC MARKET: ${biz.geographic_market || 'not specified'}
+BUSINESS TYPE: ${biz.business_type || 'not specified'}
+
+BUSINESS INTELLIGENCE (from BusinessSignals research):
+What they do: ${research?.whatTheyDo || ''}
+Primary product/service: ${research?.primaryProduct || ''}
+Differentiators found on website: ${research?.differentiators || ''}
+Years in business: ${research?.yearsInBusiness || ''}
+Services: ${JSON.stringify(research?.services || [])}
+Service areas: ${JSON.stringify(research?.serviceAreas || [])}
+Team size: ${research?.teamSize || ''}
+Certifications/Awards: ${JSON.stringify([...(research?.certifications || []), ...(research?.awards || [])])}
+Pricing signals: ${research?.pricingSignals || ''}
+Website quality notes: ${research?.websiteQuality || ''}
+GMB rating: ${research?.gmbData?.averageRating || ''} (${research?.gmbData?.reviewCount || ''} reviews)
+GMB categories: ${research?.gmbData?.categories || ''}
+
+COMPETITIVE LANDSCAPE (from SignalMap Interview):
+Known competitors: ${JSON.stringify(competitive?.known_competitors || [])}
+Competitive advantages: ${JSON.stringify(competitive?.competitive_advantages || [])}
+Market positioning: ${competitive?.market_positioning || ''}
+Competitive gaps: ${JSON.stringify(competitive?.competitive_gaps || [])}
+Why customers choose them over competitors: ${competitive?.why_choose_us || ''}
+Competitor weaknesses: ${JSON.stringify(competitive?.competitor_weaknesses || [])}
 
 IDEAL CUSTOMER PROFILE:
 One-sentence ICP: ${icp?.one_sentence_icp || ''}
@@ -93,6 +121,7 @@ Dream outcome: ${icp?.dream_outcome_12months || ''}
 Top objections: ${JSON.stringify(icp?.top_objections || [])}
 Trust signals: ${icp?.trust_signals || ''}
 Where they show up: ${icp?.where_they_show_up || ''}
+Buying triggers: ${JSON.stringify(icp?.buying_triggers || [])}
 
 MESSAGING FRAMEWORK:
 Core positioning: ${messaging?.core_positioning_statement || ''}
@@ -119,6 +148,7 @@ CUSTOMER VOICE (use this language preferentially):
 Top phrases: ${JSON.stringify(voc?.topPhrases || [])}
 Outcome language: ${JSON.stringify(voc?.outcomeLanguage || [])}
 Emotional language: ${JSON.stringify(voc?.emotionalLanguage || [])}
+Problem language: ${JSON.stringify(voc?.problemLanguage || [])}
 Review highlights: ${(voc?.reviewHighlights || []).join(' | ')}
 
 ANTI-ICP (never target these):
@@ -132,7 +162,7 @@ Budget range: ${budget}
 Brand tone: ${tone}
 ${previousAttempts ? `What didn't work before: ${previousAttempts}` : ''}
 ${regenerationFeedback ? `FEEDBACK ON PREVIOUS VERSION: ${regenerationFeedback}\nIMPORTANT: Address this feedback specifically in the new version.` : ''}
-${competitorIntel ? `COMPETITOR INTELLIGENCE:\n${competitorIntel}\nUse this to differentiate — avoid their saturated angles, exploit their gaps.` : 'No competitor research provided — generate from ICP data.'}
+${competitorIntel ? `COMPETITOR INTELLIGENCE FROM AD LIBRARIES:\n${competitorIntel}\nUse this to differentiate — avoid their saturated angles, exploit their gaps.` : 'No competitor ad library research conducted.'}
 `
 
   // Generate with Sonnet
@@ -157,7 +187,7 @@ LinkedIn Intro: max 150 chars
 LinkedIn Headline: max 70 chars
 
 Return ONLY valid JSON. No markdown. No preamble.`,
-    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nReturn this exact JSON structure:\n{"summary":{"strategy":"","primaryAngle":"","keyDifferentiator":""},"googleSearchAds":{"headlines":[{"text":"","charCount":0,"angle":""}],"descriptions":[{"text":"","charCount":0}],"adVariations":[{"name":"","headlines":["","",""],"descriptions":["",""],"notes":""}],"negativeKeywords":[],"audienceTargeting":"","bidStrategy":""},"metaAds":{"primaryTexts":[{"text":"","charCount":0,"hook":""}],"headlines":[{"text":"","charCount":0}],"adSets":[{"name":"","primaryText":"","headline":"","description":"","cta":"","targetingNotes":""}],"audienceTargeting":{"coreAudiences":[],"interests":[],"behaviors":[],"customAudiences":[],"lookalikes":""}},"linkedInAds":{"sponsoredContent":[{"introText":"","headline":"","description":"","cta":""}],"targeting":{"jobTitles":[],"industries":[],"companySizes":[],"skills":[]},"messagingNotes":""},"crossPlatformStrategy":{"funnelApproach":"","messagingHierarchy":"","budgetAllocation":"","testingRecommendations":[]}}` }],
+    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nReturn this exact JSON structure (no markdown, no preamble):\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}],\n    "negativeKeywords": [],\n    "audienceTargeting": "",\n    "bidStrategy": ""\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
   })
 
   // Parse

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Target, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 
 interface AdPackSalesPageProps {
@@ -17,46 +17,39 @@ interface CompetitorEntry {
 type ViewState = 'form' | 'generating' | 'results'
 
 interface AdOutput {
-  summary?: {
-    strategy?: string
-    primaryAngle?: string
-    keyDifferentiator?: string
+  strategySignals?: {
+    primaryAngle: string
+    keyDifferentiator: string
+    whyItWins: string
+    dataSourcesUsed: string[]
+    competitorInsights: string
+    funnelApproach: string
+    messagingHierarchy: string
+    budgetAllocation: string
+    platformRationale: string
+    testingRecommendations: string[]
   }
+  // keep summary as optional fallback for backwards compat
+  summary?: { strategy: string; primaryAngle: string; keyDifferentiator: string }
   googleSearchAds?: {
-    headlines?: Array<{ text: string; charCount: number; angle: string }>
-    descriptions?: Array<{ text: string; charCount: number }>
-    adVariations?: Array<{ name: string; headlines: string[]; descriptions: string[]; notes: string }>
-    negativeKeywords?: string[]
-    audienceTargeting?: string
-    bidStrategy?: string
+    headlines: Array<{ text: string; charCount: number; angle: string }>
+    descriptions: Array<{ text: string; charCount: number }>
+    adVariations: Array<{ name: string; headlines: string[]; descriptions: string[]; notes: string }>
+    negativeKeywords: string[]
+    audienceTargeting: string
+    bidStrategy: string
   }
   metaAds?: {
-    primaryTexts?: Array<{ text: string; charCount: number; hook: string }>
-    headlines?: Array<{ text: string; charCount: number }>
-    adSets?: Array<{ name: string; primaryText: string; headline: string; description: string; cta: string; targetingNotes: string }>
-    audienceTargeting?: {
-      coreAudiences?: string[]
-      interests?: string[]
-      behaviors?: string[]
-      customAudiences?: string[]
-      lookalikes?: string
-    }
+    primaryTexts: Array<{ text: string; charCount: number; hook: string }>
+    headlines: Array<{ text: string; charCount: number }>
+    adSets: Array<{ name: string; primaryText: string; headline: string; description: string; cta: string; targetingNotes: string }>
+    audienceTargeting: { coreAudiences: string[]; interests: string[]; behaviors: string[]; customAudiences: string[]; lookalikes: string }
+    messagingNotes: string
   }
   linkedInAds?: {
-    sponsoredContent?: Array<{ introText: string; headline: string; description: string; cta: string }>
-    targeting?: {
-      jobTitles?: string[]
-      industries?: string[]
-      companySizes?: string[]
-      skills?: string[]
-    }
-    messagingNotes?: string
-  }
-  crossPlatformStrategy?: {
-    funnelApproach?: string
-    messagingHierarchy?: string
-    budgetAllocation?: string
-    testingRecommendations?: string[]
+    sponsoredContent: Array<{ introText: string; headline: string; description: string; cta: string }>
+    targeting: { jobTitles: string[]; industries: string[]; companySizes: string[]; skills: string[] }
+    messagingNotes: string
   }
 }
 
@@ -82,6 +75,89 @@ const TONE_OPTIONS = [
   'Conversational & relatable',
 ]
 
+function GeneratingScreen({ steps, generationNumber }: { steps: Array<{ label: string; duration: number }>; generationNumber: number }) {
+  const [currentStep, setCurrentStep] = useState(0)
+  const [completedSteps, setCompletedSteps] = useState<number[]>([])
+
+  useEffect(() => {
+    let stepIndex = 0
+    let timeout: ReturnType<typeof setTimeout>
+
+    function advance() {
+      if (stepIndex < steps.length - 1) {
+        setCompletedSteps(prev => [...prev, stepIndex])
+        stepIndex++
+        setCurrentStep(stepIndex)
+        timeout = setTimeout(advance, steps[stepIndex].duration)
+      }
+    }
+
+    timeout = setTimeout(advance, steps[0].duration)
+    return () => clearTimeout(timeout)
+  }, [steps])
+
+  return (
+    <div className="max-w-lg mx-auto mt-12">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
+          <Target size={18} style={{ color: '#43C6AC' }} />
+        </div>
+        <div>
+          <p className="text-sm font-bold" style={{ color: '#191654' }}>
+            {generationNumber === 1 ? 'Building your ad library…' : `Regenerating (${generationNumber}/3)…`}
+          </p>
+          <p className="text-xs" style={{ color: '#9ca3af' }}>Takes about 30–45 seconds</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {steps.map((step, i) => {
+          const isDone = completedSteps.includes(i)
+          const isActive = currentStep === i
+          const isPending = !isDone && !isActive
+
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-3 p-3 rounded-xl transition-all"
+              style={{
+                backgroundColor: isActive ? 'rgba(67,198,172,0.06)' : 'transparent',
+                border: isActive ? '1px solid rgba(67,198,172,0.2)' : '1px solid transparent',
+                opacity: isPending ? 0.35 : 1,
+              }}
+            >
+              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                {isDone ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="8" fill="#43C6AC" fillOpacity="0.15" />
+                    <path d="M4.5 8L7 10.5L11.5 6" stroke="#43C6AC" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : isActive ? (
+                  <div
+                    className="w-4 h-4 rounded-full border-2 animate-spin"
+                    style={{ borderColor: '#43C6AC', borderTopColor: 'transparent' }}
+                  />
+                ) : (
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#e5e7eb' }} />
+                )}
+              </div>
+              <p
+                className="text-sm"
+                style={{
+                  color: isDone ? '#6b7280' : isActive ? '#191654' : '#9ca3af',
+                  fontWeight: isActive ? 600 : 400,
+                }}
+              >
+                {step.label}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function AdPackSalesPage({ businessId }: AdPackSalesPageProps) {
   const [view, setView] = useState<ViewState>('form')
   const [goal, setGoal] = useState('')
@@ -97,7 +173,7 @@ export default function AdPackSalesPage({ businessId }: AdPackSalesPageProps) {
   const [error, setError] = useState('')
   const [generationNumber, setGenerationNumber] = useState(1)
   const [feedbackSent, setFeedbackSent] = useState(false)
-  const [activeTab, setActiveTab] = useState<'google' | 'meta' | 'linkedin' | 'strategy'>('google')
+  const [activeTab, setActiveTab] = useState<'google' | 'meta' | 'linkedin'>('google')
 
   // Load previous output if it exists
   useEffect(() => {
@@ -208,40 +284,124 @@ export default function AdPackSalesPage({ businessId }: AdPackSalesPageProps) {
   }
 
   if (view === 'generating') {
-    return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <Loader size={36} className="animate-spin mb-4" style={{ color: '#43C6AC' }} />
-        <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
-          Generating your ad library...
-        </h2>
-        <p className="text-sm" style={{ color: '#6b7280' }}>
-          Analyzing your ICP, messaging framework, and customer voice data.
-          This typically takes 30-60 seconds.
-        </p>
-      </div>
-    )
+    const steps = competitors.some(c => c.name || c.website)
+      ? [
+          { label: 'Reading your SignalMap Interview data', duration: 3000 },
+          { label: 'Pulling CustomerSignals voice-of-customer language', duration: 3000 },
+          { label: 'Loading BusinessSignals research', duration: 3000 },
+          { label: `Scanning Google Ads Transparency Center for ${competitors.filter(c => c.name).map(c => c.name).join(', ')}`, duration: 5000 },
+          { label: `Scanning Meta Ad Library for ${competitors.filter(c => c.name).map(c => c.name).join(', ')}`, duration: 5000 },
+          { label: 'Identifying competitor gaps and differentiation angles', duration: 4000 },
+          { label: 'Writing your ad library with Sonnet', duration: 6000 },
+        ]
+      : [
+          { label: 'Reading your SignalMap Interview data', duration: 3000 },
+          { label: 'Pulling CustomerSignals voice-of-customer language', duration: 3000 },
+          { label: 'Loading BusinessSignals research', duration: 3000 },
+          { label: 'Analyzing ICP messaging angles', duration: 3000 },
+          { label: 'Writing your ad library with Sonnet', duration: 6000 },
+        ]
+
+    return <GeneratingScreen steps={steps} generationNumber={generationNumber} />
   }
 
   if (view === 'results' && ads) {
     return (
       <div>
-        {/* Strategy summary */}
-        {ads.summary && (
-          <div className="p-5 rounded-xl border mb-6" style={{ borderColor: '#e5e7eb', backgroundColor: '#f8f9fc' }}>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: '#191654' }}>Campaign Strategy</h3>
-            <p className="text-sm mb-1" style={{ color: '#4b5563' }}>{ads.summary.strategy}</p>
-            {ads.summary.primaryAngle && (
-              <p className="text-xs mt-2" style={{ color: '#6b7280' }}>
-                <strong>Primary angle:</strong> {ads.summary.primaryAngle}
-              </p>
-            )}
-            {ads.summary.keyDifferentiator && (
-              <p className="text-xs" style={{ color: '#6b7280' }}>
-                <strong>Key differentiator:</strong> {ads.summary.keyDifferentiator}
-              </p>
-            )}
-          </div>
-        )}
+        {/* StrategySignals */}
+        {(ads.strategySignals || ads.summary) && (() => {
+          const ss = ads.strategySignals
+          const fallback = ads.summary
+          return (
+            <div className="rounded-2xl overflow-hidden mb-6" style={{ border: '1px solid rgba(67,198,172,0.25)' }}>
+              <div className="px-6 py-4 flex items-center gap-2" style={{ backgroundColor: 'rgba(67,198,172,0.08)' }}>
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#43C6AC' }} />
+                <p className="text-xs font-bold tracking-widest" style={{ color: '#43C6AC' }}>STRATEGYSIGNALS</p>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>PRIMARY ANGLE</p>
+                    <p className="text-sm" style={{ color: '#191654' }}>{ss?.primaryAngle || fallback?.primaryAngle}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>KEY DIFFERENTIATOR</p>
+                    <p className="text-sm" style={{ color: '#191654' }}>{ss?.keyDifferentiator || fallback?.keyDifferentiator}</p>
+                  </div>
+                </div>
+
+                {ss?.whyItWins && (
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>WHY THIS WINS</p>
+                    <p className="text-sm" style={{ color: '#374151' }}>{ss.whyItWins}</p>
+                  </div>
+                )}
+
+                {ss?.competitorInsights && (
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>COMPETITOR INSIGHTS</p>
+                    <p className="text-sm" style={{ color: '#374151' }}>{ss.competitorInsights}</p>
+                  </div>
+                )}
+
+                {ss?.dataSourcesUsed && ss.dataSourcesUsed.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold mb-2" style={{ color: '#9ca3af' }}>DATA SOURCES USED</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ss.dataSourcesUsed.map((s, i) => (
+                        <span key={i} className="text-xs px-2 py-0.5 rounded-md font-semibold"
+                          style={{ backgroundColor: 'rgba(25,22,84,0.08)', color: '#191654' }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t" style={{ borderColor: 'rgba(67,198,172,0.15)' }}>
+                  {ss?.funnelApproach && (
+                    <div>
+                      <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>FUNNEL APPROACH</p>
+                      <p className="text-xs" style={{ color: '#374151' }}>{ss.funnelApproach}</p>
+                    </div>
+                  )}
+                  {ss?.budgetAllocation && (
+                    <div>
+                      <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>BUDGET ALLOCATION</p>
+                      <p className="text-xs" style={{ color: '#374151' }}>{ss.budgetAllocation}</p>
+                    </div>
+                  )}
+                  {ss?.platformRationale && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>PLATFORM RATIONALE</p>
+                      <p className="text-xs" style={{ color: '#374151' }}>{ss.platformRationale}</p>
+                    </div>
+                  )}
+                  {ss?.messagingHierarchy && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>MESSAGING HIERARCHY</p>
+                      <p className="text-xs" style={{ color: '#374151' }}>{ss.messagingHierarchy}</p>
+                    </div>
+                  )}
+                </div>
+
+                {ss?.testingRecommendations && ss.testingRecommendations.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold mb-2" style={{ color: '#9ca3af' }}>TESTING RECOMMENDATIONS</p>
+                    <ul className="space-y-1">
+                      {ss.testingRecommendations.map((r, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-xs font-bold mt-0.5" style={{ color: '#43C6AC' }}>{i + 1}.</span>
+                          <p className="text-xs" style={{ color: '#374151' }}>{r}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Tab navigation */}
         <div className="flex gap-1 mb-6 border-b" style={{ borderColor: '#e5e7eb' }}>
@@ -249,7 +409,6 @@ export default function AdPackSalesPage({ businessId }: AdPackSalesPageProps) {
             { key: 'google' as const, label: 'Google Ads', show: !!ads.googleSearchAds },
             { key: 'meta' as const, label: 'Meta Ads', show: !!ads.metaAds },
             { key: 'linkedin' as const, label: 'LinkedIn Ads', show: !!ads.linkedInAds },
-            { key: 'strategy' as const, label: 'Cross-Platform', show: !!ads.crossPlatformStrategy },
           ].filter(t => t.show).map(tab => (
             <button
               key={tab.key}
@@ -421,34 +580,6 @@ export default function AdPackSalesPage({ businessId }: AdPackSalesPageProps) {
                   )}
                 </div>
               </AdSection>
-            )}
-          </div>
-        )}
-
-        {/* Cross-Platform Strategy tab */}
-        {activeTab === 'strategy' && ads.crossPlatformStrategy && (
-          <div className="space-y-4">
-            {ads.crossPlatformStrategy.funnelApproach && (
-              <div className="p-4 rounded-xl border" style={{ borderColor: '#e5e7eb' }}>
-                <h4 className="text-sm font-semibold mb-1" style={{ color: '#191654' }}>Funnel Approach</h4>
-                <p className="text-sm" style={{ color: '#4b5563' }}>{ads.crossPlatformStrategy.funnelApproach}</p>
-              </div>
-            )}
-            {ads.crossPlatformStrategy.budgetAllocation && (
-              <div className="p-4 rounded-xl border" style={{ borderColor: '#e5e7eb' }}>
-                <h4 className="text-sm font-semibold mb-1" style={{ color: '#191654' }}>Budget Allocation</h4>
-                <p className="text-sm" style={{ color: '#4b5563' }}>{ads.crossPlatformStrategy.budgetAllocation}</p>
-              </div>
-            )}
-            {ads.crossPlatformStrategy.testingRecommendations && ads.crossPlatformStrategy.testingRecommendations.length > 0 && (
-              <div className="p-4 rounded-xl border" style={{ borderColor: '#e5e7eb' }}>
-                <h4 className="text-sm font-semibold mb-1" style={{ color: '#191654' }}>Testing Recommendations</h4>
-                <ul className="space-y-1">
-                  {ads.crossPlatformStrategy.testingRecommendations.map((rec, i) => (
-                    <li key={i} className="text-sm" style={{ color: '#4b5563' }}>{rec}</li>
-                  ))}
-                </ul>
-              </div>
             )}
           </div>
         )}
