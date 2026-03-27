@@ -79,17 +79,26 @@ export async function POST(request: Request) {
   const proof = context.proofAssets as Record<string, unknown> | null
   const competitive = context.competitiveData as Record<string, unknown> | null
   const voc = context.vocSummary
-  const biz = context.business
-  const research = biz.business_research
+  const bizData = context.business
+  const research = bizData.business_research
+
+  // Track which data sources are actually populated — passed to Sonnet so it
+  // can populate strategySignals.dataSourcesUsed accurately
+  const dataSources = {
+    signalMap: !!context.session,
+    customerSignals: !!voc && (voc.topPhrases?.length > 0),
+    businessSignals: !!research,
+    competitorResearch: !!competitorIntel,
+  }
 
   const adContext = `
-BUSINESS: ${biz.business_name}
-PRIMARY SERVICE: ${biz.primary_service}
-WEBSITE: ${biz.website_url || 'not provided'}
-GEOGRAPHIC MARKET: ${biz.geographic_market || 'not specified'}
-BUSINESS TYPE: ${biz.business_type || 'not specified'}
+BUSINESS: ${bizData.business_name}
+PRIMARY SERVICE: ${bizData.primary_service}
+WEBSITE: ${bizData.website_url || 'not provided'}
+GEOGRAPHIC MARKET: ${bizData.geographic_market || 'not specified'}
+BUSINESS TYPE: ${bizData.business_type || 'not specified'}
 
-BUSINESS INTELLIGENCE (from BusinessSignals research):
+BUSINESS INTELLIGENCE (BusinessSignals — scraped from website + GMB):
 What they do: ${research?.whatTheyDo || ''}
 Primary product/service: ${research?.primaryProduct || ''}
 Differentiators found on website: ${research?.differentiators || ''}
@@ -103,7 +112,7 @@ Website quality notes: ${research?.websiteQuality || ''}
 GMB rating: ${research?.gmbData?.averageRating || ''} (${research?.gmbData?.reviewCount || ''} reviews)
 GMB categories: ${research?.gmbData?.categories || ''}
 
-COMPETITIVE LANDSCAPE (from SignalMap Interview):
+COMPETITIVE LANDSCAPE (from SignalMap Interview with Alex):
 Known competitors: ${JSON.stringify(competitive?.known_competitors || [])}
 Competitive advantages: ${JSON.stringify(competitive?.competitive_advantages || [])}
 Market positioning: ${competitive?.market_positioning || ''}
@@ -111,7 +120,7 @@ Competitive gaps: ${JSON.stringify(competitive?.competitive_gaps || [])}
 Why customers choose them over competitors: ${competitive?.why_choose_us || ''}
 Competitor weaknesses: ${JSON.stringify(competitive?.competitor_weaknesses || [])}
 
-IDEAL CUSTOMER PROFILE:
+IDEAL CUSTOMER PROFILE (SignalMap):
 One-sentence ICP: ${icp?.one_sentence_icp || ''}
 Archetype: ${icp?.archetype_name || ''}
 External problem: ${icp?.external_problem || ''}
@@ -123,7 +132,7 @@ Trust signals: ${icp?.trust_signals || ''}
 Where they show up: ${icp?.where_they_show_up || ''}
 Buying triggers: ${JSON.stringify(icp?.buying_triggers || [])}
 
-MESSAGING FRAMEWORK:
+MESSAGING FRAMEWORK (SignalMap):
 Core positioning: ${messaging?.core_positioning_statement || ''}
 Differentiator: ${messaging?.differentiator_statement || ''}
 Trust statement: ${messaging?.trust_statement || ''}
@@ -133,36 +142,42 @@ Ad angle - problem led: ${(messaging?.ad_angles as Record<string, unknown> | und
 Ad angle - outcome led: ${(messaging?.ad_angles as Record<string, unknown> | undefined)?.outcome_led || ''}
 Ad angle - differentiator: ${(messaging?.ad_angles as Record<string, unknown> | undefined)?.differentiator_led || ''}
 
-TARGETING:
+TARGETING (SignalMap):
 Job titles: ${JSON.stringify(targeting?.job_titles || [])}
 Industries: ${JSON.stringify(targeting?.industries || [])}
 Company sizes: ${JSON.stringify(targeting?.company_sizes || [])}
 Geographic targets: ${JSON.stringify(targeting?.geographic_targets || [])}
 
-PROOF ASSETS:
+PROOF ASSETS (SignalMap):
 Result metrics: ${JSON.stringify(proof?.result_metrics || [])}
 Testimonial themes: ${JSON.stringify(proof?.testimonial_themes || [])}
 Credential signals: ${JSON.stringify(proof?.credential_signals || [])}
 
-CUSTOMER VOICE (use this language preferentially):
+CUSTOMER VOICE (CustomerSignals — real reviews + VOC extraction):
 Top phrases: ${JSON.stringify(voc?.topPhrases || [])}
 Outcome language: ${JSON.stringify(voc?.outcomeLanguage || [])}
 Emotional language: ${JSON.stringify(voc?.emotionalLanguage || [])}
 Problem language: ${JSON.stringify(voc?.problemLanguage || [])}
 Review highlights: ${(voc?.reviewHighlights || []).join(' | ')}
 
-ANTI-ICP (never target these):
+ANTI-ICP (SignalMap):
 Who to exclude: ${antiIcp?.who_to_exclude || ''}
 Wrong messaging angles: ${JSON.stringify(antiIcp?.wrong_messaging || [])}
 Negative keywords: ${JSON.stringify(antiIcp?.negative_keywords || [])}
+
+DATA SOURCES POPULATED:
+- SignalMap Interview: ${dataSources.signalMap ? 'YES' : 'NO'}
+- CustomerSignals (VOC): ${dataSources.customerSignals ? 'YES' : 'NO'}
+- BusinessSignals Research: ${dataSources.businessSignals ? 'YES' : 'NO'}
+- Competitor Ad Research: ${dataSources.competitorResearch ? 'YES — use competitorIntel above' : 'NO — generate from ICP data only'}
 
 AD CAMPAIGN SETTINGS:
 Goal: ${goal}
 Budget range: ${budget}
 Brand tone: ${tone}
 ${previousAttempts ? `What didn't work before: ${previousAttempts}` : ''}
-${regenerationFeedback ? `FEEDBACK ON PREVIOUS VERSION: ${regenerationFeedback}\nIMPORTANT: Address this feedback specifically in the new version.` : ''}
-${competitorIntel ? `COMPETITOR INTELLIGENCE FROM AD LIBRARIES:\n${competitorIntel}\nUse this to differentiate — avoid their saturated angles, exploit their gaps.` : 'No competitor ad library research conducted.'}
+${regenerationFeedback ? `REGENERATION FEEDBACK FROM USER: ${regenerationFeedback}\nIMPORTANT: Address this feedback specifically.` : ''}
+${competitorIntel ? `COMPETITOR AD LIBRARY INTELLIGENCE:\n${competitorIntel}\nExploit their gaps. Avoid their saturated angles.` : ''}
 `
 
   // Generate with Sonnet
@@ -187,7 +202,7 @@ LinkedIn Intro: max 150 chars
 LinkedIn Headline: max 70 chars
 
 Return ONLY valid JSON. No markdown. No preamble.`,
-    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nReturn this exact JSON structure (no markdown, no preamble):\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}],\n    "negativeKeywords": [],\n    "audienceTargeting": "",\n    "bidStrategy": ""\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
+    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nFor strategySignals.dataSourcesUsed: list only the sources marked YES above, using these exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals", "Competitor Research".\n\nFor strategySignals.whyItWins: explain in 2-3 sentences specifically which data points drove the primary angle — reference actual facts from the context (e.g. specific differentiators, VOC phrases, competitor gaps).\n\nReturn ONLY valid JSON, no markdown, no preamble:\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "negativeKeywords": [],\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}]\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
   })
 
   // Parse
