@@ -1,3 +1,5 @@
+'use client'
+
 import ModuleGate from '@/components/ModuleGate'
 import AdPackSalesPage from '@/components/modules/AdPackSalesPage'
 
