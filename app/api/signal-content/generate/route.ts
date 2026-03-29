@@ -213,7 +213,7 @@ No markdown fences. No text before or after. No explanations.`,
 
   let parsedCall1: Record<string, unknown>
   try {
-    let raw1 = lastBlock1.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+    const raw1 = lastBlock1.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
     const first1 = raw1.indexOf('{')
     const last1 = raw1.lastIndexOf('}')
     if (first1 === -1 || last1 <= first1) {
@@ -263,7 +263,7 @@ No markdown. No text before or after.`,
 
   let parsedCall2: { pillars?: Array<Record<string, unknown>> }
   try {
-    let raw2 = lastBlock2.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+    const raw2 = lastBlock2.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
     const first2 = raw2.indexOf('{')
     const last2 = raw2.lastIndexOf('}')
     if (first2 === -1 || last2 <= first2) {

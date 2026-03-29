@@ -67,6 +67,7 @@ function LinkedInPreview({
 
       {/* Image */}
       {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="Post visual" className="w-full object-cover" style={{ height: 220 }} />
       ) : (
         <div className="w-full flex items-center justify-center" style={{ height: 220, backgroundColor: '#f3f4f6' }}>
@@ -137,6 +138,7 @@ function InstagramPreview({
 
       {/* Image */}
       {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="Post visual" className="w-full object-cover" style={{ height: 280 }} />
       ) : (
         <div className="w-full flex items-center justify-center" style={{ height: 280, backgroundColor: '#fafafa' }}>
@@ -214,6 +216,7 @@ function FacebookPreview({
 
       {/* Image */}
       {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="Post visual" className="w-full object-cover" style={{ height: 220 }} />
       ) : (
         <div className="w-full flex items-center justify-center" style={{ height: 220, backgroundColor: '#f0f2f5' }}>
