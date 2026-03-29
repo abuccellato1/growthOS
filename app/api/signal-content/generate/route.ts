@@ -99,17 +99,17 @@ What they do: ${research?.whatTheyDo || ''}
 Primary product/service: ${research?.primaryProduct || ''}
 Differentiators: ${research?.differentiators || ''}
 Years in business: ${research?.yearsInBusiness || ''}
-Services: ${JSON.stringify(research?.services || [])}
-Certifications/Awards: ${JSON.stringify([...((research?.certifications as string[]) || []), ...((research?.awards as string[]) || [])])}
+Services: ${((research?.services as string[] | null) || []).join(', ')}
+Certifications/Awards: ${([...((research?.certifications as string[] | null) || []), ...((research?.awards as string[] | null) || [])]).join(', ')}
 GMB rating: ${(research?.gmbData as Record<string, unknown> | undefined)?.averageRating || ''} (${(research?.gmbData as Record<string, unknown> | undefined)?.reviewCount || ''} reviews)
-Testimonial themes: ${JSON.stringify(research?.testimonialThemes || [])}
+Testimonial themes: ${((research?.testimonialThemes as string[] | null) || []).join(', ')}
 
 CONTENT INTELLIGENCE (SignalMap — content_data):
-Awareness searches: ${JSON.stringify(content?.awareness_searches || [])}
-Problem clusters: ${JSON.stringify(content?.problem_clusters || [])}
-Consideration questions: ${JSON.stringify(content?.consideration_questions || [])}
-Content topics Alex identified: ${JSON.stringify(content?.content_topics || [])}
-SEO keyword clusters: ${JSON.stringify(content?.seo_keyword_clusters || [])}
+Awareness searches: ${((content?.awareness_searches as string[] | null) || []).join(', ')}
+Problem clusters: ${((content?.problem_clusters as string[] | null) || []).join(', ')}
+Consideration questions: ${((content?.consideration_questions as string[] | null) || []).join(', ')}
+Content topics: ${((content?.content_topics as string[] | null) || []).join(', ')}
+SEO keywords: ${((content?.seo_keyword_clusters as string[] | null) || []).join(', ')}
 Buyer path: ${content?.buyer_path || ''}
 
 IDEAL CUSTOMER PROFILE (SignalMap):
@@ -119,34 +119,34 @@ External problem: ${icp?.external_problem || ''}
 Internal problem: ${icp?.internal_problem || ''}
 Primary fear: ${icp?.primary_fear || ''}
 Dream outcome: ${icp?.dream_outcome_12months || ''}
-Top objections: ${JSON.stringify(icp?.top_objections || [])}
+Top objections: ${((icp?.top_objections as string[] | null) || []).join(', ')}
 Where they show up: ${icp?.where_they_show_up || ''}
-Buying triggers: ${JSON.stringify(icp?.buying_triggers || [])}
+Buying triggers: ${((icp?.buying_triggers as string[] | null) || []).join(', ')}
 
 MESSAGING FRAMEWORK (SignalMap):
 Core positioning: ${messaging?.core_positioning_statement || ''}
 Differentiator: ${messaging?.differentiator_statement || ''}
 Trust statement: ${messaging?.trust_statement || ''}
-Language that resonates: ${JSON.stringify(messaging?.language_that_resonates || [])}
-Language to AVOID: ${JSON.stringify(messaging?.language_to_avoid || [])}
+Language that resonates: ${((messaging?.language_that_resonates as string[] | null) || []).join(', ')}
+Language to AVOID: ${((messaging?.language_to_avoid as string[] | null) || []).join(', ')}
 
 PROOF ASSETS (SignalMap):
-Result metrics: ${JSON.stringify(proof?.result_metrics || [])}
-Testimonial themes: ${JSON.stringify(proof?.testimonial_themes || [])}
-Credential signals: ${JSON.stringify(proof?.credential_signals || [])}
+Result metrics: ${((proof?.result_metrics as string[] | null) || []).join(', ')}
+Testimonial themes: ${((proof?.testimonial_themes as string[] | null) || []).join(', ')}
+Credential signals: ${((proof?.credential_signals as string[] | null) || []).join(', ')}
 
 VOICE OF CUSTOMER — SESSION (SignalMap VOC):
-Exact phrases: ${JSON.stringify(vocSignals?.exact_phrases || [])}
-Problem descriptions: ${JSON.stringify(vocSignals?.problem_descriptions || [])}
-Outcome descriptions: ${JSON.stringify(vocSignals?.outcome_descriptions || [])}
-Emotional language: ${JSON.stringify(vocSignals?.emotional_language || [])}
-Repeated themes: ${JSON.stringify(vocSignals?.repeated_themes || [])}
+Exact phrases: ${((vocSignals?.exact_phrases as string[] | null) || []).join(', ')}
+Problem descriptions: ${((vocSignals?.problem_descriptions as string[] | null) || []).join(', ')}
+Outcome descriptions: ${((vocSignals?.outcome_descriptions as string[] | null) || []).join(', ')}
+Emotional language: ${((vocSignals?.emotional_language as string[] | null) || []).join(', ')}
+Repeated themes: ${((vocSignals?.repeated_themes as string[] | null) || []).join(', ')}
 
 VOICE OF CUSTOMER — REVIEWS (CustomerSignals):
-Top phrases: ${JSON.stringify(topPhrases)}
-Outcome language: ${JSON.stringify(outcomeLanguage)}
-Emotional language: ${JSON.stringify(emotionalLanguage)}
-Problem language: ${JSON.stringify(problemLanguage)}
+Top phrases: ${topPhrases.join(', ')}
+Outcome language: ${outcomeLanguage.join(', ')}
+Emotional language: ${emotionalLanguage.join(', ')}
+Problem language: ${problemLanguage.join(', ')}
 Review highlights: ${reviewHighlights.join(' | ')}
 
 DATA SOURCES POPULATED:
@@ -187,7 +187,12 @@ Facebook: 500 chars recommended max
 For strategySignals.dataSourcesUsed: list ONLY sources marked YES using exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals"
 For strategySignals.whyItWins: 2-3 sentences citing specific data points that drove pillar selection — reference actual content topics, VOC phrases, or ICP fears from the context above.
 
-Return ONLY valid JSON. No markdown. No preamble. No trailing text.`,
+RESPONSE FORMAT: Your entire response must be a single valid JSON object.
+Do not include any text before the opening { brace.
+Do not include any text after the closing } brace.
+Do not wrap in markdown code fences.
+Do not include explanations, notes, or commentary.
+Start your response with { and end with } and nothing else.`,
     messages: [{
       role: 'user',
       content: `Generate a complete social media content library for this business.\n\n${contentContext}\n\nGenerate exactly 5 content pillars. For each pillar, only generate posts for platforms listed in CONTENT SETTINGS. Each post object for a platform not in the list should be omitted entirely — do not include empty objects.\n\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":[]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0},"facebook":{"post":"","cta":"","charCount":0}}}],"hooks":[]}`
@@ -200,10 +205,26 @@ Return ONLY valid JSON. No markdown. No preamble. No trailing text.`,
 
   let parsedContent: Record<string, unknown>
   try {
-    const jsonMatch = lastBlock.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return apiError('No JSON in response', 500, 'PARSE_FAILED')
-    parsedContent = JSON.parse(jsonMatch[0])
-  } catch { return apiError('Failed to parse content JSON', 500, 'PARSE_FAILED') }
+    let rawText = lastBlock.text
+
+    // Strip markdown code fences if present
+    rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+
+    // Find the outermost JSON object — find first { and last }
+    const firstBrace = rawText.indexOf('{')
+    const lastBrace = rawText.lastIndexOf('}')
+
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+      console.error('[SignalContent] No JSON braces found. Response preview:', rawText.slice(0, 300))
+      return apiError('No JSON in response', 500, 'PARSE_FAILED')
+    }
+
+    const jsonString = rawText.slice(firstBrace, lastBrace + 1)
+    parsedContent = JSON.parse(jsonString)
+  } catch (parseErr) {
+    console.error('[SignalContent] JSON parse failed:', String(parseErr))
+    return apiError('Failed to parse content JSON', 500, 'PARSE_FAILED')
+  }
 
   // Save core output — bonus content saved separately via /api/signal-content/bonus
   const { data: output } = await adminClient.from('module_outputs').insert({
