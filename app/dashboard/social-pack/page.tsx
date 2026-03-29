@@ -199,6 +199,8 @@ function SignalContentModule() {
   const [overallFeedbackText, setOverallFeedbackText] = useState('')
   const [overallFeedbackDone, setOverallFeedbackDone] = useState(false)
   const [overallSubmitting, setOverallSubmitting] = useState(false)
+  const [businessName, setBusinessName] = useState<string>('')
+  const [vocPhraseCount, setVocPhraseCount] = useState<number>(0)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -250,6 +252,8 @@ function SignalContentModule() {
       // Show core content immediately
       setContent(data.content as ContentOutput)
       setOutputId(data.outputId)
+      setBusinessName(data.businessName || '')
+      setVocPhraseCount(data.vocPhraseCount || 0)
       setOverallFeedbackMode('idle')
       setOverallFeedbackText('')
       setOverallFeedbackDone(false)
@@ -322,11 +326,11 @@ function SignalContentModule() {
   }
 
   if (stage === 'generating') {
-    return <GeneratingScreen generationNumber={generationNumber} bonusLoading={false} />
+    return <GeneratingScreen generationNumber={generationNumber} bonusLoading={false} businessName={businessName} vocPhraseCount={vocPhraseCount} />
   }
 
   if (stage === 'bonus-loading') {
-    return <GeneratingScreen generationNumber={generationNumber} bonusLoading={true} />
+    return <GeneratingScreen generationNumber={generationNumber} bonusLoading={true} businessName={businessName} vocPhraseCount={vocPhraseCount} />
   }
 
   if (!content) return null

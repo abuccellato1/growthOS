@@ -163,67 +163,129 @@ ${topicsToAvoid ? `Topics to avoid: ${topicsToAvoid}` : ''}
 ${regenerationFeedback ? `REGENERATION FEEDBACK: ${regenerationFeedback}\nAddress this specifically in the new version.` : ''}
 `
 
-  const generationRes = await anthropic.messages.create({
+  // ── CALL 1: Strategy + Pillars 1-3 + Hooks ──────────────────────────────
+  const call1Res = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4000,
-    system: `You are an expert social media strategist and copywriter for service businesses. You write content that builds authority, generates leads, and sounds authentically human — never corporate or generic.
+    system: `You are an expert social media strategist and copywriter for service businesses. You write content that builds authority, generates leads, and sounds authentically human.
 
 CRITICAL RULES:
-1. Use the customer's EXACT language from CustomerSignals and VOC signals whenever possible
-2. Every pillar must connect to a specific ICP fear, desire, or buying trigger from the SignalMap
+1. Use EXACT customer language from VOC and CustomerSignals
+2. Every pillar must connect to a specific ICP fear or buying trigger
 3. Never use language flagged as "to avoid"
-4. Hooks must stop the scroll — lead with tension, curiosity, or a bold claim
-5. Each post must sound like a real person wrote it, not a marketing tool
-6. Only generate posts for platforms listed in CONTENT SETTINGS
-7. LinkedIn posts: conversational and insight-driven, longer form acceptable
-8. Instagram: visual-first language, emoji appropriate, strong hook before cutoff
-9. Facebook: community-oriented, conversational, shorter than LinkedIn
+4. Hooks must stop the scroll — tension, curiosity, or bold claim
+5. Only generate posts for platforms listed in CONTENT SETTINGS
+6. LinkedIn: insight-driven, conversational, under 1000 chars total
+7. Instagram: visual-first, hook under 100 chars before cutoff
+8. Facebook: community-oriented, under 350 chars
 
-HARD CHARACTER LIMITS:
-LinkedIn: 3000 chars max (aim under 1300 for best engagement)
-Instagram caption: 2200 chars max (hook must be under 150 chars before "more" cutoff)
-Facebook: 500 chars recommended max
+HARD LIMITS PER POST (strictly enforced):
+LinkedIn hook: 100 chars max
+LinkedIn body: 600 chars max, 2 paragraphs max
+LinkedIn cta: 80 chars max
+Instagram hook: 100 chars max
+Instagram caption: 250 chars max
+Facebook post: 300 chars max
+Each hashtag array: 4 hashtags max
+hooks array: exactly 6 hooks, each under 12 words
 
-For strategySignals.dataSourcesUsed: list ONLY sources marked YES using exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals"
-For strategySignals.whyItWins: 2-3 sentences citing specific data points that drove pillar selection — reference actual content topics, VOC phrases, or ICP fears from the context above.
+CONCISENESS (prevent truncation):
+icpConnection: one sentence max
+theme: one sentence max
+whyItWins: one sentence max
+postingRationale: one sentence max
+platformNotes: one sentence max
+contentMix: one sentence max
+testingRecommendations: exactly 2 items, one sentence each
 
 RESPONSE FORMAT: Your entire response must be a single valid JSON object.
-Do not include any text before the opening { brace.
-Do not include any text after the closing } brace.
-Do not wrap in markdown code fences.
-Do not include explanations, notes, or commentary.
-Start your response with { and end with } and nothing else.`,
+Start with { and end with } and nothing else.
+No markdown fences. No text before or after. No explanations.`,
     messages: [{
       role: 'user',
-      content: `Generate a complete social media content library for this business.\n\n${contentContext}\n\nGenerate exactly 5 content pillars. For each pillar, only generate posts for platforms listed in CONTENT SETTINGS. Each post object for a platform not in the list should be omitted entirely — do not include empty objects.\n\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":[]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0},"facebook":{"post":"","cta":"","charCount":0}}}],"hooks":[]}`
+      content: `Generate strategy signals, pillars 1-3, and hooks for this business.\n\n${contentContext}\n\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n- hooks array with exactly 6 hooks\n\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0},"facebook":{"post":"","cta":"","charCount":0}}}],"hooks":["","","","","",""]}`
     }],
   })
 
-  const textBlocks = generationRes.content.filter(b => b.type === 'text')
-  const lastBlock = textBlocks[textBlocks.length - 1]
-  if (!lastBlock || lastBlock.type !== 'text') return apiError('No response from generation', 500, 'GENERATION_FAILED')
+  const textBlocks1 = call1Res.content.filter(b => b.type === 'text')
+  const lastBlock1 = textBlocks1[textBlocks1.length - 1]
+  if (!lastBlock1 || lastBlock1.type !== 'text') return apiError('No response from call 1', 500, 'GENERATION_FAILED')
 
-  let parsedContent: Record<string, unknown>
+  let parsedCall1: Record<string, unknown>
   try {
-    let rawText = lastBlock.text
-
-    // Strip markdown code fences if present
-    rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
-
-    // Find the outermost JSON object — find first { and last }
-    const firstBrace = rawText.indexOf('{')
-    const lastBrace = rawText.lastIndexOf('}')
-
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-      console.error('[SignalContent] No JSON braces found. Response preview:', rawText.slice(0, 300))
-      return apiError('No JSON in response', 500, 'PARSE_FAILED')
+    let raw1 = lastBlock1.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+    const first1 = raw1.indexOf('{')
+    const last1 = raw1.lastIndexOf('}')
+    if (first1 === -1 || last1 <= first1) {
+      console.error('[SignalContent Call1] No JSON found:', raw1.slice(0, 300))
+      return apiError('No JSON in call 1 response', 500, 'PARSE_FAILED')
     }
+    parsedCall1 = JSON.parse(raw1.slice(first1, last1 + 1))
+  } catch (e) {
+    console.error('[SignalContent Call1] Parse failed:', String(e))
+    return apiError('Failed to parse call 1 JSON', 500, 'PARSE_FAILED')
+  }
 
-    const jsonString = rawText.slice(firstBrace, lastBrace + 1)
-    parsedContent = JSON.parse(jsonString)
-  } catch (parseErr) {
-    console.error('[SignalContent] JSON parse failed:', String(parseErr))
-    return apiError('Failed to parse content JSON', 500, 'PARSE_FAILED')
+  // ── CALL 2: Pillars 4-5 ──────────────────────────────────────────────────
+  const pillarNames1 = ((parsedCall1.pillars as Array<{name: string}>) || []).map(p => p.name)
+
+  const call2Res = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 3000,
+    system: `You are an expert social media strategist and copywriter for service businesses.
+
+Generate 2 more content pillars that are DISTINCT from the ones already created.
+Already created pillars: ${pillarNames1.join(', ')}
+
+HARD LIMITS PER POST:
+LinkedIn hook: 100 chars max
+LinkedIn body: 600 chars max, 2 paragraphs max
+LinkedIn cta: 80 chars max
+Instagram hook: 100 chars max
+Instagram caption: 250 chars max
+Facebook post: 300 chars max
+Each hashtag array: 4 hashtags max
+
+icpConnection: one sentence max
+theme: one sentence max
+
+RESPONSE FORMAT: Single valid JSON object. Start with {, end with }.
+No markdown. No text before or after.`,
+    messages: [{
+      role: 'user',
+      content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0},"facebook":{"post":"","cta":"","charCount":0}}}]}`
+    }],
+  })
+
+  const textBlocks2 = call2Res.content.filter(b => b.type === 'text')
+  const lastBlock2 = textBlocks2[textBlocks2.length - 1]
+  if (!lastBlock2 || lastBlock2.type !== 'text') return apiError('No response from call 2', 500, 'GENERATION_FAILED')
+
+  let parsedCall2: { pillars?: Array<Record<string, unknown>> }
+  try {
+    let raw2 = lastBlock2.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+    const first2 = raw2.indexOf('{')
+    const last2 = raw2.lastIndexOf('}')
+    if (first2 === -1 || last2 <= first2) {
+      console.error('[SignalContent Call2] No JSON found:', raw2.slice(0, 300))
+      parsedCall2 = { pillars: [] }
+    } else {
+      parsedCall2 = JSON.parse(raw2.slice(first2, last2 + 1))
+    }
+  } catch (e) {
+    console.error('[SignalContent Call2] Parse failed:', String(e))
+    parsedCall2 = { pillars: [] }
+  }
+
+  // ── Merge both calls ─────────────────────────────────────────────────────
+  const allPillars = [
+    ...((parsedCall1.pillars as Array<Record<string, unknown>>) || []),
+    ...((parsedCall2.pillars as Array<Record<string, unknown>>) || []),
+  ]
+
+  const parsedContent: Record<string, unknown> = {
+    ...parsedCall1,
+    pillars: allPillars,
   }
 
   // Save core output — bonus content saved separately via /api/signal-content/bonus
@@ -242,15 +304,16 @@ Start your response with { and end with } and nothing else.`,
   return apiSuccess({
     content: parsedContent,
     outputId: output?.id || null,
-    // Pass back what bonus route needs — pillar names + form inputs
+    businessName: bizData.business_name,
+    vocPhraseCount: topPhrases.length,
     bonusContext: {
-      pillarNames: (parsedContent.pillars as Array<{ name: string }>)?.map(p => p.name) || [],
+      pillarNames: allPillars.map((p: Record<string, unknown>) => p.name as string),
       platforms,
       postingFrequency,
       contentGoal,
       tone,
       businessName: bizData.business_name,
-      primaryService: bizData.primary_service,
+      primaryService: bizData.primary_service || '',
     }
   })
 }
