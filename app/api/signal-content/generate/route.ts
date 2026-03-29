@@ -2,8 +2,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { buildAgentContext } from '@/lib/agent-context'
-import { calculateAndSaveScore } from '@/lib/signal-score'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -35,22 +33,57 @@ export async function POST(request: Request) {
   const { data: cust } = await adminClient.from('customers').select('id').eq('id', biz.customer_id).eq('auth_user_id', auth.user.id).single()
   if (!cust) return apiError('Access denied', 403, 'FORBIDDEN')
 
-  const context = await buildAgentContext(businessId)
-  if (!context) return apiError('Failed to build context', 500, 'CONTEXT_ERROR')
-  if (!context.readiness.hasInterview) return apiError('SignalMap Interview required', 403, 'INTERVIEW_REQUIRED')
+  // Lightweight fetch — only what SignalContent needs
+  const [bizResult, sessionResult, vocResult] = await Promise.all([
+    adminClient
+      .from('businesses')
+      .select('id, business_name, primary_service, website_url, geographic_market, business_type, business_research')
+      .eq('id', businessId)
+      .single(),
 
-  const icp = context.icpCore as Record<string, unknown> | null
-  const messaging = context.messagingData as Record<string, unknown> | null
-  const content = context.contentData as Record<string, unknown> | null
-  const proof = context.proofAssets as Record<string, unknown> | null
-  const vocSignals = context.voiceOfCustomerSignals as Record<string, unknown> | null
-  const voc = context.vocSummary
-  const bizData = context.business
-  const research = bizData.business_research
+    adminClient
+      .from('sessions')
+      .select('id, icp_core, messaging_data, content_data, proof_assets, voice_of_customer_signals')
+      .eq('business_id', businessId)
+      .eq('status', 'completed')
+      .not('archived', 'is', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+
+    adminClient
+      .from('voice_of_customer')
+      .select('top_phrases, outcome_language, emotional_language, problem_language, review_highlights')
+      .eq('business_id', businessId)
+      .order('created_at', { ascending: false })
+      .limit(3),
+  ])
+
+  const bizData = bizResult.data
+  if (!bizData) return apiError('Business not found', 404, 'NOT_FOUND')
+
+  const session = sessionResult.data
+  if (!session) return apiError('SignalMap Interview required', 403, 'INTERVIEW_REQUIRED')
+
+  const vocEntries = vocResult.data || []
+
+  const research = bizData.business_research as Record<string, unknown> | null
+  const icp = session.icp_core as Record<string, unknown> | null
+  const messaging = session.messaging_data as Record<string, unknown> | null
+  const content = session.content_data as Record<string, unknown> | null
+  const proof = session.proof_assets as Record<string, unknown> | null
+  const vocSignals = session.voice_of_customer_signals as Record<string, unknown> | null
+
+  // Build VOC summary from raw entries
+  const topPhrases = vocEntries.flatMap(v => (v.top_phrases as string[] | null) || []).filter((p, i, a) => a.indexOf(p) === i).slice(0, 10)
+  const outcomeLanguage = vocEntries.flatMap(v => (v.outcome_language as string[] | null) || []).filter((p, i, a) => a.indexOf(p) === i).slice(0, 8)
+  const emotionalLanguage = vocEntries.flatMap(v => (v.emotional_language as string[] | null) || []).filter((p, i, a) => a.indexOf(p) === i).slice(0, 8)
+  const problemLanguage = vocEntries.flatMap(v => (v.problem_language as string[] | null) || []).filter((p, i, a) => a.indexOf(p) === i).slice(0, 8)
+  const reviewHighlights = vocEntries.flatMap(v => (v.review_highlights as string[] | null) || []).slice(0, 3)
 
   const dataSources = {
-    signalMap: !!context.session,
-    customerSignals: !!voc && (voc.topPhrases?.length > 0),
+    signalMap: true,
+    customerSignals: topPhrases.length > 0,
     businessSignals: !!research,
   }
 
@@ -67,8 +100,8 @@ Primary product/service: ${research?.primaryProduct || ''}
 Differentiators: ${research?.differentiators || ''}
 Years in business: ${research?.yearsInBusiness || ''}
 Services: ${JSON.stringify(research?.services || [])}
-Certifications/Awards: ${JSON.stringify([...(research?.certifications || []), ...(research?.awards || [])])}
-GMB rating: ${research?.gmbData?.averageRating || ''} (${research?.gmbData?.reviewCount || ''} reviews)
+Certifications/Awards: ${JSON.stringify([...((research?.certifications as string[]) || []), ...((research?.awards as string[]) || [])])}
+GMB rating: ${(research?.gmbData as Record<string, unknown> | undefined)?.averageRating || ''} (${(research?.gmbData as Record<string, unknown> | undefined)?.reviewCount || ''} reviews)
 Testimonial themes: ${JSON.stringify(research?.testimonialThemes || [])}
 
 CONTENT INTELLIGENCE (SignalMap — content_data):
@@ -110,11 +143,11 @@ Emotional language: ${JSON.stringify(vocSignals?.emotional_language || [])}
 Repeated themes: ${JSON.stringify(vocSignals?.repeated_themes || [])}
 
 VOICE OF CUSTOMER — REVIEWS (CustomerSignals):
-Top phrases: ${JSON.stringify(voc?.topPhrases || [])}
-Outcome language: ${JSON.stringify(voc?.outcomeLanguage || [])}
-Emotional language: ${JSON.stringify(voc?.emotionalLanguage || [])}
-Problem language: ${JSON.stringify(voc?.problemLanguage || [])}
-Review highlights: ${(voc?.reviewHighlights || []).join(' | ')}
+Top phrases: ${JSON.stringify(topPhrases)}
+Outcome language: ${JSON.stringify(outcomeLanguage)}
+Emotional language: ${JSON.stringify(emotionalLanguage)}
+Problem language: ${JSON.stringify(problemLanguage)}
+Review highlights: ${reviewHighlights.join(' | ')}
 
 DATA SOURCES POPULATED:
 - SignalMap Interview: ${dataSources.signalMap ? 'YES' : 'NO'}
@@ -175,7 +208,7 @@ Return ONLY valid JSON. No markdown. No preamble. No trailing text.`,
   // Save core output — bonus content saved separately via /api/signal-content/bonus
   const { data: output } = await adminClient.from('module_outputs').insert({
     business_id: businessId,
-    session_id: context.session?.id || null,
+    session_id: session.id,
     module_type: 'signal_content',
     generation_number: generationNumber || 1,
     form_inputs: { platforms, postingFrequency, contentGoal, tone, topicsToAvoid, regenerationFeedback: regenerationFeedback || null },
@@ -184,8 +217,6 @@ Return ONLY valid JSON. No markdown. No preamble. No trailing text.`,
     status: 'complete',
     regenerations_used: (generationNumber || 1) - 1,
   }).select('id').single()
-
-  calculateAndSaveScore(businessId).catch(() => null)
 
   return apiSuccess({
     content: parsedContent,
