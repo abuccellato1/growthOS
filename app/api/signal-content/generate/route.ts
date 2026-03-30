@@ -166,7 +166,7 @@ ${regenerationFeedback ? `REGENERATION FEEDBACK: ${regenerationFeedback}\nAddres
   // ── CALL 1: Strategy + Pillars 1-3 + Hooks ──────────────────────────────
   const call1Res = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
+    max_tokens: 6000,
     system: `You are an expert social media strategist and copywriter for service businesses. You write content that builds authority, generates leads, and sounds authentically human.
 
 CRITICAL RULES:
@@ -197,6 +197,34 @@ postingRationale: one sentence max
 platformNotes: one sentence max
 contentMix: one sentence max
 testingRecommendations: exactly 2 items, one sentence each
+
+EXPANSION HOOKS — keep people reading past line 1:
+A great post doesn't just have a strong opener. It has mini-hooks
+throughout the body that create new open loops every 2-3 sentences.
+Techniques:
+- The "but here's the thing" pivot: introduce an idea then subvert it
+- The numbered tease: "There are three reasons this happens. The first
+  one surprised me."
+- The callback: reference something from the hook in the final line
+- The uncomfortable truth: mid-post, drop one sentence that challenges
+  a common belief
+Apply expansion hooks to LinkedIn body copy specifically. Instagram and
+Facebook are too short — the opener carries them.
+
+HASHTAG RULES:
+- Return hashtags WITHOUT the # symbol — the UI adds it automatically
+- LinkedIn: 3 hashtags max, broad professional topics only
+- Instagram: 5 hashtags max, mix of niche and broad
+- Facebook: 0-2 hashtags max or none
+- WRONG: ["#marketing", "#business"] — do NOT include # in the array
+- CORRECT: ["marketing", "business"] — words only, no # prefix
+
+For strategySignals.dataSourcesUsed: list ONLY sources marked YES above,
+using EXACTLY these labels (copy them verbatim):
+- SignalMap data source → label: "SignalMap Interview"
+- CustomerSignals data source → label: "CustomerSignals"
+- BusinessSignals data source → label: "BusinessSignals"
+Never use "VOC Session Data" or any other label. Use only the three above.
 
 RESPONSE FORMAT: Your entire response must be a single valid JSON object.
 Start with { and end with } and nothing else.
@@ -231,7 +259,7 @@ No markdown fences. No text before or after. No explanations.`,
 
   const call2Res = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 3000,
+    max_tokens: 4000,
     system: `You are an expert social media strategist and copywriter for service businesses.
 
 Generate 2 more content pillars that are DISTINCT from the ones already created.
@@ -248,6 +276,11 @@ Each hashtag array: 4 hashtags max
 
 icpConnection: one sentence max
 theme: one sentence max
+
+HASHTAG RULES:
+- Return hashtags WITHOUT the # symbol — the UI adds it automatically
+- WRONG: ["#marketing", "#business"] — do NOT include # in the array
+- CORRECT: ["marketing", "business"] — words only, no # prefix
 
 RESPONSE FORMAT: Single valid JSON object. Start with {, end with }.
 No markdown. No text before or after.`,

@@ -54,7 +54,7 @@ function ContentForm({
           <Share2 size={22} style={{ color: '#43C6AC' }} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold"
+          <h1 className="text-3xl font-black"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
             SignalContent
           </h1>
@@ -338,7 +338,7 @@ function SignalContentModule() {
   // ── Results ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-5xl space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
@@ -347,7 +347,7 @@ function SignalContentModule() {
             <Share2 size={18} style={{ color: '#43C6AC' }} />
           </div>
           <div>
-            <h1 className="text-xl font-bold"
+            <h1 className="text-3xl font-black"
               style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>
               Your Content Library
             </h1>

@@ -28,7 +28,7 @@ export default function PillarCard({ pillar, pillarIndex, activePlatforms, conte
         className="w-full flex items-center justify-between px-6 py-4 text-left"
         style={{ backgroundColor: '#f9fafb' }}>
         <div>
-          <span className="text-sm font-bold" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
+          <span className="text-2xl font-black" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
             Pillar {pillarIndex + 1}: {pillar.name}
           </span>
         </div>
@@ -45,24 +45,29 @@ export default function PillarCard({ pillar, pillarIndex, activePlatforms, conte
             <p className="text-xs" style={{ color: '#374151' }}>{pillar.icpConnection}</p>
           </div>
 
-          {/* Platform previews */}
-          {activePlatforms.map(platform => {
-            const key = platformMap[platform]
-            if (!key || !pillar.posts[key]) return null
-            return (
-              <div key={platform}>
-                <p className="text-xs font-bold mb-3" style={{ color: '#9ca3af' }}>{platform.toUpperCase()}</p>
-                <PostPreviewCard
-                  pillarIndex={pillarIndex}
-                  platform={key}
-                  post={pillar.posts[key]!}
-                  unsplashQuery={pillar.unsplashQuery}
-                  contentFeedback={contentFeedback}
-                  onRate={onRate}
-                />
-              </div>
-            )
-          })}
+          {/* Platform previews — responsive grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activePlatforms.map(platform => {
+              const key = platformMap[platform]
+              if (!key || !pillar.posts[key]) return null
+              return (
+                <div key={platform} className="flex flex-col">
+                  <p className="text-xs font-bold mb-3"
+                    style={{ color: '#9ca3af' }}>
+                    {platform.toUpperCase()}
+                  </p>
+                  <PostPreviewCard
+                    pillarIndex={pillarIndex}
+                    platform={key}
+                    post={pillar.posts[key]!}
+                    unsplashQuery={pillar.unsplashQuery}
+                    contentFeedback={contentFeedback}
+                    onRate={onRate}
+                  />
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

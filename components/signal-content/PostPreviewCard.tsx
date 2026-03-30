@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Heart, MessageCircle, Share2, Bookmark, ThumbsUp } from 'lucide-react'
+import { Heart, MessageCircle, Share2, Bookmark, ThumbsUp, Send } from 'lucide-react'
 import CopyButton from '@/components/CopyButton'
 import ContentFeedbackWidget from './ContentFeedbackWidget'
 import type { LinkedInPost, InstagramPost, FacebookPost, ContentFeedbackItem } from './types'
@@ -36,7 +36,7 @@ function LinkedInPreview({
     : post.hook
 
   return (
-    <div className="rounded-xl overflow-hidden border bg-white" style={{ borderColor: '#e0e0e0', maxWidth: 500 }}>
+    <div className="rounded-xl overflow-hidden border bg-white w-full" style={{ borderColor: '#e0e0e0' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2">
@@ -78,16 +78,23 @@ function LinkedInPreview({
       {/* Engagement bar */}
       <div className="px-4 py-2 border-t" style={{ borderColor: '#e0e0e0' }}>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs" style={{ color: '#666' }}>👍 ❤️ 247 · 18 comments</p>
-          <p className="text-xs" style={{ color: '#666' }}>12 reposts</p>
+          <p className="text-xs" style={{ color: '#666' }}>
+            <span>👍</span>
+            <span style={{ marginLeft: 2 }}>❤️</span>
+            <span style={{ marginLeft: 2 }}>😮</span>
+            <span className="ml-1">4 reactions</span>
+          </p>
+          <p className="text-xs" style={{ color: '#666' }}>5 comments</p>
         </div>
         <div className="flex items-center justify-around pt-1 border-t" style={{ borderColor: '#e0e0e0' }}>
-          {['Like', 'Comment', 'Repost', 'Send'].map(action => (
-            <button key={action} className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded"
-              style={{ color: '#666' }}>
-              <ThumbsUp size={13} /> {action}
-            </button>
-          ))}
+          <button className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded hover:bg-gray-50"
+            style={{ color: '#666' }}>
+            <ThumbsUp size={14} /> Like
+          </button>
+          <button className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded hover:bg-gray-50"
+            style={{ color: '#666' }}>
+            <MessageCircle size={14} /> Comment
+          </button>
         </div>
       </div>
 
@@ -120,7 +127,7 @@ function InstagramPreview({
     : post.hook
 
   return (
-    <div className="rounded-xl overflow-hidden border bg-white" style={{ borderColor: '#dbdbdb', maxWidth: 500 }}>
+    <div className="rounded-xl overflow-hidden border bg-white w-full" style={{ borderColor: '#dbdbdb' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2">
@@ -189,7 +196,7 @@ function FacebookPreview({
   onRate: (item: ContentFeedbackItem) => void
 }) {
   return (
-    <div className="rounded-xl overflow-hidden border bg-white" style={{ borderColor: '#dddfe2', maxWidth: 500 }}>
+    <div className="rounded-xl overflow-hidden border bg-white w-full" style={{ borderColor: '#dddfe2' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <div className="flex items-center gap-2">
@@ -228,12 +235,18 @@ function FacebookPreview({
       <div className="px-3 py-2 border-t" style={{ borderColor: '#dddfe2' }}>
         <p className="text-xs mb-2" style={{ color: '#65676B' }}>👍 ❤️ 😮 · 47 · 12 comments · 5 shares</p>
         <div className="flex items-center justify-around pt-1 border-t" style={{ borderColor: '#dddfe2' }}>
-          {[{ icon: ThumbsUp, label: 'Like' }, { icon: MessageCircle, label: 'Comment' }, { icon: Share2, label: 'Share' }].map(({ icon: Icon, label }) => (
-            <button key={label} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded"
-              style={{ color: '#65676B' }}>
-              <Icon size={14} /> {label}
-            </button>
-          ))}
+          <button className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded hover:bg-gray-50"
+            style={{ color: '#65676B' }}>
+            <ThumbsUp size={14} /> Like
+          </button>
+          <button className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded hover:bg-gray-50"
+            style={{ color: '#65676B' }}>
+            <MessageCircle size={14} /> Comment
+          </button>
+          <button className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded hover:bg-gray-50"
+            style={{ color: '#65676B' }}>
+            <Send size={14} /> Share
+          </button>
         </div>
       </div>
     </div>
