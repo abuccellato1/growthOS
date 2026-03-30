@@ -175,19 +175,74 @@ CRITICAL RULES:
 3. Never use language flagged as "to avoid"
 4. Hooks must stop the scroll — tension, curiosity, or bold claim
 5. Only generate posts for platforms listed in CONTENT SETTINGS
-6. LinkedIn: insight-driven, conversational, under 1000 chars total
-7. Instagram: visual-first, hook under 100 chars before cutoff
-8. Facebook: community-oriented, under 350 chars
+6. LinkedIn: insight-driven, conversational
+7. Instagram: visual-first, strong hook before cutoff
+8. Facebook: community-oriented, warm, conversational
 
 HARD LIMITS PER POST (strictly enforced):
 LinkedIn hook: 100 chars max
-LinkedIn body: 600 chars max, 2 paragraphs max
-LinkedIn cta: 80 chars max
+LinkedIn body+cta: 900-1200 chars total
 Instagram hook: 100 chars max
-Instagram caption: 250 chars max
-Facebook post: 300 chars max
+Instagram caption+cta: 300-450 chars total
+Facebook post+cta: 200-350 chars total
 Each hashtag array: 4 hashtags max
 hooks array: exactly 6 hooks, each under 12 words
+
+POST STRUCTURE — every post must follow the HOOK-VALUE-KNOCKOUT framework:
+
+LINKEDIN (4 mandatory layers, 900-1200 chars total):
+Layer 1 — HOOK (2 lines max):
+  The attention grab. Uses one of the 8 hook frameworks above.
+  Creates an open loop the reader must close.
+Layer 2 — CONTEXT/WHY (3-5 sentences):
+  Immediately validates the hook. Either:
+  - A brief relatable story under 80 words ("Three months ago, a client...")
+  - A surprising insight that reframes the problem
+  - A before/after contrast that makes the transformation concrete
+  Never repeat the hook. Immediately expand upon it.
+Layer 3 — VALUE (3-5 punchy lines):
+  Deliver the promised payoff. Use one of:
+  - Numbered list of actionable tips ("1. Stop doing X 2. Start doing Y")
+  - A "what most people miss" insight list
+  - A clear before/after or old-way/new-way contrast
+  Each line is one complete thought. No filler sentences.
+Layer 4 — KNOCKOUT CTA (1 sentence):
+  One action only. Choose from:
+  - "Comment [word] and I'll send you [resource]"
+  - "Save this — you'll need it when [trigger situation]"
+  - "What's your experience with this? Drop it below"
+  - "DM me [word] for [specific thing]"
+  Never use generic CTAs like "follow for more" or "like if you agree"
+
+INSTAGRAM (3 mandatory layers, 300-450 chars total):
+Layer 1 — HOOK (first line, under 100 chars):
+  Must earn the tap to "more". Ends with ... or creates undeniable curiosity.
+Layer 2 — MICRO-STORY OR QUICK VALUE (3-6 short lines):
+  Each line is one thought. Use line breaks aggressively.
+  Either: a 3-sentence story with a twist, OR 3 quick actionable points.
+  Use 1-2 emoji max for emphasis only.
+Layer 3 — CTA (1 line):
+  One action: "Save this", "Tag someone who needs this",
+  "DM me [word]", or "Link in bio"
+
+FACEBOOK (3 mandatory layers, 200-350 chars total):
+Layer 1 — HOOK (1-2 conversational sentences):
+  Sounds like a real business owner talking to their community.
+  Warm, direct, specific to their situation.
+Layer 2 — THE POINT (2-3 sentences):
+  What happened, what worked, what they should know.
+  One concrete detail or result (number, timeframe, specific outcome).
+Layer 3 — ENGAGEMENT CTA (1 sentence):
+  Ask a question to drive comments OR direct to website.
+  Examples: "Have you run into this?" / "What's worked for you?"
+
+WHAT SEPARATES GREAT FROM AVERAGE:
+- Great: Every layer delivers on the hook's promise. No bait and switch.
+- Great: The value is specific to THIS business's ICP — not generic tips
+- Great: The CTA matches the content (don't ask them to buy after a story post)
+- Average: Hook is strong but body is generic filler
+- Average: Ends with "follow for more" or "like this post"
+- Average: Lists generic tips that apply to any business in any industry
 
 CONCISENESS (prevent truncation):
 icpConnection: one sentence max
@@ -265,17 +320,33 @@ No markdown fences. No text before or after. No explanations.`,
 Generate 2 more content pillars that are DISTINCT from the ones already created.
 Already created pillars: ${pillarNames1.join(', ')}
 
-HARD LIMITS PER POST:
+HARD LIMITS:
 LinkedIn hook: 100 chars max
-LinkedIn body: 600 chars max, 2 paragraphs max
-LinkedIn cta: 80 chars max
+LinkedIn body+cta: 900-1200 chars total
 Instagram hook: 100 chars max
-Instagram caption: 250 chars max
-Facebook post: 300 chars max
+Instagram caption+cta: 300-450 chars total
+Facebook post+cta: 200-350 chars total
 Each hashtag array: 4 hashtags max
-
 icpConnection: one sentence max
 theme: one sentence max
+
+POST STRUCTURE — follow the HOOK-VALUE-KNOCKOUT framework:
+
+LINKEDIN (4 layers, 900-1200 chars):
+1. HOOK — open loop using one hook framework
+2. CONTEXT — brief story or insight that validates the hook (under 80 words)
+3. VALUE — 3-5 punchy actionable lines (numbered list or contrast)
+4. KNOCKOUT CTA — one specific action (comment word, save, DM, question)
+
+INSTAGRAM (3 layers, 300-450 chars):
+1. HOOK — under 100 chars, earns the "more" tap
+2. MICRO-STORY OR VALUE — 3-6 lines with line breaks, one thought per line
+3. CTA — one action (save, tag, DM word, link in bio)
+
+FACEBOOK (3 layers, 200-350 chars):
+1. HOOK — warm conversational opener specific to their situation
+2. THE POINT — 2-3 sentences, one concrete detail or result
+3. ENGAGEMENT CTA — question to drive comments or website link
 
 HASHTAG RULES:
 - Return hashtags WITHOUT the # symbol — the UI adds it automatically
