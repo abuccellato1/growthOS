@@ -121,3 +121,50 @@ export interface BonusContext {
   primaryService: string
   condensedContext?: string
 }
+
+export interface PillarProposal {
+  name: string
+  rationale: string
+  icpConnection: string
+  category: string
+}
+
+export interface PillarApprovalState {
+  pillar: PillarProposal
+  status: 'pending' | 'approved' | 'rejected' | 'swapped' | 'custom'
+  rejectionReason?: string
+  customName?: string
+}
+
+export interface HookProposal {
+  text: string
+  framework: string
+  charCount: number
+}
+
+export interface PillarHooks {
+  pillarName: string
+  hooks: HookProposal[]
+}
+
+export interface HookApprovalState {
+  pillarName: string
+  hooks: Array<HookProposal & { approved: boolean }>
+}
+
+export interface SelectedHook {
+  pillarName: string
+  hook: string
+  framework: string
+}
+
+export type ContentStage =
+  | 'form'
+  | 'pillars-loading'
+  | 'pillars-review'
+  | 'hooks-loading'
+  | 'hooks-review'
+  | 'confirmation'
+  | 'generating'
+  | 'bonus-loading'
+  | 'results'
