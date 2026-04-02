@@ -475,6 +475,7 @@ function SignalContentModule() {
           reelScripts={content.reelScripts}
           carouselFrameworks={content.carouselFrameworks}
           storySequences={content.storySequences}
+          unsplashQuery={`${content.pillars?.[0]?.unsplashQuery || ''} professional`}
         />
       ) : null}
 

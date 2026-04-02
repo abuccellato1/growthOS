@@ -118,7 +118,7 @@ export default function GeneratingScreen({
             <p className="text-sm font-semibold" style={{ color: '#191654' }}>
               {current.text}{dots}
             </p>
-            {messageIndex === 0 && vocPhraseCount && vocPhraseCount > 0 && (
+            {messageIndex === 0 && (vocPhraseCount ?? 0) > 0 && (
               <p className="text-xs mt-0.5" style={{ color: '#43C6AC' }}>
                 {vocPhraseCount} customer phrases ready to use
               </p>

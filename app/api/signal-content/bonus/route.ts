@@ -5,6 +5,38 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+async function callWithRetry(
+  fn: () => Promise<Anthropic.Message>,
+  retries = 3,
+  delayMs = 2000
+): Promise<Anthropic.Message> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn()
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status
+      if (status === 529 && attempt < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)))
+        continue
+      }
+      throw err
+    }
+  }
+  throw new Error('Max retries exceeded')
+}
+
+function extractJSON(text: string): Record<string, unknown> | null {
+  const clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  const first = clean.indexOf('{')
+  const last = clean.lastIndexOf('}')
+  if (first === -1 || last <= first) return null
+  try {
+    return JSON.parse(clean.slice(first, last + 1))
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -20,69 +52,146 @@ export async function POST(request: Request) {
     businessName: string
     primaryService: string
   }
-  try { body = await request.json() } catch { return apiError('Invalid body', 400, 'INVALID_BODY') }
+  try { body = await request.json() } catch {
+    return apiError('Invalid body', 400, 'INVALID_BODY')
+  }
 
-  const { businessId, outputId, pillarNames, platforms, postingFrequency, contentGoal, tone, businessName, primaryService } = body
+  const {
+    businessId, outputId, pillarNames, platforms,
+    postingFrequency, contentGoal, tone, businessName, primaryService
+  } = body
+
   if (!businessId || !outputId || !pillarNames?.length) {
     return apiError('Missing required fields', 400, 'VALIDATION_ERROR')
   }
 
-  const safeService = primaryService || businessName || 'service business'
-
   const adminClient = createAdminClient()
 
-  const { data: biz } = await adminClient.from('businesses').select('customer_id').eq('id', businessId).single()
+  const { data: biz } = await adminClient
+    .from('businesses').select('customer_id').eq('id', businessId).single()
   if (!biz) return apiError('Business not found', 404, 'NOT_FOUND')
-  const { data: cust } = await adminClient.from('customers').select('id').eq('id', biz.customer_id).eq('auth_user_id', auth.user.id).single()
+
+  const { data: cust } = await adminClient
+    .from('customers').select('id')
+    .eq('id', biz.customer_id).eq('auth_user_id', auth.user.id).single()
   if (!cust) return apiError('Access denied', 403, 'FORBIDDEN')
 
-  const bonusRes = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2000,
-    system: `You are a social media content strategist for service businesses. Generate bonus content formats and a content calendar. Be specific and actionable — every script and framework should be ready to execute with minimal editing.
+  const safeService = primaryService || businessName || 'service business'
+  const pillarList = pillarNames.map((n, i) => `Pillar ${i + 1}: ${n}`).join(', ')
+  const platformList = platforms.join(', ')
 
-For reelScripts: write actual word-for-word scripts the business owner can read on camera. Keep total reel under 60 seconds.
-For carouselFrameworks: each slide needs a clear headline and 1-2 sentences of body text. 6-8 slides per carousel.
-For storySequences: 4-5 frames per sequence. Each frame is one screen — keep text under 10 words.
-For contentCalendar: distribute pillars evenly across 4 weeks. Match posting frequency. Only include platforms from the list.
+  // ── Two parallel Haiku calls ──────────────────────────────────────────────
 
-Return ONLY valid JSON. No markdown. No preamble.`,
-    messages: [{
-      role: 'user',
-      content: `Generate bonus content formats and a 4-week calendar for ${businessName} (${safeService}).
+  const [calendarRes, formatsRes] = await Promise.allSettled([
 
-Content pillars already generated: ${pillarNames.map((n, i) => `Pillar ${i + 1}: ${n}`).join(', ')}
-Platforms: ${platforms.join(', ')}
+    // Call 1 — Content Calendar only
+    callWithRetry(() => anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      system: `You generate a 4-week social media content calendar for service businesses.
+Distribute the 5 pillars evenly across 4 weeks based on posting frequency.
+Only include platforms from the list provided.
+
+RESPONSE FORMAT: Single valid JSON object only.
+Start with { and end with }. No markdown. No text before or after.`,
+      messages: [{
+        role: 'user',
+        content: `Generate a 4-week content calendar for ${businessName} (${safeService}).
+
+Content pillars: ${pillarList}
+Platforms: ${platformList}
 Posting frequency: ${postingFrequency}
 Content goal: ${contentGoal}
+
+Rules:
+- Each week should have entries for each posting day based on frequency
+- Rotate through all 5 pillars across the 4 weeks
+- Use short day abbreviations: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+- scheduledDate is always null
+
+Return exactly this JSON structure:
+{"contentCalendar":{"week1":[{"day":"Mon","platform":"LinkedIn","pillar":"pillar name","postType":"Educational","scheduledDate":null}],"week2":[],"week3":[],"week4":[]}}`
+      }],
+    })),
+
+    // Call 2 — Bonus formats only (reels, carousels, stories)
+    callWithRetry(() => anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 3000,
+      system: `You generate bonus social media content formats for service businesses.
+Write practical, ready-to-use scripts and frameworks a business owner can
+execute immediately. Be specific to the business type, not generic.
+
+For reelScripts: word-for-word scripts under 60 seconds total.
+For carouselFrameworks: 5-6 slides max, each with a punchy headline and
+1 sentence of body text.
+For storySequences: 4 frames max, each under 8 words of text.
+
+RESPONSE FORMAT: Single valid JSON object only.
+Start with { and end with }. No markdown. No text before or after.`,
+      messages: [{
+        role: 'user',
+        content: `Generate bonus content formats for ${businessName} (${safeService}).
+
+Pillars: ${pillarList}
 Tone: ${tone}
+Content goal: ${contentGoal}
 
 Generate:
-- 4-week content calendar distributing all 5 pillars across ${postingFrequency} posts
-- 3 reel scripts (one per top 3 pillars)
-- 3 carousel frameworks (one per top 3 pillars)
-- 2 story sequences (for top 2 pillars)
+- 3 reel scripts (one per top 3 pillars, keep each script short)
+- 3 carousel frameworks (one per top 3 pillars, 5 slides max each)
+- 2 story sequences (top 2 pillars, 4 frames max each)
 
-Return this exact JSON:
-{"contentCalendar":{"week1":[{"day":"Mon","platform":"","pillar":"","postType":"","scheduledDate":null}],"week2":[],"week3":[],"week4":[]},"reelScripts":[{"pillar":"","totalDuration":"","hook":"","segments":[{"timeCode":"0-3s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":0,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":0,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
-    }],
-  })
+Return exactly this JSON structure:
+{"reelScripts":[{"pillar":"","totalDuration":"30s","hook":"","segments":[{"timeCode":"0-5s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":5,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":4,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
+      }],
+    })),
 
-  const textBlocks = bonusRes.content.filter(b => b.type === 'text')
-  const lastBlock = textBlocks[textBlocks.length - 1]
-  if (!lastBlock || lastBlock.type !== 'text') return apiError('No response from bonus generation', 500, 'GENERATION_FAILED')
+  ])
 
-  let parsedBonus: Record<string, unknown>
-  try {
-    const jsonMatch = lastBlock.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return apiError('No JSON in bonus response', 500, 'PARSE_FAILED')
-    parsedBonus = JSON.parse(jsonMatch[0])
-  } catch (e) {
-    console.error('[SignalContent Bonus] Parse failed:', String(e))
-    return apiError('Failed to parse bonus JSON', 500, 'PARSE_FAILED')
+  // ── Extract results (non-fatal per call) ──────────────────────────────────
+
+  let calendarData: Record<string, unknown> = {}
+  let formatsData: Record<string, unknown> = {}
+
+  if (calendarRes.status === 'fulfilled') {
+    const blocks = calendarRes.value.content.filter(b => b.type === 'text')
+    const last = blocks[blocks.length - 1]
+    if (last?.type === 'text') {
+      const parsed = extractJSON(last.text)
+      if (parsed) {
+        calendarData = parsed
+      } else {
+        console.error('[SignalContent Bonus Calendar] Parse failed. Preview:',
+          last.text.slice(0, 300))
+      }
+    }
+  } else {
+    console.error('[SignalContent Bonus Calendar] Call failed:',
+      calendarRes.reason)
   }
 
-  // Merge bonus content into the existing module_output
+  if (formatsRes.status === 'fulfilled') {
+    const blocks = formatsRes.value.content.filter(b => b.type === 'text')
+    const last = blocks[blocks.length - 1]
+    if (last?.type === 'text') {
+      const parsed = extractJSON(last.text)
+      if (parsed) {
+        formatsData = parsed
+      } else {
+        console.error('[SignalContent Bonus Formats] Parse failed. Preview:',
+          last.text.slice(0, 300))
+      }
+    }
+  } else {
+    console.error('[SignalContent Bonus Formats] Call failed:',
+      formatsRes.reason)
+  }
+
+  const parsedBonus = { ...calendarData, ...formatsData }
+
+  // ── Merge into existing module_output ─────────────────────────────────────
+
   const { data: existing } = await adminClient
     .from('module_outputs')
     .select('output_data')
@@ -93,7 +202,10 @@ Return this exact JSON:
     const { error: mergeError } = await adminClient
       .from('module_outputs')
       .update({
-        output_data: { ...(existing.output_data as Record<string, unknown>), ...parsedBonus }
+        output_data: {
+          ...(existing.output_data as Record<string, unknown>),
+          ...parsedBonus,
+        }
       })
       .eq('id', outputId)
 
