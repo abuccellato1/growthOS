@@ -1,9 +1,27 @@
-// Shared types for SignalContent components
-// Import from here in all signal-content components
+export interface LinkedInPost {
+  hook: string
+  body: string
+  cta: string
+  hashtags: string[]
+  charCount: number
+  platformReadyText: string
+}
 
-export interface LinkedInPost { hook: string; body: string; cta: string; hashtags: string[]; charCount: number }
-export interface InstagramPost { hook: string; caption: string; cta: string; hashtags: string[]; charCount: number }
-export interface FacebookPost { post: string; cta: string; charCount: number }
+export interface InstagramPost {
+  hook: string
+  caption: string
+  cta: string
+  hashtags: string[]
+  charCount: number
+  platformReadyText: string
+}
+
+export interface FacebookPost {
+  post: string
+  cta: string
+  charCount: number
+  platformReadyText: string
+}
 
 export interface Pillar {
   name: string
@@ -17,16 +35,49 @@ export interface Pillar {
   }
 }
 
-export interface CalendarEntry { day: string; platform: string; pillar: string; postType: string }
+export interface CalendarEntry {
+  day: string
+  platform: string
+  pillar: string
+  postType: string
+  scheduledDate: string | null
+}
 
 export interface ReelSegment { timeCode: string; script: string; visualNote: string }
-export interface ReelScript { pillar: string; totalDuration: string; hook: string; segments: ReelSegment[]; cta: string; captionSuggestion: string }
+export interface ReelScript {
+  pillar: string
+  totalDuration: string
+  hook: string
+  segments: ReelSegment[]
+  cta: string
+  captionSuggestion: string
+}
 
-export interface CarouselSlide { slideNumber: number; headline: string; bodyText: string; visualNote: string }
-export interface CarouselFramework { pillar: string; slideCount: number; coverSlide: { headline: string; subtext: string }; slides: CarouselSlide[]; closingSlide: { cta: string; text: string } }
+export interface CarouselSlide {
+  slideNumber: number
+  headline: string
+  bodyText: string
+  visualNote: string
+}
+export interface CarouselFramework {
+  pillar: string
+  slideCount: number
+  coverSlide: { headline: string; subtext: string }
+  slides: CarouselSlide[]
+  closingSlide: { cta: string; text: string }
+}
 
-export interface StoryFrame { frameNumber: number; text: string; visualNote: string; stickerSuggestion: string }
-export interface StorySequence { pillar: string; frameCount: number; frames: StoryFrame[] }
+export interface StoryFrame {
+  frameNumber: number
+  text: string
+  visualNote: string
+  stickerSuggestion: string
+}
+export interface StorySequence {
+  pillar: string
+  frameCount: number
+  frames: StoryFrame[]
+}
 
 export interface StrategySignals {
   primaryTheme: string
@@ -42,7 +93,12 @@ export interface ContentOutput {
   strategySignals?: StrategySignals
   pillars?: Pillar[]
   hooks?: string[]
-  contentCalendar?: { week1: CalendarEntry[]; week2: CalendarEntry[]; week3: CalendarEntry[]; week4: CalendarEntry[] }
+  contentCalendar?: {
+    week1: CalendarEntry[]
+    week2: CalendarEntry[]
+    week3: CalendarEntry[]
+    week4: CalendarEntry[]
+  }
   reelScripts?: ReelScript[]
   carouselFrameworks?: CarouselFramework[]
   storySequences?: StorySequence[]

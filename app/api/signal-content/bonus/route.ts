@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     return apiError('Missing required fields', 400, 'VALIDATION_ERROR')
   }
 
+  const safeService = primaryService || businessName || 'service business'
+
   const adminClient = createAdminClient()
 
   const { data: biz } = await adminClient.from('businesses').select('customer_id').eq('id', businessId).single()
@@ -35,8 +37,8 @@ export async function POST(request: Request) {
   if (!cust) return apiError('Access denied', 403, 'FORBIDDEN')
 
   const bonusRes = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2500,
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2000,
     system: `You are a social media content strategist for service businesses. Generate bonus content formats and a content calendar. Be specific and actionable — every script and framework should be ready to execute with minimal editing.
 
 For reelScripts: write actual word-for-word scripts the business owner can read on camera. Keep total reel under 60 seconds.
@@ -47,7 +49,7 @@ For contentCalendar: distribute pillars evenly across 4 weeks. Match posting fre
 Return ONLY valid JSON. No markdown. No preamble.`,
     messages: [{
       role: 'user',
-      content: `Generate bonus content formats and a 4-week calendar for ${businessName} (${primaryService}).
+      content: `Generate bonus content formats and a 4-week calendar for ${businessName} (${safeService}).
 
 Content pillars already generated: ${pillarNames.map((n, i) => `Pillar ${i + 1}: ${n}`).join(', ')}
 Platforms: ${platforms.join(', ')}
@@ -62,7 +64,7 @@ Generate:
 - 2 story sequences (for top 2 pillars)
 
 Return this exact JSON:
-{"contentCalendar":{"week1":[{"day":"Mon","platform":"","pillar":"","postType":""}],"week2":[],"week3":[],"week4":[]},"reelScripts":[{"pillar":"","totalDuration":"","hook":"","segments":[{"timeCode":"0-3s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":0,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":0,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
+{"contentCalendar":{"week1":[{"day":"Mon","platform":"","pillar":"","postType":"","scheduledDate":null}],"week2":[],"week3":[],"week4":[]},"reelScripts":[{"pillar":"","totalDuration":"","hook":"","segments":[{"timeCode":"0-3s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":0,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":0,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
     }],
   })
 
@@ -75,7 +77,10 @@ Return this exact JSON:
     const jsonMatch = lastBlock.text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return apiError('No JSON in bonus response', 500, 'PARSE_FAILED')
     parsedBonus = JSON.parse(jsonMatch[0])
-  } catch { return apiError('Failed to parse bonus JSON', 500, 'PARSE_FAILED') }
+  } catch (e) {
+    console.error('[SignalContent Bonus] Parse failed:', String(e))
+    return apiError('Failed to parse bonus JSON', 500, 'PARSE_FAILED')
+  }
 
   // Merge bonus content into the existing module_output
   const { data: existing } = await adminClient
@@ -85,12 +90,16 @@ Return this exact JSON:
     .single()
 
   if (existing?.output_data) {
-    await adminClient
+    const { error: mergeError } = await adminClient
       .from('module_outputs')
       .update({
         output_data: { ...(existing.output_data as Record<string, unknown>), ...parsedBonus }
       })
       .eq('id', outputId)
+
+    if (mergeError) {
+      console.error('[SignalContent Bonus] Merge failed:', mergeError.message)
+    }
   }
 
   return apiSuccess({ bonus: parsedBonus })

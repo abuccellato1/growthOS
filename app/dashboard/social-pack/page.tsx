@@ -176,6 +176,42 @@ function ContentForm({
 
 // ─── Main Module ──────────────────────────────────────────────────────────────
 
+function BonusSkeleton({ label }: { label: string }) {
+  return (
+    <div className="border rounded-2xl overflow-hidden animate-pulse"
+      style={{ borderColor: '#e5e7eb' }}>
+      <div className="px-6 py-4 flex items-center gap-3"
+        style={{ backgroundColor: '#f9fafb' }}>
+        <div className="w-4 h-4 rounded-full animate-spin border-2"
+          style={{ borderColor: '#43C6AC', borderTopColor: 'transparent' }} />
+        <p className="text-sm font-semibold" style={{ color: '#9ca3af' }}>
+          {label}
+        </p>
+      </div>
+      <div className="p-6 space-y-3">
+        {[80, 60, 90, 50].map((w, i) => (
+          <div key={i} className="h-3 rounded-full"
+            style={{ backgroundColor: '#f3f4f6', width: `${w}%` }} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BonusFailedCard({ label }: { label: string }) {
+  return (
+    <div className="border rounded-2xl p-6 text-center"
+      style={{ borderColor: '#fecaca', backgroundColor: '#fff5f5' }}>
+      <p className="text-sm font-semibold mb-1" style={{ color: '#dc2626' }}>
+        {label} unavailable
+      </p>
+      <p className="text-xs" style={{ color: '#9ca3af' }}>
+        Try regenerating to get this content.
+      </p>
+    </div>
+  )
+}
+
 function SignalContentModule() {
   const router = useRouter()
   const [businessId, setBusinessId] = useState<string | null>(null)
@@ -189,7 +225,7 @@ function SignalContentModule() {
     topicsToAvoid: '',
   })
 
-  const [stage, setStage] = useState<'form' | 'generating' | 'bonus-loading' | 'results'>('form')
+  const [stage, setStage] = useState<'form' | 'generating' | 'results'>('form')
   const [content, setContent] = useState<ContentOutput | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generationNumber, setGenerationNumber] = useState(1)
@@ -201,6 +237,8 @@ function SignalContentModule() {
   const [overallSubmitting, setOverallSubmitting] = useState(false)
   const [businessName, setBusinessName] = useState<string>('')
   const [vocPhraseCount, setVocPhraseCount] = useState<number>(0)
+  const [bonusLoading, setBonusLoading] = useState(false)
+  const [bonusFailed, setBonusFailed] = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -258,24 +296,33 @@ function SignalContentModule() {
       setOverallFeedbackText('')
       setOverallFeedbackDone(false)
 
-      // Call 2 — bonus formats + calendar (background)
-      setStage('bonus-loading')
-      const bonusContext: BonusContext = data.bonusContext
-      const bonusRes = await fetch('/api/signal-content/bonus', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessId,
-          outputId: data.outputId,
-          ...bonusContext,
-        }),
-      })
-      if (bonusRes.ok) {
-        const bonusJson = await bonusRes.json()
-        setContent(prev => prev ? { ...prev, ...bonusJson.data.bonus } : prev)
+      // Call 2 — bonus formats + calendar (background, non-fatal)
+      setBonusLoading(true)
+      setBonusFailed(false)
+      setStage('results') // Show results immediately while bonus loads
+
+      try {
+        const bonusContext: BonusContext = data.bonusContext
+        const bonusRes = await fetch('/api/signal-content/bonus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessId,
+            outputId: data.outputId,
+            ...bonusContext,
+          }),
+        })
+        if (bonusRes.ok) {
+          const bonusJson = await bonusRes.json()
+          setContent(prev => prev ? { ...prev, ...bonusJson.data.bonus } : prev)
+        } else {
+          setBonusFailed(true)
+        }
+      } catch {
+        setBonusFailed(true)
+      } finally {
+        setBonusLoading(false)
       }
-      // Bonus failure is non-fatal — show results either way
-      setStage('results')
     } catch {
       setError('Network error — please try again')
       setStage('form')
@@ -327,10 +374,6 @@ function SignalContentModule() {
 
   if (stage === 'generating') {
     return <GeneratingScreen generationNumber={generationNumber} bonusLoading={false} businessName={businessName} vocPhraseCount={vocPhraseCount} />
-  }
-
-  if (stage === 'bonus-loading') {
-    return <GeneratingScreen generationNumber={generationNumber} bonusLoading={true} businessName={businessName} vocPhraseCount={vocPhraseCount} />
   }
 
   if (!content) return null
@@ -401,6 +444,15 @@ function SignalContentModule() {
         </div>
       )}
 
+      {/* 4-Week Calendar */}
+      {bonusLoading ? (
+        <BonusSkeleton label="Building your content calendar…" />
+      ) : bonusFailed ? (
+        <BonusFailedCard label="Content calendar" />
+      ) : content.contentCalendar ? (
+        <ContentCalendar calendar={content.contentCalendar} />
+      ) : null}
+
       {/* Content Pillars */}
       {content.pillars && content.pillars.map((pillar, pi) => (
         <PillarCard
@@ -413,19 +465,18 @@ function SignalContentModule() {
         />
       ))}
 
-      {/* 4-Week Calendar */}
-      {content.contentCalendar && (
-        <ContentCalendar calendar={content.contentCalendar} />
-      )}
-
       {/* Bonus Formats */}
-      {(content.reelScripts || content.carouselFrameworks || content.storySequences) && (
+      {bonusLoading ? (
+        <BonusSkeleton label="Writing reel scripts, carousels + story sequences…" />
+      ) : bonusFailed ? (
+        <BonusFailedCard label="Bonus content formats" />
+      ) : (content.reelScripts || content.carouselFrameworks || content.storySequences) ? (
         <BonusFormats
           reelScripts={content.reelScripts}
           carouselFrameworks={content.carouselFrameworks}
           storySequences={content.storySequences}
         />
-      )}
+      ) : null}
 
       {/* Feedback */}
       <FeedbackBar

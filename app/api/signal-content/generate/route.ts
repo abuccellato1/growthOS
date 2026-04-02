@@ -252,6 +252,7 @@ postingRationale: one sentence max
 platformNotes: one sentence max
 contentMix: one sentence max
 testingRecommendations: exactly 2 items, one sentence each
+platformReadyText: assemble hook + body + cta + hashtags (with # prefix) into one paste-ready string using \\n\\n between sections
 
 EXPANSION HOOKS — keep people reading past line 1:
 A great post doesn't just have a strong opener. It has mini-hooks
@@ -286,7 +287,7 @@ Start with { and end with } and nothing else.
 No markdown fences. No text before or after. No explanations.`,
     messages: [{
       role: 'user',
-      content: `Generate strategy signals, pillars 1-3, and hooks for this business.\n\n${contentContext}\n\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n- hooks array with exactly 6 hooks\n\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0},"facebook":{"post":"","cta":"","charCount":0}}}],"hooks":["","","","","",""]}`
+      content: `Generate strategy signals, pillars 1-3, and hooks for this business.\n\n${contentContext}\n\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n- hooks array with exactly 6 hooks\n\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}],"hooks":["","","","","",""]}`
     }],
   })
 
@@ -357,7 +358,7 @@ RESPONSE FORMAT: Single valid JSON object. Start with {, end with }.
 No markdown. No text before or after.`,
     messages: [{
       role: 'user',
-      content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0},"facebook":{"post":"","cta":"","charCount":0}}}]}`
+      content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
     }],
   })
 
