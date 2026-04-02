@@ -117,18 +117,24 @@ Return exactly this JSON structure:
     // Call 2 — Bonus formats only (reels, carousels, stories)
     callWithRetry(() => anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
+      max_tokens: 4000,
       system: `You generate bonus social media content formats for service businesses.
-Write practical, ready-to-use scripts and frameworks a business owner can
-execute immediately. Be specific to the business type, not generic.
+Be extremely concise — every field must be short to fit within token limits.
 
-For reelScripts: word-for-word scripts under 60 seconds total.
-For carouselFrameworks: 5-6 slides max, each with a punchy headline and
-1 sentence of body text.
-For storySequences: 4 frames max, each under 8 words of text.
+STRICT LENGTH LIMITS:
+- reel hook: 15 words max
+- reel segment script: 15 words max per segment
+- reel captionSuggestion: 10 words max
+- carousel headline: 6 words max
+- carousel bodyText: 12 words max
+- story frame text: 6 words max
+- story stickerSuggestion: 3 words max
+
+Generate exactly: 3 reels, 3 carousels, 2 stories. No more.
 
 RESPONSE FORMAT: Single valid JSON object only.
-Start with { and end with }. No markdown. No text before or after.`,
+Start with { and end with }. No markdown fences. No text before or after.
+Never truncate the JSON — if running long, shorten field values further.`,
       messages: [{
         role: 'user',
         content: `Generate bonus content formats for ${businessName} (${safeService}).
@@ -137,13 +143,16 @@ Pillars: ${pillarList}
 Tone: ${tone}
 Content goal: ${contentGoal}
 
-Generate:
-- 3 reel scripts (one per top 3 pillars, keep each script short)
-- 3 carousel frameworks (one per top 3 pillars, 5 slides max each)
-- 2 story sequences (top 2 pillars, 4 frames max each)
+STRICT OUTPUT RULES — do not exceed these counts:
+- Each reel: exactly 2 segments (not 3, not 4 — exactly 2)
+- Each carousel: exactly 4 slides (cover + 3 body + closing = 5 total objects)
+- Each story: exactly 3 frames (not 4)
+- Generate exactly 3 reels, 3 carousels, 2 stories
 
-Return exactly this JSON structure:
-{"reelScripts":[{"pillar":"","totalDuration":"30s","hook":"","segments":[{"timeCode":"0-5s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":5,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":4,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
+Keep all text fields very short. Scripts and captions must be under 15 words each.
+
+Return exactly this JSON (no markdown, no fences, start with {):
+{"reelScripts":[{"pillar":"","totalDuration":"30s","hook":"","segments":[{"timeCode":"0-5s","script":"","visualNote":""},{"timeCode":"5-25s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":5,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""},{"slideNumber":2,"headline":"","bodyText":"","visualNote":""},{"slideNumber":3,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":3,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""},{"frameNumber":2,"text":"","visualNote":"","stickerSuggestion":""},{"frameNumber":3,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
       }],
     })),
 
