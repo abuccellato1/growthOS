@@ -324,79 +324,123 @@ No markdown fences. No text before or after. No explanations.`,
     return apiError('Failed to parse call 1 JSON', 500, 'PARSE_FAILED')
   }
 
-  // ── CALL 2: Pillars 4-5 ──────────────────────────────────────────────────
+  // ── CALLS 2 + 3 in parallel: Pillars 4-5 + Calendar ─────────────────────
   const pillarNames1 = ((parsedCall1.pillars as Array<{name: string}>) || []).map(p => p.name)
 
-  const call2Res = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
-    system: `You are an expert social media strategist and copywriter for service businesses.
+  const [call2Res, call3Res] = await Promise.allSettled([
+
+    // Call 2 — Pillars 4-5 (Sonnet)
+    anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      system: `You are a world-class social media copywriter for service businesses.
 
 Generate 2 more content pillars that are DISTINCT from the ones already created.
 Already created pillars: ${pillarNames1.join(', ')}
 
-HARD LIMITS:
+HARD LIMITS PER POST:
 LinkedIn hook: 100 chars max
-LinkedIn body+cta: 900-1200 chars total
+LinkedIn body: 600 chars max, 2 paragraphs max
+LinkedIn cta: 80 chars max
 Instagram hook: 100 chars max
-Instagram caption+cta: 300-450 chars total
-Facebook post+cta: 200-350 chars total
+Instagram caption: 250 chars max
+Facebook post: 300 chars max
 Each hashtag array: 4 hashtags max
+
+HASHTAG RULES:
+- Return hashtags WITHOUT the # symbol
+- WRONG: ["#marketing"] CORRECT: ["marketing"]
+
 icpConnection: one sentence max
 theme: one sentence max
 
-POST STRUCTURE — follow the HOOK-VALUE-KNOCKOUT framework:
+platformReadyText: assemble hook + body + cta + hashtags (with # prefix)
+into one paste-ready string using \\n\\n between sections
 
-LINKEDIN (4 layers, 900-1200 chars):
-1. HOOK — open loop using one hook framework
-2. CONTEXT — brief story or insight that validates the hook (under 80 words)
-3. VALUE — 3-5 punchy actionable lines (numbered list or contrast)
-4. KNOCKOUT CTA — one specific action (comment word, save, DM, question)
+RESPONSE FORMAT: Single valid JSON object only.
+Start with { and end with }. No markdown. No text before or after.`,
+      messages: [{
+        role: 'user',
+        content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n${approvedPillars && approvedPillars.length > 3 ? `\nAPPROVED PILLARS 4-5 FROM USER:\n${approvedPillars.slice(3, 5).map((p, i) => `Pillar ${i+4}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook. Use pillar names exactly as written.\n` : ''}\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":""},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":""},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":""}}}]}`
+      }],
+    }),
 
-INSTAGRAM (3 layers, 300-450 chars):
-1. HOOK — under 100 chars, earns the "more" tap
-2. MICRO-STORY OR VALUE — 3-6 lines with line breaks, one thought per line
-3. CTA — one action (save, tag, DM word, link in bio)
+    // Call 3 — Content Calendar (Haiku, fast and cheap)
+    anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      system: `You generate a 4-week social media content calendar for service businesses.
 
-FACEBOOK (3 layers, 200-350 chars):
-1. HOOK — warm conversational opener specific to their situation
-2. THE POINT — 2-3 sentences, one concrete detail or result
-3. ENGAGEMENT CTA — question to drive comments or website link
+CRITICAL RULES:
+- For EACH posting day, generate ONE entry PER PLATFORM
+- Example: "5x/week" + LinkedIn + Instagram + Facebook = 15 entries per week
+  (5 days × 3 platforms = 15 entries per week)
+- Example: "3x/week" + LinkedIn + Facebook = 6 entries per week
+- Posting days based on frequency:
+  "3x/week": Mon, Wed, Fri
+  "5x/week": Mon, Tue, Wed, Thu, Fri
+  "Daily": Mon, Tue, Wed, Thu, Fri, Sat, Sun
+- Rotate through the 5 pillars sequentially across posting days
+- Each platform on each day gets the SAME pillar for that day
+- Repeat the pillar rotation each week
+- scheduledDate is always null
+- status is always "scheduled"
+- postType options: Educational, Story, Social Proof, Authority, Engagement
+- Rotate postTypes for variety across weeks
 
-HASHTAG RULES:
-- Return hashtags WITHOUT the # symbol — the UI adds it automatically
-- WRONG: ["#marketing", "#business"] — do NOT include # in the array
-- CORRECT: ["marketing", "business"] — words only, no # prefix
+RESPONSE FORMAT: Single valid JSON object only.
+Start with { and end with }. No markdown. No text before or after.`,
+      messages: [{
+        role: 'user',
+        content: `Generate a 4-week content calendar.\n\nBusiness: ${bizData.business_name}\nPillars: ${(parsedCall1.pillars as Array<{name: string}> || []).map((p, i) => `${i+1}. ${p.name}`).join(', ')}\nPlatforms: ${platforms.join(', ')}\nPosting frequency: ${postingFrequency}\n\nReturn exactly this JSON:\n{"contentCalendar":{"week1":[{"day":"Mon","platform":"LinkedIn","pillar":"","postType":"Educational","scheduledDate":null,"status":"scheduled"}],"week2":[],"week3":[],"week4":[]}}`
+      }],
+    }),
 
-RESPONSE FORMAT: Single valid JSON object. Start with {, end with }.
-No markdown. No text before or after.`,
-    messages: [{
-      role: 'user',
-      content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n${approvedPillars && approvedPillars.length > 3 ? `\nAPPROVED PILLARS 4-5 FROM USER:\n${approvedPillars.slice(3, 5).map((p, i) => `Pillar ${i+4}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook. Use pillar names exactly as written.\n` : ''}\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
-    }],
-  })
+  ])
 
-  const textBlocks2 = call2Res.content.filter(b => b.type === 'text')
-  const lastBlock2 = textBlocks2[textBlocks2.length - 1]
-  if (!lastBlock2 || lastBlock2.type !== 'text') return apiError('No response from call 2', 500, 'GENERATION_FAILED')
-
-  let parsedCall2: { pillars?: Array<Record<string, unknown>> }
-  try {
-    const raw2 = lastBlock2.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
-    const first2 = raw2.indexOf('{')
-    const last2 = raw2.lastIndexOf('}')
-    if (first2 === -1 || last2 <= first2) {
-      console.error('[SignalContent Call2] No JSON found:', raw2.slice(0, 300))
-      parsedCall2 = { pillars: [] }
-    } else {
-      parsedCall2 = JSON.parse(raw2.slice(first2, last2 + 1))
+  // ── Parse Call 2 ──────────────────────────────────────────────────────────
+  let parsedCall2: { pillars?: Array<Record<string, unknown>> } = { pillars: [] }
+  if (call2Res.status === 'fulfilled') {
+    const textBlocks2 = call2Res.value.content.filter((b: { type: string }) => b.type === 'text')
+    const lastBlock2 = textBlocks2[textBlocks2.length - 1]
+    if (lastBlock2?.type === 'text') {
+      try {
+        const raw2 = lastBlock2.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+        const first2 = raw2.indexOf('{')
+        const last2 = raw2.lastIndexOf('}')
+        if (first2 !== -1 && last2 > first2) {
+          parsedCall2 = JSON.parse(raw2.slice(first2, last2 + 1))
+        }
+      } catch (e) {
+        console.error('[SignalContent Call2] Parse failed:', String(e))
+      }
     }
-  } catch (e) {
-    console.error('[SignalContent Call2] Parse failed:', String(e))
-    parsedCall2 = { pillars: [] }
+  } else {
+    console.error('[SignalContent Call2] Failed:', call2Res.reason)
   }
 
-  // ── Merge both calls ─────────────────────────────────────────────────────
+  // ── Parse Call 3 (calendar) ───────────────────────────────────────────────
+  let parsedCalendar: Record<string, unknown> = {}
+  if (call3Res.status === 'fulfilled') {
+    const textBlocks3 = call3Res.value.content.filter(b => b.type === 'text')
+    const lastBlock3 = textBlocks3[textBlocks3.length - 1]
+    if (lastBlock3?.type === 'text') {
+      try {
+        const raw3 = lastBlock3.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+        const first3 = raw3.indexOf('{')
+        const last3 = raw3.lastIndexOf('}')
+        if (first3 !== -1 && last3 > first3) {
+          parsedCalendar = JSON.parse(raw3.slice(first3, last3 + 1))
+        }
+      } catch (e) {
+        console.error('[SignalContent Calendar] Parse failed:', String(e))
+      }
+    }
+  } else {
+    console.error('[SignalContent Calendar] Failed:', call3Res.reason)
+  }
+
+  // ── Merge all calls ───────────────────────────────────────────────────────
   const allPillars = [
     ...((parsedCall1.pillars as Array<Record<string, unknown>>) || []),
     ...((parsedCall2.pillars as Array<Record<string, unknown>>) || []),
@@ -405,6 +449,7 @@ No markdown. No text before or after.`,
   const parsedContent: Record<string, unknown> = {
     ...parsedCall1,
     pillars: allPillars,
+    ...parsedCalendar,
   }
 
   // Save core output — bonus content saved separately via /api/signal-content/bonus

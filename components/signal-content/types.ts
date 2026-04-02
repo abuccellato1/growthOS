@@ -41,6 +41,10 @@ export interface CalendarEntry {
   pillar: string
   postType: string
   scheduledDate: string | null
+  status?: 'scheduled' | 'draft'
+  visualRequired?: boolean
+  draftType?: 'reel' | 'carousel' | 'story'
+  draftTitle?: string
 }
 
 export interface ReelSegment { timeCode: string; script: string; visualNote: string }

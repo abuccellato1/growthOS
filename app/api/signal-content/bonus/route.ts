@@ -5,26 +5,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-async function callWithRetry(
-  fn: () => Promise<Anthropic.Message>,
-  retries = 3,
-  delayMs = 2000
-): Promise<Anthropic.Message> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number }).status
-      if (status === 529 && attempt < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)))
-        continue
-      }
-      throw err
-    }
-  }
-  throw new Error('Max retries exceeded')
-}
-
 function extractJSON(text: string): Record<string, unknown> | null {
   const clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
   const first = clean.indexOf('{')
@@ -82,58 +62,8 @@ export async function POST(request: Request) {
   const pillarList = pillarNames.map((n, i) => `Pillar ${i + 1}: ${n}`).join(', ')
   const platformList = platforms.join(', ')
 
-  // ── Two parallel Haiku calls ──────────────────────────────────────────────
-
-  const [calendarRes, formatsRes] = await Promise.allSettled([
-
-    // Call 1 — Content Calendar only
-    callWithRetry(() => anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2000,
-      system: `You generate a 4-week social media content calendar for service businesses.
-
-CRITICAL RULES FOR CORRECT GENERATION:
-- For EACH posting day, generate ONE entry PER PLATFORM
-- Example: "5x/week" + LinkedIn + Instagram + Facebook = 15 entries per week
-  (5 days × 3 platforms = 15 entries)
-- Example: "3x/week" + LinkedIn + Facebook = 6 entries per week
-  (3 days × 2 platforms = 6 entries)
-- Posting days are always weekdays (Mon-Fri) distributed evenly
-- For "3x/week": use Mon, Wed, Fri
-- For "5x/week": use Mon, Tue, Wed, Thu, Fri
-- For "Daily": use Mon, Tue, Wed, Thu, Fri, Sat, Sun
-- Rotate through the 5 pillars sequentially across posting days
-- Each week should have the same structure
-- scheduledDate is always null
-
-RESPONSE FORMAT: Single valid JSON object only.
-Start with { and end with }. No markdown. No text before or after.`,
-      messages: [{
-        role: 'user',
-        content: `Generate a 4-week content calendar for ${businessName} (${safeService}).
-
-Pillars: ${pillarList}
-Platforms: ${platformList}
-Posting frequency: ${postingFrequency}
-
-IMPORTANT: Generate one entry per platform per posting day.
-If platforms are LinkedIn, Instagram, Facebook and frequency is 5x/week:
-- Week has 5 posting days (Mon-Fri)
-- Each day has 3 entries (one per platform)
-- 15 entries total per week, 60 entries across 4 weeks
-- Pillars rotate: Day 1 = Pillar 1, Day 2 = Pillar 2, etc, then repeat
-
-Each platform on each day gets the SAME pillar for that day.
-postType options: "Educational", "Story", "Social Proof", "Authority", "Engagement"
-Rotate postTypes across the weeks for variety.
-
-Return exactly this JSON:
-{"contentCalendar":{"week1":[{"day":"Mon","platform":"LinkedIn","pillar":"pillar name","postType":"Educational","scheduledDate":null},{"day":"Mon","platform":"Instagram","pillar":"pillar name","postType":"Educational","scheduledDate":null}],"week2":[],"week3":[],"week4":[]}}`
-      }],
-    })),
-
-    // Call 2 — Bonus formats only (reels, carousels, stories)
-    callWithRetry(() => anthropic.messages.create({
+  // Single Haiku call — bonus formats only (calendar now in generate route)
+  const formatsResult = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 4000,
       system: `You generate bonus social media content formats for service businesses.
@@ -186,50 +116,21 @@ Keep all text fields very short. Scripts and captions must be under 15 words eac
 Return exactly this JSON (no markdown, no fences, start with {):
 {"reelScripts":[{"pillar":"","totalDuration":"30s","hook":"","segments":[{"timeCode":"0-5s","script":"","visualNote":""},{"timeCode":"5-25s","script":"","visualNote":""}],"cta":"","captionSuggestion":""}],"carouselFrameworks":[{"pillar":"","slideCount":5,"coverSlide":{"headline":"","subtext":""},"slides":[{"slideNumber":1,"headline":"","bodyText":"","visualNote":""},{"slideNumber":2,"headline":"","bodyText":"","visualNote":""},{"slideNumber":3,"headline":"","bodyText":"","visualNote":""}],"closingSlide":{"cta":"","text":""}}],"storySequences":[{"pillar":"","frameCount":3,"frames":[{"frameNumber":1,"text":"","visualNote":"","stickerSuggestion":""},{"frameNumber":2,"text":"","visualNote":"","stickerSuggestion":""},{"frameNumber":3,"text":"","visualNote":"","stickerSuggestion":""}]}]}`
       }],
-    })),
+  })
 
-  ])
-
-  // ── Extract results (non-fatal per call) ──────────────────────────────────
-
-  let calendarData: Record<string, unknown> = {}
-  let formatsData: Record<string, unknown> = {}
-
-  if (calendarRes.status === 'fulfilled') {
-    const blocks = calendarRes.value.content.filter(b => b.type === 'text')
-    const last = blocks[blocks.length - 1]
-    if (last?.type === 'text') {
-      const parsed = extractJSON(last.text)
-      if (parsed) {
-        calendarData = parsed
-      } else {
-        console.error('[SignalContent Bonus Calendar] Parse failed. Preview:',
-          last.text.slice(0, 300))
-      }
+  // Parse formats
+  let parsedBonus: Record<string, unknown> = {}
+  const formatsBlocks = formatsResult.content.filter(b => b.type === 'text')
+  const formatsLast = formatsBlocks[formatsBlocks.length - 1]
+  if (formatsLast?.type === 'text') {
+    const parsed = extractJSON(formatsLast.text)
+    if (parsed) {
+      parsedBonus = parsed
+    } else {
+      console.error('[SignalContent Bonus] Parse failed. Preview:',
+        formatsLast.text.slice(0, 300))
     }
-  } else {
-    console.error('[SignalContent Bonus Calendar] Call failed:',
-      calendarRes.reason)
   }
-
-  if (formatsRes.status === 'fulfilled') {
-    const blocks = formatsRes.value.content.filter(b => b.type === 'text')
-    const last = blocks[blocks.length - 1]
-    if (last?.type === 'text') {
-      const parsed = extractJSON(last.text)
-      if (parsed) {
-        formatsData = parsed
-      } else {
-        console.error('[SignalContent Bonus Formats] Parse failed. Preview:',
-          last.text.slice(0, 300))
-      }
-    }
-  } else {
-    console.error('[SignalContent Bonus Formats] Call failed:',
-      formatsRes.reason)
-  }
-
-  const parsedBonus = { ...calendarData, ...formatsData }
 
   // ── Merge into existing module_output ─────────────────────────────────────
 
