@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
   const res = await callWithRetry(() => anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2500,
+    max_tokens: 3500,
     system: `You are a world-class social media copywriter for service businesses in 2026.
 Write scroll-stopping hooks that feel human, specific, and emotionally resonant.
 
@@ -86,14 +86,14 @@ RULES FOR EVERY HOOK:
 - Uses language from TOP CUSTOMER PHRASES when possible
 - Avoids all LANGUAGE TO AVOID from the context
 
-For each pillar generate exactly 3 hooks using 3 DIFFERENT frameworks.
-Vary frameworks across pillars — do not repeat the same framework more than twice total.
+For each pillar generate exactly 5 hooks using 5 DIFFERENT frameworks.
+Vary frameworks across pillars — do not repeat the same framework more than three times total.
 
 RESPONSE FORMAT: Single valid JSON object only.
 Start with { and end with }. No markdown. No text before or after.`,
     messages: [{
       role: 'user',
-      content: `Generate 3 hooks per pillar for these approved content pillars.
+      content: `Generate 5 hooks per pillar for these approved content pillars.
 
 BUSINESS INTELLIGENCE:
 ${condensedContext}
@@ -103,7 +103,7 @@ TONE: ${tone}
 APPROVED PILLARS:
 ${approvedPillars.map((p, i) => `${i + 1}. ${p.name} — ${p.rationale} — ICP connection: ${p.icpConnection}`).join('\n')}
 
-Return exactly this JSON (3 hooks per pillar, each with a different framework):
+Return exactly this JSON (5 hooks per pillar, each with a different framework):
 {"pillarHooks":[{"pillarName":"","hooks":[{"text":"","framework":"framework name from the list","charCount":0}]}]}`
     }],
   }))

@@ -149,7 +149,7 @@ export interface PillarHooks {
 
 export interface HookApprovalState {
   pillarName: string
-  hooks: Array<HookProposal & { approved: boolean }>
+  hooks: Array<HookProposal & { selected: boolean }>
 }
 
 export interface SelectedHook {

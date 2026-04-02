@@ -303,7 +303,7 @@ function SignalContentModule() {
       }>
       setHookStates(pillarHooks.map(ph => ({
         pillarName: ph.pillarName,
-        hooks: ph.hooks.map((h, i) => ({ ...h, charCount: h.charCount || h.text.length, approved: i === 0 })),
+        hooks: ph.hooks.map((h, i) => ({ ...h, charCount: h.charCount || h.text.length, selected: i === 0 })),
       })))
       setStage('hooks-review')
     } catch { setError('Network error — please try again'); setStage('pillars-review') }
@@ -313,12 +313,12 @@ function SignalContentModule() {
     setHookStates(prev => prev.map((s, i) => i === index ? updated : s))
   }
 
-  const allHooksValid = hookStates.length > 0 && hookStates.every(s => s.hooks.some(h => h.approved))
+  const allHooksValid = hookStates.length > 0 && hookStates.every(s => s.hooks.some(h => h.selected))
 
   function buildSelectedHooks(): SelectedHook[] {
     return hookStates.map(s => {
-      const approved = s.hooks.find(h => h.approved)
-      return { pillarName: s.pillarName, hook: approved?.text || s.hooks[0]?.text || '', framework: approved?.framework || s.hooks[0]?.framework || '' }
+      const selected = s.hooks.find(h => h.selected)
+      return { pillarName: s.pillarName, hook: selected?.text || s.hooks[0]?.text || '', framework: selected?.framework || s.hooks[0]?.framework || '' }
     })
   }
 
@@ -531,7 +531,7 @@ function SignalContentModule() {
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
           {hookStates.map((state, i) => (
-            <HookApprovalCard key={i} state={state} pillarIndex={i} onChange={updated => updateHookState(i, updated)} />
+            <HookApprovalCard key={i} state={state} pillarIndex={i} condensedContext={condensedContext} tone={form.tone} onChange={updated => updateHookState(i, updated)} />
           ))}
         </div>
         <button onClick={() => setStage('confirmation')} disabled={!allHooksValid}
@@ -579,7 +579,7 @@ function SignalContentModule() {
 
       {bonusLoading ? <BonusSkeleton label="Building your content calendar…" />
         : bonusFailed ? <BonusFailedCard label="Content calendar" />
-        : content.contentCalendar ? <ContentCalendar calendar={content.contentCalendar} /> : null}
+        : content.contentCalendar ? <ContentCalendar calendar={content.contentCalendar} outputId={outputId || undefined} businessId={businessId || undefined} /> : null}
 
       {content.pillars && content.pillars.map((pillar, pi) => (
         <PillarCard key={pi} pillar={pillar} pillarIndex={pi}

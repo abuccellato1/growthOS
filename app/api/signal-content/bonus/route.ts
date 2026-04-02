@@ -91,8 +91,20 @@ export async function POST(request: Request) {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2000,
       system: `You generate a 4-week social media content calendar for service businesses.
-Distribute the 5 pillars evenly across 4 weeks based on posting frequency.
-Only include platforms from the list provided.
+
+CRITICAL RULES FOR CORRECT GENERATION:
+- For EACH posting day, generate ONE entry PER PLATFORM
+- Example: "5x/week" + LinkedIn + Instagram + Facebook = 15 entries per week
+  (5 days × 3 platforms = 15 entries)
+- Example: "3x/week" + LinkedIn + Facebook = 6 entries per week
+  (3 days × 2 platforms = 6 entries)
+- Posting days are always weekdays (Mon-Fri) distributed evenly
+- For "3x/week": use Mon, Wed, Fri
+- For "5x/week": use Mon, Tue, Wed, Thu, Fri
+- For "Daily": use Mon, Tue, Wed, Thu, Fri, Sat, Sun
+- Rotate through the 5 pillars sequentially across posting days
+- Each week should have the same structure
+- scheduledDate is always null
 
 RESPONSE FORMAT: Single valid JSON object only.
 Start with { and end with }. No markdown. No text before or after.`,
@@ -100,19 +112,23 @@ Start with { and end with }. No markdown. No text before or after.`,
         role: 'user',
         content: `Generate a 4-week content calendar for ${businessName} (${safeService}).
 
-Content pillars: ${pillarList}
+Pillars: ${pillarList}
 Platforms: ${platformList}
 Posting frequency: ${postingFrequency}
-Content goal: ${contentGoal}
 
-Rules:
-- Each week should have entries for each posting day based on frequency
-- Rotate through all 5 pillars across the 4 weeks
-- Use short day abbreviations: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-- scheduledDate is always null
+IMPORTANT: Generate one entry per platform per posting day.
+If platforms are LinkedIn, Instagram, Facebook and frequency is 5x/week:
+- Week has 5 posting days (Mon-Fri)
+- Each day has 3 entries (one per platform)
+- 15 entries total per week, 60 entries across 4 weeks
+- Pillars rotate: Day 1 = Pillar 1, Day 2 = Pillar 2, etc, then repeat
 
-Return exactly this JSON structure:
-{"contentCalendar":{"week1":[{"day":"Mon","platform":"LinkedIn","pillar":"pillar name","postType":"Educational","scheduledDate":null}],"week2":[],"week3":[],"week4":[]}}`
+Each platform on each day gets the SAME pillar for that day.
+postType options: "Educational", "Story", "Social Proof", "Authority", "Engagement"
+Rotate postTypes across the weeks for variety.
+
+Return exactly this JSON:
+{"contentCalendar":{"week1":[{"day":"Mon","platform":"LinkedIn","pillar":"pillar name","postType":"Educational","scheduledDate":null},{"day":"Mon","platform":"Instagram","pillar":"pillar name","postType":"Educational","scheduledDate":null}],"week2":[],"week3":[],"week4":[]}}`
       }],
     })),
 

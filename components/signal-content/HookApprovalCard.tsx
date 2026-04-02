@@ -1,11 +1,14 @@
 'use client'
 
-import { ThumbsUp, ThumbsDown } from 'lucide-react'
+import { useState } from 'react'
+import { RefreshCw, Loader, Check } from 'lucide-react'
 import type { HookApprovalState } from './types'
 
 interface Props {
   state: HookApprovalState
   pillarIndex: number
+  condensedContext: string
+  tone: string
   onChange: (updated: HookApprovalState) => void
 }
 
@@ -20,122 +23,118 @@ const FRAMEWORK_COLORS: Record<string, string> = {
   'Authority builder': '#6b7280',
 }
 
-export default function HookApprovalCard({ state, pillarIndex, onChange }: Props) {
-  const approvedCount = state.hooks.filter(h => h.approved).length
+export default function HookApprovalCard({
+  state, pillarIndex, condensedContext, tone, onChange,
+}: Props) {
+  const [regenLoading, setRegenLoading] = useState(false)
+  const selectedCount = state.hooks.filter(h => h.selected).length
 
   function toggleHook(hookIndex: number) {
-    const updated = {
-      ...state,
-      hooks: state.hooks.map((h, i) =>
-        i === hookIndex ? { ...h, approved: !h.approved } : h
-      ),
+    const hook = state.hooks[hookIndex]
+    if (hook.selected && selectedCount <= 1) return
+    const updated = state.hooks.map((h, i) => {
+      if (i === hookIndex) return { ...h, selected: !h.selected }
+      if (!hook.selected && selectedCount >= 3) {
+        const firstSelected = state.hooks.findIndex(x => x.selected)
+        if (i === firstSelected) return { ...h, selected: false }
+      }
+      return h
+    })
+    onChange({ ...state, hooks: updated })
+  }
+
+  async function handleRegen() {
+    setRegenLoading(true)
+    try {
+      const existingHooks = state.hooks.map(h => h.text)
+      const res = await fetch('/api/signal-content/hooks-regen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pillarName: state.pillarName,
+          pillarRationale: '',
+          pillarIcpConnection: '',
+          condensedContext,
+          tone,
+          existingHooks,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.hooks) {
+        const newHooks = (json.data.hooks as Array<{
+          text: string; framework: string; charCount: number
+        }>).map((h, i) => ({
+          ...h,
+          charCount: h.charCount || h.text.length,
+          selected: i === 0,
+        }))
+        onChange({ ...state, hooks: newHooks })
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setRegenLoading(false)
     }
-    onChange(updated)
   }
 
   return (
-    <div
-      className="rounded-2xl border overflow-hidden"
-      style={{
-        borderColor: approvedCount === 0 ? '#fecaca' : '#e5e7eb',
-      }}
-    >
+    <div className="rounded-2xl border overflow-hidden"
+      style={{ borderColor: selectedCount === 0 ? '#fecaca' : '#e5e7eb' }}>
       {/* Header */}
-      <div
-        className="px-5 py-3 flex items-center justify-between"
-        style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}
-      >
+      <div className="px-5 py-3 flex items-center justify-between border-b"
+        style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
         <div>
-          <p
-            className="text-sm font-bold"
-            style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}
-          >
+          <p className="text-sm font-bold"
+            style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
             {state.pillarName}
           </p>
-          <p className="text-xs" style={{ color: '#9ca3af' }}>
-            Pillar {pillarIndex + 1}
+          <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+            Pillar {pillarIndex + 1} — select up to 3 hooks
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          {approvedCount === 0 ? (
-            <span
-              className="text-xs font-semibold px-2 py-0.5 rounded-md"
-              style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}
-            >
-              Select at least 1
-            </span>
-          ) : (
-            <span
-              className="text-xs font-semibold px-2 py-0.5 rounded-md"
-              style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#43C6AC' }}
-            >
-              {approvedCount} approved
-            </span>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+            style={{
+              backgroundColor: selectedCount === 0 ? '#fef2f2' : 'rgba(67,198,172,0.1)',
+              color: selectedCount === 0 ? '#dc2626' : '#43C6AC',
+            }}>
+            {selectedCount}/3 selected
+          </span>
+          <button onClick={handleRegen} disabled={regenLoading}
+            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-40"
+            style={{ borderColor: '#e5e7eb', color: '#6b7280' }}
+            title="Generate 5 fresh hooks for this pillar">
+            {regenLoading ? <Loader size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            {regenLoading ? 'Generating…' : 'New hooks'}
+          </button>
         </div>
       </div>
 
-      {/* Hooks */}
+      {/* Hook cards */}
       <div className="divide-y divide-gray-100">
         {state.hooks.map((hook, hi) => {
-          const frameworkColor = FRAMEWORK_COLORS[hook.framework] || '#9ca3af'
+          const color = FRAMEWORK_COLORS[hook.framework] || '#9ca3af'
+          const isSelected = hook.selected
           return (
-            <div
-              key={hi}
-              className="p-4 transition-all"
-              style={{
-                backgroundColor: hook.approved
-                  ? 'rgba(67,198,172,0.04)' : '#ffffff',
-              }}
-            >
+            <button key={hi} onClick={() => toggleHook(hi)}
+              className="w-full text-left p-4 transition-all"
+              style={{ backgroundColor: isSelected ? 'rgba(67,198,172,0.04)' : '#ffffff' }}>
               <div className="flex items-start gap-3">
-                {/* Approve/reject toggle */}
-                <div className="flex flex-col gap-1 flex-shrink-0 mt-0.5">
-                  <button
-                    onClick={() => !hook.approved && toggleHook(hi)}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{
-                      backgroundColor: hook.approved
-                        ? 'rgba(67,198,172,0.15)' : '#f3f4f6',
-                      color: hook.approved ? '#43C6AC' : '#9ca3af',
-                    }}
-                    title="Approve this hook"
-                  >
-                    <ThumbsUp size={13} />
-                  </button>
-                  <button
-                    onClick={() => hook.approved && toggleHook(hi)}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{
-                      backgroundColor: !hook.approved
-                        ? '#fef2f2' : '#f3f4f6',
-                      color: !hook.approved ? '#dc2626' : '#9ca3af',
-                    }}
-                    title="Reject this hook"
-                  >
-                    <ThumbsDown size={13} />
-                  </button>
+                <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                  style={{
+                    borderColor: isSelected ? '#43C6AC' : '#d1d5db',
+                    backgroundColor: isSelected ? '#43C6AC' : 'transparent',
+                  }}>
+                  {isSelected && <Check size={11} color="white" strokeWidth={3} />}
                 </div>
-
-                {/* Hook content */}
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm leading-relaxed mb-2"
-                    style={{
-                      color: hook.approved ? '#191654' : '#6b7280',
-                      fontWeight: hook.approved ? 500 : 400,
-                    }}
-                  >
+                  <p className="text-sm leading-relaxed mb-2"
+                    style={{ color: isSelected ? '#191654' : '#6b7280', fontWeight: isSelected ? 500 : 400 }}>
                     {hook.text}
                   </p>
                   <div className="flex items-center gap-2">
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded-md"
-                      style={{
-                        backgroundColor: `${frameworkColor}15`,
-                        color: frameworkColor,
-                      }}
-                    >
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md"
+                      style={{ backgroundColor: `${color}15`, color }}>
                       {hook.framework}
                     </span>
                     <span className="text-xs" style={{ color: '#9ca3af' }}>
@@ -144,7 +143,7 @@ export default function HookApprovalCard({ state, pillarIndex, onChange }: Props
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
           )
         })}
       </div>
