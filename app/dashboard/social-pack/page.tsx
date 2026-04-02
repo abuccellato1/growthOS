@@ -381,7 +381,7 @@ function SignalContentModule() {
   // ── Results ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl space-y-4">
+    <div className="max-w-7xl space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">

@@ -119,4 +119,5 @@ export interface BonusContext {
   tone: string
   businessName: string
   primaryService: string
+  condensedContext?: string
 }

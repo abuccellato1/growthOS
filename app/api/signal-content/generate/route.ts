@@ -406,6 +406,21 @@ No markdown. No text before or after.`,
     regenerations_used: (generationNumber || 1) - 1,
   }).select('id').single()
 
+  // Build condensed context for bonus route
+  // Gives Haiku enough ICP + VOC data to write specific content
+  const condensedContext = `
+ICP ONE-LINER: ${(icp?.one_sentence_icp as string) || ''}
+PRIMARY FEAR: ${(icp?.primary_fear as string) || ''}
+DREAM OUTCOME: ${(icp?.dream_outcome_12months as string) || ''}
+TOP OBJECTION: ${((icp?.top_objections as string[] | null)?.[0]) || ''}
+CORE DIFFERENTIATOR: ${(messaging?.differentiator_statement as string) || ''}
+LANGUAGE TO USE: ${((messaging?.language_that_resonates as string[] | null) || []).slice(0, 5).join(', ')}
+LANGUAGE TO AVOID: ${((messaging?.language_to_avoid as string[] | null) || []).slice(0, 3).join(', ')}
+TOP CUSTOMER PHRASES: ${topPhrases.slice(0, 5).join(', ')}
+EMOTIONAL LANGUAGE: ${emotionalLanguage.slice(0, 4).join(', ')}
+KEY PROOF: ${((proof?.result_metrics as string[] | null) || []).slice(0, 2).join(', ')}
+`.trim()
+
   return apiSuccess({
     content: parsedContent,
     outputId: output?.id || null,
@@ -419,6 +434,7 @@ No markdown. No text before or after.`,
       tone,
       businessName: bizData.business_name,
       primaryService: bizData.primary_service || '',
+      condensedContext,
     }
   })
 }

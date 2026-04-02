@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     tone: string
     businessName: string
     primaryService: string
+    condensedContext?: string
   }
   try { body = await request.json() } catch {
     return apiError('Invalid body', 400, 'INVALID_BODY')
@@ -58,7 +59,8 @@ export async function POST(request: Request) {
 
   const {
     businessId, outputId, pillarNames, platforms,
-    postingFrequency, contentGoal, tone, businessName, primaryService
+    postingFrequency, contentGoal, tone, businessName,
+    primaryService, condensedContext
   } = body
 
   if (!businessId || !outputId || !pillarNames?.length) {
@@ -119,7 +121,12 @@ Return exactly this JSON structure:
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 4000,
       system: `You generate bonus social media content formats for service businesses.
-Be extremely concise — every field must be short to fit within token limits.
+Write content that is SPECIFIC to this exact business — not generic.
+Use the customer intelligence below to make every script and framework
+feel like it was written by someone who deeply knows this business.
+
+BUSINESS INTELLIGENCE:
+${condensedContext || 'Use the pillar names and business context provided.'}
 
 STRICT LENGTH LIMITS:
 - reel hook: 15 words max
@@ -132,9 +139,18 @@ STRICT LENGTH LIMITS:
 
 Generate exactly: 3 reels, 3 carousels, 2 stories. No more.
 
+QUALITY RULES:
+- Every hook must reference a specific customer fear or desire from the intelligence above
+- Use exact phrases from TOP CUSTOMER PHRASES when possible
+- Never use language from LANGUAGE TO AVOID
+- Reel hooks should use one of: negative warning, emotional vulnerability,
+  hyper-specific relatability, or direct callout
+- Carousel cover slides should tease a transformation or insight
+- Story frames should feel urgent and scrollable
+
 RESPONSE FORMAT: Single valid JSON object only.
 Start with { and end with }. No markdown fences. No text before or after.
-Never truncate the JSON — if running long, shorten field values further.`,
+Never truncate — shorten field values if running long.`,
       messages: [{
         role: 'user',
         content: `Generate bonus content formats for ${businessName} (${safeService}).

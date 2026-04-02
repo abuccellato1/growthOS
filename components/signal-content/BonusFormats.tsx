@@ -330,7 +330,7 @@ export default function BonusFormats({
           <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>
             Word-for-word scripts ready to record. Just add your visuals.
           </p>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {reelScripts.map((reel, i) => (
               <ReelScriptCard
                 key={i}
@@ -348,7 +348,7 @@ export default function BonusFormats({
           <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>
             Slide-by-slide frameworks. Add your branded images to each slide.
           </p>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {carouselFrameworks.map((c, i) => (
               <CarouselCard
                 key={i}
@@ -366,7 +366,7 @@ export default function BonusFormats({
           <p className="text-xs mb-4" style={{ color: '#9ca3af' }}>
             Frame-by-frame story plans. Each frame = one screen.
           </p>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {storySequences.map((s, i) => (
               <StoryCard
                 key={i}
