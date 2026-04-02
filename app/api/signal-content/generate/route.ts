@@ -18,10 +18,24 @@ export async function POST(request: Request) {
     topicsToAvoid: string
     regenerationFeedback?: string
     generationNumber?: number
+    approvedPillars?: Array<{
+      name: string
+      rationale: string
+      icpConnection: string
+      category: string
+    }>
+    selectedHooks?: Array<{
+      pillarName: string
+      hook: string
+      framework: string
+    }>
+    condensedContext?: string
   }
   try { body = await request.json() } catch { return apiError('Invalid body', 400, 'INVALID_BODY') }
 
-  const { businessId, platforms, postingFrequency, contentGoal, tone, topicsToAvoid, regenerationFeedback, generationNumber } = body
+  const { businessId, platforms, postingFrequency, contentGoal, tone,
+          topicsToAvoid, regenerationFeedback, generationNumber,
+          approvedPillars, selectedHooks, condensedContext: incomingContext } = body
   if (!businessId || !platforms?.length || !postingFrequency || !contentGoal || !tone) {
     return apiError('Missing required fields', 400, 'VALIDATION_ERROR')
   }
@@ -287,7 +301,7 @@ Start with { and end with } and nothing else.
 No markdown fences. No text before or after. No explanations.`,
     messages: [{
       role: 'user',
-      content: `Generate strategy signals, pillars 1-3, and hooks for this business.\n\n${contentContext}\n\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n- hooks array with exactly 6 hooks\n\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}],"hooks":["","","","","",""]}`
+      content: `Generate strategy signals and pillars 1-3 for this business.\n\n${contentContext}\n\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n${approvedPillars && approvedPillars.length > 0 ? `\nAPPROVED PILLARS AND HOOKS FROM USER:\n${(approvedPillars || []).slice(0, 3).map((p, i) => `Pillar ${i+1}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook for that pillar.\nUse the pillar name exactly as written above.\n` : ''}\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
     }],
   })
 
@@ -358,7 +372,7 @@ RESPONSE FORMAT: Single valid JSON object. Start with {, end with }.
 No markdown. No text before or after.`,
     messages: [{
       role: 'user',
-      content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
+      content: `Generate pillars 4 and 5 for this business.\n\n${contentContext}\n\nPlatforms: ${platforms.join(', ')}\nTone: ${tone}\nContent goal: ${contentGoal}\n${approvedPillars && approvedPillars.length > 3 ? `\nAPPROVED PILLARS 4-5 FROM USER:\n${approvedPillars.slice(3, 5).map((p, i) => `Pillar ${i+4}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook. Use pillar names exactly as written.\n` : ''}\nReturn ONLY a pillars array with exactly 2 pillars:\n{"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
     }],
   })
 
@@ -421,20 +435,23 @@ EMOTIONAL LANGUAGE: ${emotionalLanguage.slice(0, 4).join(', ')}
 KEY PROOF: ${((proof?.result_metrics as string[] | null) || []).slice(0, 2).join(', ')}
 `.trim()
 
+  const finalCondensedContext = incomingContext || condensedContext
+
   return apiSuccess({
     content: parsedContent,
     outputId: output?.id || null,
     businessName: bizData.business_name,
     vocPhraseCount: topPhrases.length,
     bonusContext: {
-      pillarNames: allPillars.map((p: Record<string, unknown>) => p.name as string),
+      pillarNames: approvedPillars?.map(p => p.name) ||
+        allPillars.map((p: Record<string, unknown>) => p.name as string),
       platforms,
       postingFrequency,
       contentGoal,
       tone,
       businessName: bizData.business_name,
       primaryService: bizData.primary_service || '',
-      condensedContext,
+      condensedContext: finalCondensedContext,
     }
   })
 }
