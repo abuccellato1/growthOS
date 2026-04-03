@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Share2, AlertCircle, ChevronLeft, Loader, Bookmark } from 'lucide-react'
+import { Share2, AlertCircle, ChevronLeft, Loader, Bookmark, Sparkles } from 'lucide-react'
+import AgentChatPanel from '@/components/AgentChatPanel'
 import { createClient } from '@/lib/supabase/client'
 import ModuleGate from '@/components/ModuleGate'
 import GenericSalesPage from '@/components/modules/GenericSalesPage'
@@ -275,6 +276,7 @@ function SignalContentModule() {
   const [overallSubmitting, setOverallSubmitting] = useState(false)
   const [vaultSaved, setVaultSaved] = useState(false)
   const [vaultSaving, setVaultSaving] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -458,6 +460,20 @@ function SignalContentModule() {
     if (!businessId || !outputId) return
     fetch('/api/signal-content/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ businessId, outputId, contentFeedbackItems: [item] }) }).catch(() => null)
+  }
+
+  function handleAgentPatch(target: string, value: string) {
+    setContent(prev => {
+      if (!prev) return prev
+      const updated = { ...prev } as Record<string, unknown>
+      const parts = target.split('_')
+      if (parts[0] === 'strategySignals' && updated.strategySignals) {
+        const ss = { ...(updated.strategySignals as Record<string, unknown>) }
+        ss[parts[1]] = value
+        updated.strategySignals = ss
+      }
+      return updated as typeof prev
+    })
   }
 
   async function handleVaultSave() {
@@ -680,6 +696,12 @@ function SignalContentModule() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{ backgroundColor: '#8b5cf6', color: '#fff' }}>
+            <Sparkles size={13} /> Refine with Sofia
+          </button>
           <button onClick={handleVaultSave} disabled={vaultSaving || vaultSaved}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all disabled:opacity-60"
             style={{ borderColor: vaultSaved ? '#43C6AC' : '#e5e7eb', backgroundColor: vaultSaved ? 'rgba(67,198,172,0.08)' : '#fff', color: vaultSaved ? '#43C6AC' : '#6b7280' }}>
@@ -713,6 +735,17 @@ function SignalContentModule() {
         onFeedbackTextChange={setOverallFeedbackText} onFeedbackModeChange={setOverallFeedbackMode}
         onThumbsUp={() => { submitOverallFeedback(5); setOverallFeedbackDone(true) }}
         onRegenerate={handleRegenerate} onSubmitFeedback={() => submitOverallFeedback(1)} />
+      <AgentChatPanel
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        moduleType="signal_content"
+        agentName="Sofia"
+        agentTagline="Social content specialist"
+        businessId={businessId || ''}
+        outputId={outputId || ''}
+        currentOutput={content as unknown as Record<string, unknown>}
+        onPatch={handleAgentPatch}
+      />
     </div>
   )
 }
