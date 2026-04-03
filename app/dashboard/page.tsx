@@ -421,7 +421,7 @@ export default function DashboardPage() {
             Your SignalMap is complete, {customer?.first_name}.
           </h1>
           <p className="text-base mb-8" style={{ color: '#6b7280' }}>
-            Your ICP document is ready in your deliverables.
+            Your SignalMap results are ready in SignalVault.
           </p>
 
           {activeBusiness && !activeBusiness.place_id && (
@@ -458,7 +458,7 @@ export default function DashboardPage() {
                       View My SignalMap
                     </h2>
                     <p className="text-sm" style={{ color: '#6b7280' }}>
-                      Your complete ICP document is ready to view and download
+                      Your complete SignalMap results are ready to view
                     </p>
                   </div>
                 </div>

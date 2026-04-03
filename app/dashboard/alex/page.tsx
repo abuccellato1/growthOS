@@ -596,7 +596,7 @@ export default function AlexPage() {
           </h2>
           <p className="mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
             Alex has already built your customer intelligence for{' '}
-            {activeBusiness?.business_name || 'your business'}. Your ICP document is in your deliverables.
+            {activeBusiness?.business_name || 'your business'}. Your SignalMap results are saved in SignalVault.
           </p>
 
           <Link href="/dashboard/signal-vault">
@@ -625,7 +625,7 @@ export default function AlexPage() {
                 fontFamily: 'DM Sans, sans-serif',
               }}
             >
-              Rebuild My ICP
+              Rebuild My SignalMap
             </button>
           </div>
 
@@ -643,8 +643,8 @@ export default function AlexPage() {
                   Are you sure?
                 </h3>
                 <p className="text-sm mb-6" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-                  Starting a new session will archive your current SignalMap. Your previous ICP will still be
-                  accessible in your session history but your active deliverables will be replaced.
+                  Starting a new session will archive your current SignalMap. Your previous results will still be
+                  accessible in your session history but your active SignalVault will be updated.
                 </p>
                 <button
                   onClick={handleConfirmRebuild}
@@ -663,7 +663,7 @@ export default function AlexPage() {
                     fontFamily: 'DM Sans, sans-serif',
                   }}
                 >
-                  Cancel — Keep My Current ICP
+                  Cancel — Keep My Current SignalMap
                 </button>
               </div>
             </div>

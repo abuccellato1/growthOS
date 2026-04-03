@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Vault, Target, Share2, Mail, Map, Calendar, Tag, Trash2, ExternalLink, Loader, ChevronDown, ChevronUp } from 'lucide-react'
+import { Vault, Target, Share2, Mail, Map, Calendar, Tag, Trash2, ExternalLink, Loader, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react'
 
 const MODULE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; route: string }> = {
   signal_ads: { label: 'SignalAds', icon: Target, color: '#ef4444', route: '/dashboard/signal-ads' },
@@ -166,6 +166,7 @@ export default function SignalVaultPage() {
   const [vault, setVault] = useState<Record<string, VaultOutput[]>>({})
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('signal_ads')
+  const [signalMapSession, setSignalMapSession] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -180,6 +181,17 @@ export default function SignalVaultPage() {
         if (firstWithContent) setActiveTab(firstWithContent)
       })
       .finally(() => setLoading(false))
+
+    // Fetch SignalMap session for this business
+    fetch(`/api/context?businessId=${id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        const session = json?.data?.session
+        if (session?.status === 'completed' && session?.icp_html) {
+          setSignalMapSession(session)
+        }
+      })
+      .catch(() => null)
   }, [router])
 
   function handleUnsave(id: string) {
@@ -215,6 +227,51 @@ export default function SignalVaultPage() {
           <p className="text-sm" style={{ color: '#6b7280' }}>Your saved outputs from every module — organized, persistent, ready to use.</p>
         </div>
       </div>
+
+      {/* SignalMap card */}
+      {signalMapSession && (
+        <div className="mb-6 p-5 rounded-2xl border"
+          style={{ border: '1px solid rgba(67,198,172,0.3)', backgroundColor: 'rgba(67,198,172,0.04)' }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(67,198,172,0.15)' }}>
+                <MessageSquare size={16} style={{ color: '#43C6AC' }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-sm font-bold"
+                    style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
+                    SignalMap Interview
+                  </p>
+                  <span className="text-xs px-2 py-0.5 rounded-md font-medium"
+                    style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}>
+                    Complete
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: '#6b7280' }}>
+                  Your full customer intelligence — ICP, messaging framework, competitive data,
+                  proof assets, and anti-ICP signals.
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                  Completed {signalMapSession.completed_at
+                    ? new Date(signalMapSession.completed_at as string).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                      })
+                    : 'recently'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <a href="/dashboard/alex"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all"
+                style={{ borderColor: '#191654', color: '#191654' }}>
+                <ExternalLink size={12} /> View results
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Module tabs */}
       <div className="flex gap-1 mb-6 border-b" style={{ borderColor: '#e5e7eb' }}>
