@@ -464,6 +464,13 @@ function SignalContentModule() {
     await fetch('/api/signal-content/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ businessId, outputId, rating, feedbackText: overallFeedbackText || undefined }) })
     setOverallSubmitting(false); setOverallFeedbackDone(true)
+    if (rating >= 4 && outputId && businessId) {
+      fetch('/api/vault/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId, outputId }),
+      }).catch(() => null)
+    }
   }
 
   async function handleRegenerate() {
