@@ -7,8 +7,9 @@ import GenericSalesPage from '@/components/modules/GenericSalesPage'
 import CopyButton from '@/components/CopyButton'
 import {
   Mail, ChevronDown, ChevronUp, RefreshCw,
-  ThumbsUp, ThumbsDown, AlertCircle, Loader, CheckCircle, Bookmark
+  ThumbsUp, ThumbsDown, AlertCircle, Loader, CheckCircle, Bookmark, Sparkles
 } from 'lucide-react'
+import AgentChatPanel from '@/components/AgentChatPanel'
 import { createClient } from '@/lib/supabase/client'
 
 interface EmailFeedbackItem {
@@ -673,6 +674,7 @@ function SignalSequencesModule() {
   const [overallSubmitting, setOverallSubmitting] = useState(false)
   const [vaultSaved, setVaultSaved] = useState(false)
   const [vaultSaving, setVaultSaving] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -734,6 +736,27 @@ function SignalSequencesModule() {
       setStage('results')
       setOverallFeedbackMode('idle'); setOverallFeedbackText(''); setOverallFeedbackDone(false)
     } catch { setError('Network error — please try again'); setStage('form') }
+  }
+
+  function handleAgentPatch(target: string, value: string) {
+    setSequence(prev => {
+      if (!prev) return prev
+      const updated = { ...prev }
+      const emailMatch = target.match(/^email_(\d+)_(.+)$/)
+      if (emailMatch && updated.emails) {
+        const emailNum = parseInt(emailMatch[1])
+        const field = emailMatch[2] as keyof Email
+        updated.emails = updated.emails.map(e =>
+          e.emailNumber === emailNum ? { ...e, [field]: value } : e
+        )
+      }
+      const ssMatch = target.match(/^strategySignals_(.+)$/)
+      if (ssMatch && updated.strategySignals) {
+        const field = ssMatch[1] as keyof typeof updated.strategySignals
+        updated.strategySignals = { ...updated.strategySignals, [field]: value }
+      }
+      return updated
+    })
   }
 
   async function handleVaultSave() {
@@ -958,6 +981,12 @@ function SignalSequencesModule() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{ backgroundColor: '#43C6AC', color: '#fff' }}>
+            <Sparkles size={13} /> Refine with Emily
+          </button>
           <button onClick={handleVaultSave} disabled={vaultSaving || vaultSaved}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all disabled:opacity-60"
             style={{ borderColor: vaultSaved ? '#43C6AC' : '#e5e7eb', backgroundColor: vaultSaved ? 'rgba(67,198,172,0.08)' : '#fff', color: vaultSaved ? '#43C6AC' : '#6b7280' }}>
@@ -1043,6 +1072,17 @@ function SignalSequencesModule() {
           </div>
         )}
       </div>
+      <AgentChatPanel
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        moduleType="signal_sequences"
+        agentName="Emily"
+        agentTagline="Email sequence specialist"
+        businessId={businessId || ''}
+        outputId={outputId || ''}
+        currentOutput={sequence as unknown as Record<string, unknown>}
+        onPatch={handleAgentPatch}
+      />
     </div>
   )
 }
