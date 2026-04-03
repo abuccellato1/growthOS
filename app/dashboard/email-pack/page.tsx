@@ -394,4 +394,254 @@ function StrategySignalsBlock({ ss }: { ss: NonNullable<SequenceOutput['strategy
   )
 }
 
-// ── STOP HERE. Do not add anything else. Prompt 2 will append the rest. ──
+function SignalSequencesModule() {
+  const router = useRouter()
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [outputId, setOutputId] = useState<string | null>(null)
+  const [sequenceType, setSequenceType] = useState('')
+  const [tone, setTone] = useState('')
+  const [topicsToAvoid, setTopicsToAvoid] = useState('')
+  const [stage, setStage] = useState<'form' | 'generating' | 'results'>('form')
+  const [sequence, setSequence] = useState<SequenceOutput | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [generationNumber, setGenerationNumber] = useState(1)
+  const [emailFeedback, setEmailFeedback] = useState<Record<number, EmailFeedbackItem>>({})
+  const [feedbackSaving, setFeedbackSaving] = useState(false)
+  const [overallFeedbackMode, setOverallFeedbackMode] = useState<'idle' | 'thumbsdown'>('idle')
+  const [overallFeedbackText, setOverallFeedbackText] = useState('')
+  const [overallFeedbackDone, setOverallFeedbackDone] = useState(false)
+  const [overallSubmitting, setOverallSubmitting] = useState(false)
+
+  useEffect(() => {
+    const id = localStorage.getItem('signalshot_active_business')
+    if (!id) { router.push('/dashboard'); return }
+    setBusinessId(id)
+  }, [router])
+
+  function isFormValid() { return !!sequenceType && !!tone }
+
+  function handleEmailRate(item: EmailFeedbackItem) {
+    setEmailFeedback(prev => ({ ...prev, [item.emailNumber]: item }))
+    if (!businessId || !outputId) return
+    fetch('/api/signal-sequences/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, outputId, emailFeedbackItems: [item] }),
+    }).catch(() => null)
+  }
+
+  async function generate(regenFeedback?: string) {
+    if (!businessId) return
+    setError(null); setStage('generating'); setEmailFeedback({})
+    try {
+      const res = await fetch('/api/signal-sequences/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId, sequenceType, tone, topicsToAvoid, regenerationFeedback: regenFeedback || undefined, generationNumber }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Generation failed'); setStage('form'); return }
+      setSequence(json.data.sequence)
+      setOutputId(json.data.outputId)
+      setStage('results')
+      setOverallFeedbackMode('idle'); setOverallFeedbackText(''); setOverallFeedbackDone(false)
+    } catch { setError('Network error — please try again'); setStage('form') }
+  }
+
+  async function submitOverallFeedback(rating: number) {
+    if (!businessId || !outputId) return
+    setOverallSubmitting(true)
+    await fetch('/api/signal-sequences/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, outputId, rating, feedbackText: overallFeedbackText || undefined }),
+    })
+    setOverallSubmitting(false); setOverallFeedbackDone(true)
+  }
+
+  async function handleRegenerate() {
+    if (generationNumber >= 3) return
+    setFeedbackSaving(true)
+    const flagged = Object.values(emailFeedback).filter(f => f.rating === -1)
+    const flaggedSummary = flagged.length > 0
+      ? `USER FLAGGED ${flagged.length} EMAILS AS NOT WORKING:\n` + flagged.map(f => `- Email ${f.emailNumber} "${f.contentText.slice(0, 60)}" — reasons: ${f.reasons.join(', ') || 'no reason given'}`).join('\n')
+      : ''
+    const combinedFeedback = [overallFeedbackText, flaggedSummary].filter(Boolean).join('\n\n')
+    setFeedbackSaving(false)
+    setGenerationNumber(n => n + 1)
+    await generate(combinedFeedback || undefined)
+  }
+
+  if (stage === 'form') {
+    return (
+      <div className="max-w-2xl">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
+            <Mail size={22} style={{ color: '#43C6AC' }} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>SignalSequences</h1>
+            <p className="text-sm" style={{ color: '#6b7280' }}>Tell us your sequence goal — Alex builds the full 5-email flow.</p>
+          </div>
+        </div>
+        {error && (
+          <div className="flex items-start gap-2 p-4 rounded-xl mb-6" style={{ backgroundColor: '#fff5f5', border: '1px solid #fca5a5' }}>
+            <AlertCircle size={16} style={{ color: '#ef4444', flexShrink: 0 }} />
+            <p className="text-sm" style={{ color: '#ef4444' }}>{error}</p>
+          </div>
+        )}
+        <div className="space-y-6">
+          <div>
+            <label className="block text-xs font-bold mb-2" style={{ color: '#374151' }}>Sequence Type *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SEQUENCE_TYPES.map(s => (
+                <button key={s.value} onClick={() => setSequenceType(s.value)}
+                  className="text-left px-4 py-3 rounded-xl border transition-all"
+                  style={{
+                    borderColor: sequenceType === s.value ? '#43C6AC' : '#e5e7eb',
+                    backgroundColor: sequenceType === s.value ? 'rgba(67,198,172,0.08)' : '#fff',
+                  }}>
+                  <p className="text-xs font-bold" style={{ color: sequenceType === s.value ? '#191654' : '#374151' }}>{s.label}</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{s.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-2" style={{ color: '#374151' }}>Email Tone *</label>
+            <div className="flex flex-wrap gap-2">
+              {TONES.map(t => (
+                <button key={t} onClick={() => setTone(t)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                  style={{ borderColor: tone === t ? '#43C6AC' : '#e5e7eb', backgroundColor: tone === t ? 'rgba(67,198,172,0.1)' : '#fff', color: tone === t ? '#191654' : '#6b7280' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: '#374151' }}>Topics to Avoid <span className="font-normal text-gray-400">(optional)</span></label>
+            <textarea rows={2} placeholder="e.g. 'Don't mention pricing. Avoid competitor comparisons.'"
+              value={topicsToAvoid} onChange={e => setTopicsToAvoid(e.target.value)}
+              className="w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none" style={{ borderColor: '#e5e7eb', color: '#374151' }} />
+          </div>
+          <button onClick={() => generate()} disabled={!isFormValid()}
+            className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-opacity"
+            style={{ backgroundColor: isFormValid() ? '#191654' : '#d1d5db', cursor: isFormValid() ? 'pointer' : 'not-allowed' }}>
+            Generate My Email Sequence
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (stage === 'generating') {
+    return <GeneratingScreen generationNumber={generationNumber} />
+  }
+
+  if (!sequence) return null
+  const flaggedCount = Object.values(emailFeedback).filter(f => f.rating === -1).length
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
+            <Mail size={18} style={{ color: '#43C6AC' }} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>Your Email Sequence</h1>
+            <p className="text-xs" style={{ color: '#9ca3af' }}>Generation {generationNumber} of 3</p>
+          </div>
+        </div>
+        <button onClick={() => { setStage('form'); setSequence(null); setEmailFeedback({}) }}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ borderColor: '#e5e7eb', color: '#6b7280' }}>
+          Start over
+        </button>
+      </div>
+
+      {sequence.strategySignals && <StrategySignalsBlock ss={sequence.strategySignals} />}
+      {sequence.emails?.map(email => (
+        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} />
+      ))}
+
+      <div className="p-5 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
+        {overallFeedbackDone && overallFeedbackMode !== 'thumbsdown' ? (
+          <p className="text-sm text-center font-semibold" style={{ color: '#43C6AC' }}>Thanks — your feedback helps Alex improve.</p>
+        ) : overallFeedbackMode === 'thumbsdown' ? (
+          <div>
+            <p className="text-xs font-bold mb-2" style={{ color: '#374151' }}>
+              What missed the mark? {generationNumber < 3 ? "We'll regenerate with your feedback." : "We'll note this for future improvements."}
+            </p>
+            {flaggedCount > 0 && (
+              <div className="flex items-center gap-1.5 mb-3 text-xs p-2 rounded-lg" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+                <ThumbsDown size={12} /> {flaggedCount} email{flaggedCount > 1 ? 's' : ''} already flagged — included in regeneration context automatically.
+              </div>
+            )}
+            <textarea rows={3} placeholder="e.g. 'The tone feels too formal. Lead heavier with the pain — they're not ready for solutions this early.'"
+              value={overallFeedbackText} onChange={e => setOverallFeedbackText(e.target.value)}
+              className="w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none mb-3" style={{ borderColor: '#e5e7eb', color: '#374151' }} />
+            <div className="flex items-center gap-2 flex-wrap">
+              {generationNumber < 3 ? (
+                <button onClick={handleRegenerate}
+                  disabled={overallFeedbackText.length < 20 || feedbackSaving || overallSubmitting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-bold disabled:opacity-40"
+                  style={{ backgroundColor: '#191654' }}>
+                  {feedbackSaving ? <Loader size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  Regenerate ({generationNumber}/3 used)
+                </button>
+              ) : (
+                <button onClick={() => submitOverallFeedback(1)}
+                  disabled={overallFeedbackText.length < 20 || overallSubmitting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-bold disabled:opacity-40"
+                  style={{ backgroundColor: '#191654' }}>
+                  {overallSubmitting ? <Loader size={13} className="animate-spin" /> : null}
+                  Submit feedback
+                </button>
+              )}
+              {generationNumber >= 3 && (
+                <p className="text-xs" style={{ color: '#9ca3af' }}>
+                  Max regenerations reached. <a href="mailto:support@goodfellastech.com" className="underline">Contact support</a> if you need further help.
+                </p>
+              )}
+              <button onClick={() => setOverallFeedbackMode('idle')} className="text-xs" style={{ color: '#9ca3af' }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-xs font-semibold" style={{ color: '#374151' }}>How did this sequence land?</p>
+              {flaggedCount > 0 && (
+                <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                  {flaggedCount} email{flaggedCount > 1 ? 's' : ''} flagged — click &quot;Needs work&quot; to regenerate with that context.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { submitOverallFeedback(5); setOverallFeedbackDone(true) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#43C6AC' }}>
+                <ThumbsUp size={13} /> Looks great
+              </button>
+              <button onClick={() => setOverallFeedbackMode('thumbsdown')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}>
+                <ThumbsDown size={13} /> {flaggedCount > 0 ? `Needs work (${flaggedCount} flagged)` : 'Needs work'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function EmailPackPage() {
+  return (
+    <ModuleGate productType="email_pack" salesPage={
+      <GenericSalesPage name="SignalSequences"
+        description="A 5-email nurture sequence that moves your ideal customer from pain-aware to ready-to-buy, using the exact language Alex uncovered in your interview."
+        iconName="Mail"
+        deliverables={['5-email sequence with subject lines & preview text', 'Pain-aware to solution-aware progression', 'Objection-handling email built from ICP data', 'Social proof email using CustomerSignals', 'CTA strategy matched to buying triggers', 'Per-email feedback + up to 3 regenerations']} />
+    }>
+      <SignalSequencesModule />
+    </ModuleGate>
+  )
+}
