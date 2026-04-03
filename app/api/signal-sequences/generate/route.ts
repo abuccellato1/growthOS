@@ -7,6 +7,60 @@ import { calculateAndSaveScore } from '@/lib/signal-score'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+function buildGenerationLearningProfile(
+  styleMemory: Record<string, unknown> | null,
+  agentPreferences: Record<string, unknown> | null,
+  moduleType: string,
+  agentName: string
+): string {
+  const parts: string[] = []
+
+  const global = (agentPreferences?.global as Record<string, unknown>) || {}
+  if (global.customSummary || global.brandVoice) {
+    parts.push('BRAND INSTRUCTIONS (user-defined — apply exactly):')
+    if (global.customSummary) parts.push(global.customSummary as string)
+    else if (global.brandVoice) parts.push(`Voice: ${global.brandVoice}`)
+    if ((global.alwaysInclude as string[])?.length > 0)
+      parts.push(`Always include: ${(global.alwaysInclude as string[]).join(', ')}`)
+    if ((global.neverInclude as string[])?.length > 0)
+      parts.push(`Never include: ${(global.neverInclude as string[]).join(', ')}`)
+    if ((global.writingStyle as string[])?.length > 0)
+      parts.push(`Writing style: ${(global.writingStyle as string[]).join(', ')}`)
+  }
+
+  const agentPrefs = (
+    (agentPreferences?.[moduleType] as Record<string, unknown>)?.[agentName.toLowerCase()] as Record<string, unknown>
+  ) || {}
+  if (agentPrefs.instructions) {
+    parts.push(`\n${agentName} INSTRUCTIONS (user-defined):`)
+    parts.push(agentPrefs.instructions as string)
+  }
+
+  const learned = (
+    (styleMemory?.[moduleType] as Record<string, unknown>)?.[agentName.toLowerCase()] as Record<string, unknown>
+  ) || {}
+  const signalCount = (learned.signalCount as number) || 0
+  if (signalCount >= 3) {
+    parts.push(`\nLEARNED PREFERENCES (${signalCount} signals):`)
+    if ((learned.approvedAngles as string[])?.length > 0)
+      parts.push(`Angles that worked: ${(learned.approvedAngles as string[]).join(', ')}`)
+    if ((learned.rejectedAngles as string[])?.length > 0)
+      parts.push(`Angles to avoid: ${(learned.rejectedAngles as string[]).join(', ')}`)
+    if ((learned.tonePreferences as string[])?.length > 0)
+      parts.push(`Effective tone: ${(learned.tonePreferences as string[]).join(', ')}`)
+    if ((learned.avoidTones as string[])?.length > 0)
+      parts.push(`Tone to avoid: ${(learned.avoidTones as string[]).join(', ')}`)
+    if ((learned.avoidWords as string[])?.length > 0)
+      parts.push(`Words to avoid: ${(learned.avoidWords as string[]).join(', ')}`)
+    if ((learned.preferredWords as string[])?.length > 0)
+      parts.push(`Words that resonate: ${(learned.preferredWords as string[]).join(', ')}`)
+  }
+
+  return parts.length > 0
+    ? `\nBUSINESS LEARNING PROFILE\n${parts.join('\n')}\n`
+    : ''
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -45,6 +99,19 @@ export async function POST(request: Request) {
   const antiIcp = context.antiIcpSignals as Record<string, unknown> | null
   const voc = context.vocSummary
   const bizData = context.business
+
+  const { data: bizPrefs } = await adminClient
+    .from('businesses')
+    .select('style_memory, agent_preferences')
+    .eq('id', businessId)
+    .single()
+
+  const learningProfile = buildGenerationLearningProfile(
+    bizPrefs?.style_memory as Record<string, unknown> | null,
+    bizPrefs?.agent_preferences as Record<string, unknown> | null,
+    'signal_sequences',
+    'emily'
+  )
   const research = bizData.business_research
 
   const dataSources = {
@@ -153,7 +220,7 @@ Return ONLY valid JSON. No markdown. No preamble.`,
       content: `Generate a 5-email sequence for this business.
 
 ${sequenceContext}
-
+${learningProfile}
 SEQUENCE TYPE TO GENERATE: ${sequenceDesc}
 
 For strategySignals.dataSourcesUsed: list only sources marked YES above, using exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals".

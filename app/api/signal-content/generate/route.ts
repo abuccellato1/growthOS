@@ -5,6 +5,60 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+function buildGenerationLearningProfile(
+  styleMemory: Record<string, unknown> | null,
+  agentPreferences: Record<string, unknown> | null,
+  moduleType: string,
+  agentName: string
+): string {
+  const parts: string[] = []
+
+  const global = (agentPreferences?.global as Record<string, unknown>) || {}
+  if (global.customSummary || global.brandVoice) {
+    parts.push('BRAND INSTRUCTIONS (user-defined — apply exactly):')
+    if (global.customSummary) parts.push(global.customSummary as string)
+    else if (global.brandVoice) parts.push(`Voice: ${global.brandVoice}`)
+    if ((global.alwaysInclude as string[])?.length > 0)
+      parts.push(`Always include: ${(global.alwaysInclude as string[]).join(', ')}`)
+    if ((global.neverInclude as string[])?.length > 0)
+      parts.push(`Never include: ${(global.neverInclude as string[]).join(', ')}`)
+    if ((global.writingStyle as string[])?.length > 0)
+      parts.push(`Writing style: ${(global.writingStyle as string[]).join(', ')}`)
+  }
+
+  const agentPrefs = (
+    (agentPreferences?.[moduleType] as Record<string, unknown>)?.[agentName.toLowerCase()] as Record<string, unknown>
+  ) || {}
+  if (agentPrefs.instructions) {
+    parts.push(`\n${agentName} INSTRUCTIONS (user-defined):`)
+    parts.push(agentPrefs.instructions as string)
+  }
+
+  const learned = (
+    (styleMemory?.[moduleType] as Record<string, unknown>)?.[agentName.toLowerCase()] as Record<string, unknown>
+  ) || {}
+  const signalCount = (learned.signalCount as number) || 0
+  if (signalCount >= 3) {
+    parts.push(`\nLEARNED PREFERENCES (${signalCount} signals):`)
+    if ((learned.approvedAngles as string[])?.length > 0)
+      parts.push(`Angles that worked: ${(learned.approvedAngles as string[]).join(', ')}`)
+    if ((learned.rejectedAngles as string[])?.length > 0)
+      parts.push(`Angles to avoid: ${(learned.rejectedAngles as string[]).join(', ')}`)
+    if ((learned.tonePreferences as string[])?.length > 0)
+      parts.push(`Effective tone: ${(learned.tonePreferences as string[]).join(', ')}`)
+    if ((learned.avoidTones as string[])?.length > 0)
+      parts.push(`Tone to avoid: ${(learned.avoidTones as string[]).join(', ')}`)
+    if ((learned.avoidWords as string[])?.length > 0)
+      parts.push(`Words to avoid: ${(learned.avoidWords as string[]).join(', ')}`)
+    if ((learned.preferredWords as string[])?.length > 0)
+      parts.push(`Words that resonate: ${(learned.preferredWords as string[]).join(', ')}`)
+  }
+
+  return parts.length > 0
+    ? `\nBUSINESS LEARNING PROFILE\n${parts.join('\n')}\n`
+    : ''
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -75,6 +129,19 @@ export async function POST(request: Request) {
 
   const bizData = bizResult.data
   if (!bizData) return apiError('Business not found', 404, 'NOT_FOUND')
+
+  const { data: bizPrefs } = await adminClient
+    .from('businesses')
+    .select('style_memory, agent_preferences')
+    .eq('id', businessId)
+    .single()
+
+  const learningProfile = buildGenerationLearningProfile(
+    bizPrefs?.style_memory as Record<string, unknown> | null,
+    bizPrefs?.agent_preferences as Record<string, unknown> | null,
+    'signal_content',
+    'sofia'
+  )
 
   const session = sessionResult.data
   if (!session) return apiError('SignalMap Interview required', 403, 'INTERVIEW_REQUIRED')
@@ -301,7 +368,7 @@ Start with { and end with } and nothing else.
 No markdown fences. No text before or after. No explanations.`,
     messages: [{
       role: 'user',
-      content: `Generate strategy signals and pillars 1-3 for this business.\n\n${contentContext}\n\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n${approvedPillars && approvedPillars.length > 0 ? `\nAPPROVED PILLARS AND HOOKS FROM USER:\n${(approvedPillars || []).slice(0, 3).map((p, i) => `Pillar ${i+1}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook for that pillar.\nUse the pillar name exactly as written above.\n` : ''}\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
+      content: `Generate strategy signals and pillars 1-3 for this business.\n\n${contentContext}\n${learningProfile}\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n${approvedPillars && approvedPillars.length > 0 ? `\nAPPROVED PILLARS AND HOOKS FROM USER:\n${(approvedPillars || []).slice(0, 3).map((p, i) => `Pillar ${i+1}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook for that pillar.\nUse the pillar name exactly as written above.\n` : ''}\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
     }],
   })
 

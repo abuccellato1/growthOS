@@ -462,6 +462,20 @@ function SignalContentModule() {
       body: JSON.stringify({ businessId, outputId, contentFeedbackItems: [item] }) }).catch(() => null)
   }
 
+  function fireLearnSignal(
+    signalType: string,
+    signalData: Record<string, unknown>,
+    agentKey: string,
+    weight = 1
+  ) {
+    if (!businessId) return
+    fetch('/api/learn/extract-preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, agentKey, signalType, signalData, signalWeight: weight }),
+    }).catch(() => null)
+  }
+
   function handleAgentPatch(target: string, value: string) {
     setContent(prev => {
       if (!prev) return prev
@@ -500,11 +514,13 @@ function SignalContentModule() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId, outputId }),
       }).catch(() => null)
+      fireLearnSignal('overall_positive', { outputId }, 'signal_content.sofia', 1)
     }
   }
 
   async function handleRegenerate() {
     if (generationNumber >= 3) return
+    fireLearnSignal('regeneration_requested', { stage: stage }, 'signal_content.sofia')
     const flagged = Object.values(contentFeedback).filter(f => f.rating === -1)
     const flaggedSummary = flagged.length > 0
       ? `USER FLAGGED ${flagged.length} POSTS:\n` + flagged.map(f => `- "${f.contentText.slice(0, 80)}" — reasons: ${f.reasons.join(', ') || 'none'}`).join('\n') : ''

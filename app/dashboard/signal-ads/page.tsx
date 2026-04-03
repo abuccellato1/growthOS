@@ -375,8 +375,29 @@ function AdPackModule() {
   }
   function isFormValid() { return form.goal && form.platforms.length > 0 && form.budget && form.tone }
 
+  function fireLearnSignal(
+    signalType: string,
+    signalData: Record<string, unknown>,
+    agentKey: string,
+    weight = 1
+  ) {
+    if (!businessId) return
+    fetch('/api/learn/extract-preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, agentKey, signalType, signalData, signalWeight: weight }),
+    }).catch(() => null)
+  }
+
   function handleAdRate(item: AdFeedbackItem) {
     setAdFeedback(prev => ({ ...prev, [item.blockId]: item }))
+    if (item.rating === -1) {
+      fireLearnSignal('field_flag', {
+        blockId: item.blockId,
+        reasons: item.reasons,
+        contentText: item.contentText.slice(0, 100),
+      }, 'signal_ads.jaimie')
+    }
     if (!businessId || !outputId) return
     fetch('/api/signal-ads/feedback', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -453,6 +474,9 @@ function AdPackModule() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId, outputId }),
       }).catch(() => null)
+      fireLearnSignal('overall_positive', {
+        goal: form.goal, platforms: form.platforms, tone: form.tone, outputId,
+      }, 'signal_ads.jaimie', 1)
     }
   }
 
@@ -465,6 +489,10 @@ function AdPackModule() {
       : ''
     const combinedFeedback = [overallFeedbackText, flaggedSummary].filter(Boolean).join('\n\n')
     setFeedbackSaving(false)
+    fireLearnSignal('regeneration_requested', {
+      flaggedCount: Object.values(adFeedback).filter(f => f.rating === -1).length,
+      overallFeedback: overallFeedbackText,
+    }, 'signal_ads.jaimie')
     setGenerationNumber(n => n + 1)
     await generate(combinedFeedback || undefined)
   }

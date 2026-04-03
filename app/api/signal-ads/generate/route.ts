@@ -13,6 +13,60 @@ import { calculateAndSaveScore } from '@/lib/signal-score'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+function buildGenerationLearningProfile(
+  styleMemory: Record<string, unknown> | null,
+  agentPreferences: Record<string, unknown> | null,
+  moduleType: string,
+  agentName: string
+): string {
+  const parts: string[] = []
+
+  const global = (agentPreferences?.global as Record<string, unknown>) || {}
+  if (global.customSummary || global.brandVoice) {
+    parts.push('BRAND INSTRUCTIONS (user-defined — apply exactly):')
+    if (global.customSummary) parts.push(global.customSummary as string)
+    else if (global.brandVoice) parts.push(`Voice: ${global.brandVoice}`)
+    if ((global.alwaysInclude as string[])?.length > 0)
+      parts.push(`Always include: ${(global.alwaysInclude as string[]).join(', ')}`)
+    if ((global.neverInclude as string[])?.length > 0)
+      parts.push(`Never include: ${(global.neverInclude as string[]).join(', ')}`)
+    if ((global.writingStyle as string[])?.length > 0)
+      parts.push(`Writing style: ${(global.writingStyle as string[]).join(', ')}`)
+  }
+
+  const agentPrefs = (
+    (agentPreferences?.[moduleType] as Record<string, unknown>)?.[agentName.toLowerCase()] as Record<string, unknown>
+  ) || {}
+  if (agentPrefs.instructions) {
+    parts.push(`\n${agentName} INSTRUCTIONS (user-defined):`)
+    parts.push(agentPrefs.instructions as string)
+  }
+
+  const learned = (
+    (styleMemory?.[moduleType] as Record<string, unknown>)?.[agentName.toLowerCase()] as Record<string, unknown>
+  ) || {}
+  const signalCount = (learned.signalCount as number) || 0
+  if (signalCount >= 3) {
+    parts.push(`\nLEARNED PREFERENCES (${signalCount} signals):`)
+    if ((learned.approvedAngles as string[])?.length > 0)
+      parts.push(`Angles that worked: ${(learned.approvedAngles as string[]).join(', ')}`)
+    if ((learned.rejectedAngles as string[])?.length > 0)
+      parts.push(`Angles to avoid: ${(learned.rejectedAngles as string[]).join(', ')}`)
+    if ((learned.tonePreferences as string[])?.length > 0)
+      parts.push(`Effective tone: ${(learned.tonePreferences as string[]).join(', ')}`)
+    if ((learned.avoidTones as string[])?.length > 0)
+      parts.push(`Tone to avoid: ${(learned.avoidTones as string[]).join(', ')}`)
+    if ((learned.avoidWords as string[])?.length > 0)
+      parts.push(`Words to avoid: ${(learned.avoidWords as string[]).join(', ')}`)
+    if ((learned.preferredWords as string[])?.length > 0)
+      parts.push(`Words that resonate: ${(learned.preferredWords as string[]).join(', ')}`)
+  }
+
+  return parts.length > 0
+    ? `\nBUSINESS LEARNING PROFILE\n${parts.join('\n')}\n`
+    : ''
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -90,6 +144,19 @@ export async function POST(request: Request) {
     businessSignals: !!research,
     competitorResearch: !!competitorIntel,
   }
+
+  const { data: bizPrefs } = await adminClient
+    .from('businesses')
+    .select('style_memory, agent_preferences')
+    .eq('id', businessId)
+    .single()
+
+  const learningProfile = buildGenerationLearningProfile(
+    bizPrefs?.style_memory as Record<string, unknown> | null,
+    bizPrefs?.agent_preferences as Record<string, unknown> | null,
+    'signal_ads',
+    'jaimie'
+  )
 
   const adContext = `
 BUSINESS: ${bizData.business_name}
@@ -207,7 +274,7 @@ If any field exceeds its limit, rewrite it until it fits.
 Character count includes spaces and punctuation.
 
 Return ONLY valid JSON. No markdown. No preamble.`,
-    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nFor strategySignals.dataSourcesUsed: list only the sources marked YES above, using these exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals", "Competitor Research".\n\nFor strategySignals.whyItWins: explain in 2-3 sentences specifically which data points drove the primary angle — reference actual facts from the context (e.g. specific differentiators, VOC phrases, competitor gaps).\n\nReturn ONLY valid JSON, no markdown, no preamble:\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "negativeKeywords": [],\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}]\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
+    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n${learningProfile}\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nFor strategySignals.dataSourcesUsed: list only the sources marked YES above, using these exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals", "Competitor Research".\n\nFor strategySignals.whyItWins: explain in 2-3 sentences specifically which data points drove the primary angle — reference actual facts from the context (e.g. specific differentiators, VOC phrases, competitor gaps).\n\nReturn ONLY valid JSON, no markdown, no preamble:\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "negativeKeywords": [],\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}]\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
   })
 
   // Parse

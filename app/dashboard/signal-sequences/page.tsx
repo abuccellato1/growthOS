@@ -707,9 +707,24 @@ function SignalSequencesModule() {
 
   function isFormValid() { return !!sequenceType && !!tone }
 
+  function fireLearnSignal(
+    signalType: string,
+    signalData: Record<string, unknown>,
+    agentKey: string,
+    weight = 1
+  ) {
+    if (!businessId) return
+    fetch('/api/learn/extract-preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, agentKey, signalType, signalData, signalWeight: weight }),
+    }).catch(() => null)
+  }
+
   function handleFieldFlag(emailNumber: number, fieldKey: string, reasons: string[]) {
     const key = `${emailNumber}_${fieldKey}`
     setFieldFeedback(prev => ({ ...prev, [key]: reasons }))
+    fireLearnSignal('field_flag', { field: fieldKey, reasons, emailNumber }, 'signal_sequences.emily')
   }
 
   function handleEmailRate(item: EmailFeedbackItem) {
@@ -785,6 +800,7 @@ function SignalSequencesModule() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId, outputId }),
       }).catch(() => null)
+      fireLearnSignal('overall_positive', { sequenceType, tone, outputId }, 'signal_sequences.emily', 1)
     }
   }
 
@@ -809,6 +825,11 @@ function SignalSequencesModule() {
 
     const combinedFeedback = [overallFeedbackText, emailFlagSummary, fieldFlagSummary].filter(Boolean).join('\n\n')
     setFeedbackSaving(false)
+    fireLearnSignal('regeneration_requested', {
+      flaggedCount: Object.values(emailFeedback).filter(f => f.rating === -1).length,
+      fieldFlagCount: Object.keys(fieldFeedback).length,
+      overallFeedback: overallFeedbackText,
+    }, 'signal_sequences.emily')
     setGenerationNumber(n => n + 1)
     await generate(combinedFeedback || undefined)
   }

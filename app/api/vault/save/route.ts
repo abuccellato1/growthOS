@@ -51,5 +51,36 @@ export async function POST(request: Request) {
     }
   } catch { /* non-fatal */ }
 
+  // Trigger 2x weighted preference extraction for vault save
+  if (output?.module_type && output?.output_data) {
+    const moduleAgentMap: Record<string, string> = {
+      signal_ads: 'signal_ads.jaimie',
+      signal_content: 'signal_content.sofia',
+      signal_sequences: 'signal_sequences.emily',
+    }
+    const agentKey = moduleAgentMap[output.module_type as string]
+    if (agentKey) {
+      const outputData = output.output_data as Record<string, unknown>
+      const ss = (outputData?.strategySignals || outputData?.strategy_signals) as Record<string, unknown> | undefined
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/learn/extract-preferences`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId,
+          agentKey,
+          signalType: 'vault_save',
+          signalData: {
+            primaryAngle: ss?.primaryAngle || '',
+            keyDifferentiator: ss?.keyDifferentiator || '',
+            toneNotes: ss?.toneNotes || '',
+            sequenceGoal: ss?.sequenceGoal || '',
+            formInputs: output.output_data,
+          },
+          signalWeight: 2,
+        }),
+      }).catch(() => null)
+    }
+  }
+
   return apiSuccess({ saved: true })
 }
