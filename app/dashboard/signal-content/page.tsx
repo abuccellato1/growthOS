@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Share2, AlertCircle, ChevronLeft, Loader } from 'lucide-react'
+import { Share2, AlertCircle, ChevronLeft, Loader, Bookmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ModuleGate from '@/components/ModuleGate'
 import GenericSalesPage from '@/components/modules/GenericSalesPage'
@@ -273,6 +273,8 @@ function SignalContentModule() {
   const [overallFeedbackText, setOverallFeedbackText] = useState('')
   const [overallFeedbackDone, setOverallFeedbackDone] = useState(false)
   const [overallSubmitting, setOverallSubmitting] = useState(false)
+  const [vaultSaved, setVaultSaved] = useState(false)
+  const [vaultSaving, setVaultSaving] = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -456,6 +458,18 @@ function SignalContentModule() {
     if (!businessId || !outputId) return
     fetch('/api/signal-content/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ businessId, outputId, contentFeedbackItems: [item] }) }).catch(() => null)
+  }
+
+  async function handleVaultSave() {
+    if (!businessId || !outputId || vaultSaved) return
+    setVaultSaving(true)
+    await fetch('/api/vault/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, outputId }),
+    })
+    setVaultSaving(false)
+    setVaultSaved(true)
   }
 
   async function submitOverallFeedback(rating: number) {
@@ -665,10 +679,18 @@ function SignalContentModule() {
             <p className="text-xs" style={{ color: '#9ca3af' }}>Generation {generationNumber} of 3</p>
           </div>
         </div>
-        <button onClick={() => { setStage('form'); setContent(null); setContentFeedback({}); setPillarStates([]); setHookStates([]); setGenerationNumber(1) }}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ borderColor: '#e5e7eb', color: '#6b7280' }}>
-          Start over
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleVaultSave} disabled={vaultSaving || vaultSaved}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all disabled:opacity-60"
+            style={{ borderColor: vaultSaved ? '#43C6AC' : '#e5e7eb', backgroundColor: vaultSaved ? 'rgba(67,198,172,0.08)' : '#fff', color: vaultSaved ? '#43C6AC' : '#6b7280' }}>
+            {vaultSaving ? <Loader size={12} className="animate-spin" /> : <Bookmark size={12} fill={vaultSaved ? '#43C6AC' : 'none'} />}
+            {vaultSaving ? 'Saving…' : vaultSaved ? 'Saved to SignalVault' : 'Save to SignalVault'}
+          </button>
+          <button onClick={() => { setStage('form'); setContent(null); setContentFeedback({}); setPillarStates([]); setHookStates([]); setGenerationNumber(1) }}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ borderColor: '#e5e7eb', color: '#6b7280' }}>
+            Start over
+          </button>
+        </div>
       </div>
 
       {content.strategySignals && <StrategySignalsBlock ss={content.strategySignals} />}
