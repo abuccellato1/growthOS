@@ -101,7 +101,7 @@ function PillarsLoadingScreen() {
     }
     timeout = setTimeout(advance, 3000)
     return () => clearTimeout(timeout)
-  }, [])
+  }, [steps.length])
 
   return (
     <div className="max-w-lg mx-auto mt-12">

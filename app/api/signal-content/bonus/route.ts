@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     businessId: string
     outputId: string
     pillarNames: string[]
-    platforms: string[]
-    postingFrequency: string
+    platforms?: string[]
+    postingFrequency?: string
     contentGoal: string
     tone: string
     businessName: string
@@ -38,8 +38,8 @@ export async function POST(request: Request) {
   }
 
   const {
-    businessId, outputId, pillarNames, platforms,
-    postingFrequency, contentGoal, tone, businessName,
+    businessId, outputId, pillarNames,
+    contentGoal, tone, businessName,
     primaryService, condensedContext
   } = body
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
   const safeService = primaryService || businessName || 'service business'
   const pillarList = pillarNames.map((n, i) => `Pillar ${i + 1}: ${n}`).join(', ')
-  const platformList = platforms.join(', ')
+
 
   // Single Haiku call — bonus formats only (calendar now in generate route)
   const formatsResult = await anthropic.messages.create({
