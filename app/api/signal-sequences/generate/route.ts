@@ -61,6 +61,36 @@ function buildGenerationLearningProfile(
     : ''
 }
 
+async function fetchNoraResearch(
+  businessId: string,
+  adminClient: ReturnType<typeof createAdminClient>
+): Promise<string> {
+  try {
+    const { data: sessions } = await adminClient
+      .from('research_sessions')
+      .select('vault_label, title, findings, created_at')
+      .eq('business_id', businessId)
+      .eq('vault_saved', true)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    if (!sessions || sessions.length === 0) return ''
+
+    const parts = sessions.map(s => {
+      const findings = s.findings as Record<string, unknown> | null
+      if (!findings) return ''
+      const label = s.vault_label || s.title || 'Research'
+      const summary = (findings.summary as string) || ''
+      const keyFindings = ((findings.keyFindings as string[]) || []).slice(0, 5).join('\n- ')
+      const actions = ((findings.recommendedActions as string[]) || []).slice(0, 3).join('\n- ')
+      return `RESEARCH: ${label}\nSummary: ${summary}${keyFindings ? `\nKey findings:\n- ${keyFindings}` : ''}${actions ? `\nRecommended actions:\n- ${actions}` : ''}`
+    }).filter(Boolean)
+
+    if (parts.length === 0) return ''
+    return `\nNORA'S RESEARCH INTELLIGENCE (use this to strengthen your output):\n${parts.join('\n\n')}\n`
+  } catch { return '' }
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -99,6 +129,7 @@ export async function POST(request: Request) {
   const antiIcp = context.antiIcpSignals as Record<string, unknown> | null
   const voc = context.vocSummary
   const bizData = context.business
+  const noraResearch = await fetchNoraResearch(businessId, adminClient)
 
   const { data: bizPrefs } = await adminClient
     .from('businesses')
@@ -219,7 +250,7 @@ Return ONLY valid JSON. No markdown. No preamble.`,
       role: 'user',
       content: `Generate a 5-email sequence for this business.
 
-${sequenceContext}
+${sequenceContext}${noraResearch}
 ${learningProfile}
 SEQUENCE TYPE TO GENERATE: ${sequenceDesc}
 

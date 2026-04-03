@@ -24,6 +24,7 @@ import SignalScoreWidget from '@/components/SignalScoreWidget'
 import PlaceVerificationBanner from '@/components/PlaceVerificationBanner'
 import { formatDistanceToNow } from '@/lib/utils'
 import IntakeGate from '@/components/IntakeGate'
+import MeetYourTeam from '@/components/MeetYourTeam'
 
 const LOCKED_MODULES = [
   { label: 'SignalAds', icon: Target, productType: 'ad_pack', href: '/dashboard/signal-ads' },
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
   const [loading, setLoading] = useState(true)
   const [showIntakeGate, setShowIntakeGate] = useState(isOnboarding)
+  const [showTeamIntro, setShowTeamIntro] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -177,6 +179,15 @@ export default function DashboardPage() {
 
       if (sessionData) setSession(sessionData)
 
+      // Show Meet Your Team once after SignalMap completes
+      if (
+        customerData &&
+        !customerData.team_introduced &&
+        sessionData?.status === 'completed'
+      ) {
+        setShowTeamIntro(true)
+      }
+
       // Purchases
       const { data: purchaseData } = await supabase
         .from('purchases')
@@ -280,6 +291,13 @@ export default function DashboardPage() {
 
   return (
     <>
+      {showTeamIntro && (
+        <MeetYourTeam
+          customerName={customer?.first_name}
+          onDismiss={() => setShowTeamIntro(false)}
+        />
+      )}
+
       {/* Intake gate overlay */}
       {showIntakeGate && customer && (
         <IntakeGate

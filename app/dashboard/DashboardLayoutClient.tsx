@@ -24,6 +24,7 @@ import {
   Plus,
   Mic,
   Wand2,
+  Vault,
 } from 'lucide-react'
 
 interface NavItem {
@@ -42,7 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'SignalBoard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'SignalVault', href: '/dashboard/signal-vault', icon: FileText },
+      { label: 'SignalVault', href: '/dashboard/signal-vault', icon: Vault },
       { label: 'BusinessSignals', href: '/dashboard/business-signals', icon: Building2 },
       { label: 'CustomerSignals', href: '/dashboard/voice-of-customer', icon: Mic },
       { label: 'Brand Voice', href: '/dashboard/brand-voice', icon: Wand2 },

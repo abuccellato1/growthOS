@@ -59,6 +59,36 @@ function buildGenerationLearningProfile(
     : ''
 }
 
+async function fetchNoraResearch(
+  businessId: string,
+  adminClient: ReturnType<typeof createAdminClient>
+): Promise<string> {
+  try {
+    const { data: sessions } = await adminClient
+      .from('research_sessions')
+      .select('vault_label, title, findings, created_at')
+      .eq('business_id', businessId)
+      .eq('vault_saved', true)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    if (!sessions || sessions.length === 0) return ''
+
+    const parts = sessions.map(s => {
+      const findings = s.findings as Record<string, unknown> | null
+      if (!findings) return ''
+      const label = s.vault_label || s.title || 'Research'
+      const summary = (findings.summary as string) || ''
+      const keyFindings = ((findings.keyFindings as string[]) || []).slice(0, 5).join('\n- ')
+      const actions = ((findings.recommendedActions as string[]) || []).slice(0, 3).join('\n- ')
+      return `RESEARCH: ${label}\nSummary: ${summary}${keyFindings ? `\nKey findings:\n- ${keyFindings}` : ''}${actions ? `\nRecommended actions:\n- ${actions}` : ''}`
+    }).filter(Boolean)
+
+    if (parts.length === 0) return ''
+    return `\nNORA'S RESEARCH INTELLIGENCE (use this to strengthen your output):\n${parts.join('\n\n')}\n`
+  } catch { return '' }
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -142,6 +172,8 @@ export async function POST(request: Request) {
     'signal_content',
     'sofia'
   )
+
+  const noraResearch = await fetchNoraResearch(businessId, adminClient)
 
   const session = sessionResult.data
   if (!session) return apiError('SignalMap Interview required', 403, 'INTERVIEW_REQUIRED')
@@ -368,7 +400,7 @@ Start with { and end with } and nothing else.
 No markdown fences. No text before or after. No explanations.`,
     messages: [{
       role: 'user',
-      content: `Generate strategy signals and pillars 1-3 for this business.\n\n${contentContext}\n${learningProfile}\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n${approvedPillars && approvedPillars.length > 0 ? `\nAPPROVED PILLARS AND HOOKS FROM USER:\n${(approvedPillars || []).slice(0, 3).map((p, i) => `Pillar ${i+1}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook for that pillar.\nUse the pillar name exactly as written above.\n` : ''}\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
+      content: `Generate strategy signals and pillars 1-3 for this business.\n\n${contentContext}${noraResearch}\n${learningProfile}\nGenerate ONLY:\n- strategySignals\n- pillars array with exactly 3 pillars (pillars 1, 2, 3 of 5)\n${approvedPillars && approvedPillars.length > 0 ? `\nAPPROVED PILLARS AND HOOKS FROM USER:\n${(approvedPillars || []).slice(0, 3).map((p, i) => `Pillar ${i+1}: ${p.name} — use hook: "${selectedHooks?.find(h => h.pillarName === p.name)?.hook || ''}"`).join('\n')}\n\nBuild every post body around the approved hook for that pillar.\nUse the pillar name exactly as written above.\n` : ''}\nReturn this exact JSON:\n{"strategySignals":{"primaryTheme":"","whyItWins":"","dataSourcesUsed":[],"contentMix":"","postingRationale":"","platformNotes":"","testingRecommendations":["",""]},"pillars":[{"name":"","theme":"","icpConnection":"","unsplashQuery":"2-3 words","posts":{"linkedin":{"hook":"","body":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\nbody\\n\\ncta\\n\\n#hashtag1 #hashtag2 #hashtag3"},"instagram":{"hook":"","caption":"","cta":"","hashtags":[],"charCount":0,"platformReadyText":"hook\\n\\ncaption\\n\\ncta\\n\\n#hashtag1 #hashtag2"},"facebook":{"post":"","cta":"","charCount":0,"platformReadyText":"post\\n\\ncta"}}}]}`
     }],
   })
 

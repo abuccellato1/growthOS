@@ -67,6 +67,36 @@ function buildGenerationLearningProfile(
     : ''
 }
 
+async function fetchNoraResearch(
+  businessId: string,
+  adminClient: ReturnType<typeof createAdminClient>
+): Promise<string> {
+  try {
+    const { data: sessions } = await adminClient
+      .from('research_sessions')
+      .select('vault_label, title, findings, created_at')
+      .eq('business_id', businessId)
+      .eq('vault_saved', true)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    if (!sessions || sessions.length === 0) return ''
+
+    const parts = sessions.map(s => {
+      const findings = s.findings as Record<string, unknown> | null
+      if (!findings) return ''
+      const label = s.vault_label || s.title || 'Research'
+      const summary = (findings.summary as string) || ''
+      const keyFindings = ((findings.keyFindings as string[]) || []).slice(0, 5).join('\n- ')
+      const actions = ((findings.recommendedActions as string[]) || []).slice(0, 3).join('\n- ')
+      return `RESEARCH: ${label}\nSummary: ${summary}${keyFindings ? `\nKey findings:\n- ${keyFindings}` : ''}${actions ? `\nRecommended actions:\n- ${actions}` : ''}`
+    }).filter(Boolean)
+
+    if (parts.length === 0) return ''
+    return `\nNORA'S RESEARCH INTELLIGENCE (use this to strengthen your output):\n${parts.join('\n\n')}\n`
+  } catch { return '' }
+}
+
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -157,6 +187,8 @@ export async function POST(request: Request) {
     'signal_ads',
     'jaimie'
   )
+
+  const noraResearch = await fetchNoraResearch(businessId, adminClient)
 
   const adContext = `
 BUSINESS: ${bizData.business_name}
@@ -274,7 +306,7 @@ If any field exceeds its limit, rewrite it until it fits.
 Character count includes spaces and punctuation.
 
 Return ONLY valid JSON. No markdown. No preamble.`,
-    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}\n${learningProfile}\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nFor strategySignals.dataSourcesUsed: list only the sources marked YES above, using these exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals", "Competitor Research".\n\nFor strategySignals.whyItWins: explain in 2-3 sentences specifically which data points drove the primary angle — reference actual facts from the context (e.g. specific differentiators, VOC phrases, competitor gaps).\n\nReturn ONLY valid JSON, no markdown, no preamble:\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "negativeKeywords": [],\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}]\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
+    messages: [{ role: 'user', content: `Generate a complete ad library for this business.\n\n${adContext}${noraResearch}\n${learningProfile}\nPLATFORMS REQUESTED: ${platforms.join(', ')}\n\nFor strategySignals.dataSourcesUsed: list only the sources marked YES above, using these exact labels: "SignalMap Interview", "CustomerSignals", "BusinessSignals", "Competitor Research".\n\nFor strategySignals.whyItWins: explain in 2-3 sentences specifically which data points drove the primary angle — reference actual facts from the context (e.g. specific differentiators, VOC phrases, competitor gaps).\n\nReturn ONLY valid JSON, no markdown, no preamble:\n{\n  "strategySignals": {\n    "primaryAngle": "",\n    "keyDifferentiator": "",\n    "whyItWins": "",\n    "dataSourcesUsed": [],\n    "competitorInsights": "",\n    "funnelApproach": "",\n    "messagingHierarchy": "",\n    "budgetAllocation": "",\n    "platformRationale": "",\n    "negativeKeywords": [],\n    "testingRecommendations": []\n  },\n  "googleSearchAds": {\n    "headlines": [{"text": "", "charCount": 0, "angle": ""}],\n    "descriptions": [{"text": "", "charCount": 0}],\n    "adVariations": [{"name": "", "headlines": ["", "", ""], "descriptions": ["", ""], "notes": ""}]\n  },\n  "metaAds": {\n    "primaryTexts": [{"text": "", "charCount": 0, "hook": ""}],\n    "headlines": [{"text": "", "charCount": 0}],\n    "adSets": [{"name": "", "primaryText": "", "headline": "", "description": "", "cta": "", "targetingNotes": ""}],\n    "audienceTargeting": {"coreAudiences": [], "interests": [], "behaviors": [], "customAudiences": [], "lookalikes": ""},\n    "messagingNotes": ""\n  },\n  "linkedInAds": {\n    "sponsoredContent": [{"introText": "", "headline": "", "description": "", "cta": ""}],\n    "targeting": {"jobTitles": [], "industries": [], "companySizes": [], "skills": []},\n    "messagingNotes": ""\n  }\n}` }],
   })
 
   // Parse
