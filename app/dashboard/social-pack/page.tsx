@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Share2, AlertCircle, ChevronLeft, Loader } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import ModuleGate from '@/components/ModuleGate'
 import GenericSalesPage from '@/components/modules/GenericSalesPage'
 import StrategySignalsBlock from '@/components/signal-content/StrategySignalsBlock'
@@ -277,6 +278,25 @@ function SignalContentModule() {
     const id = localStorage.getItem('signalshot_active_business')
     if (!id) { router.push('/dashboard'); return }
     setBusinessId(id)
+
+    const supabase = createClient()
+    supabase
+      .from('module_outputs')
+      .select('id, output_data, form_inputs, generation_number')
+      .eq('business_id', id)
+      .eq('module_type', 'signal_content')
+      .eq('status', 'complete')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data: lastOutput }) => {
+        if (lastOutput?.output_data) {
+          setContent(lastOutput.output_data as ContentOutput)
+          setOutputId(lastOutput.id)
+          setGenerationNumber(lastOutput.generation_number || 1)
+          setStage('results')
+        }
+      })
   }, [router])
 
   function isFormValid() {

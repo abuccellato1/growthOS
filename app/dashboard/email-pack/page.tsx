@@ -9,6 +9,7 @@ import {
   Mail, ChevronDown, ChevronUp, RefreshCw,
   ThumbsUp, ThumbsDown, AlertCircle, Loader, CheckCircle
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface EmailFeedbackItem {
   emailNumber: number
@@ -675,6 +676,29 @@ function SignalSequencesModule() {
     const id = localStorage.getItem('signalshot_active_business')
     if (!id) { router.push('/dashboard'); return }
     setBusinessId(id)
+
+    const supabase = createClient()
+    supabase
+      .from('module_outputs')
+      .select('id, output_data, form_inputs, generation_number')
+      .eq('business_id', id)
+      .eq('module_type', 'signal_sequences')
+      .eq('status', 'complete')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data: lastOutput }) => {
+        if (lastOutput?.output_data) {
+          setSequence(lastOutput.output_data as SequenceOutput)
+          setOutputId(lastOutput.id)
+          setGenerationNumber(lastOutput.generation_number || 1)
+          setStage('results')
+          const inputs = lastOutput.form_inputs as Record<string, string> | null
+          if (inputs?.esp) setEsp(inputs.esp)
+          if (inputs?.sequenceType) { setSequenceType(inputs.sequenceType); setGuidedStep('confirmed') }
+          if (inputs?.tone) setTone(inputs.tone)
+        }
+      })
   }, [router])
 
   function isFormValid() { return !!sequenceType && !!tone }

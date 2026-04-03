@@ -9,6 +9,7 @@ import {
   Target, ChevronDown, ChevronUp, Plus, Trash2,
   RefreshCw, ThumbsUp, ThumbsDown, AlertCircle, Loader, CheckCircle
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -334,6 +335,25 @@ function AdPackModule() {
     const id = localStorage.getItem('signalshot_active_business')
     if (!id) { router.push('/dashboard'); return }
     setBusinessId(id)
+
+    const supabase = createClient()
+    supabase
+      .from('module_outputs')
+      .select('id, output_data, form_inputs, generation_number')
+      .eq('business_id', id)
+      .eq('module_type', 'signal_ads')
+      .eq('status', 'complete')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data: lastOutput }) => {
+        if (lastOutput?.output_data) {
+          setAds(lastOutput.output_data as AdOutput)
+          setOutputId(lastOutput.id)
+          setGenerationNumber(lastOutput.generation_number || 1)
+          setStage('results')
+        }
+      })
   }, [router])
 
   function togglePlatform(p: string) {
