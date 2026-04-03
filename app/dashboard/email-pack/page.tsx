@@ -829,7 +829,7 @@ function SignalSequencesModule() {
   const flaggedCount = Object.values(emailFeedback).filter(f => f.rating === -1).length
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="w-full space-y-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>

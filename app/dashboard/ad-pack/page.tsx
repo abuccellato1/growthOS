@@ -538,7 +538,7 @@ function AdPackModule() {
   const flaggedCount = Object.values(adFeedback).filter(f => f.rating === -1).length
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="w-full space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
