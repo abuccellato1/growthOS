@@ -41,7 +41,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'SignalBoard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Deliverables', href: '/dashboard/signal-vault', icon: FileText },
+      { label: 'SignalVault', href: '/dashboard/signal-vault', icon: FileText },
       { label: 'BusinessSignals', href: '/dashboard/business-signals', icon: Building2 },
       { label: 'CustomerSignals', href: '/dashboard/voice-of-customer', icon: Mic },
       { label: 'Account', href: '/dashboard/account', icon: User },

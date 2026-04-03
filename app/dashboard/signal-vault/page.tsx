@@ -196,10 +196,10 @@ export default function DeliverablesPage() {
             className="text-3xl font-bold"
             style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
           >
-            My Deliverables
+            SignalVault
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-            Your SignalMap generated from your Alex session.
+            Your saved outputs from every module — organized, persistent, ready to use.
           </p>
         </div>
       </div>
