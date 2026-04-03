@@ -69,8 +69,21 @@ const GENERATING_STEPS = [
   { label: 'Reading your SignalMap Interview Data', duration: 3000 },
   { label: 'Checking CustomerSignals Data', duration: 3000 },
   { label: 'Loading BusinessSignals Research', duration: 3000 },
-  { label: 'Mapping ICP journey stages', duration: 3000 },
+  { label: 'Mapping SignalMap journey stages', duration: 3000 },
   { label: 'Writing your 5-email sequence', duration: 6000 },
+]
+
+const EMAIL_FACTS = [
+  'Subject lines with 6–10 words get the highest open rates — but specificity beats length every time.',
+  '47% of recipients open email based on subject line alone. Preview text is your second chance.',
+  'The average office worker gets 121 emails a day. Your subject has 3 seconds to earn the open.',
+  'Emails that tell a story across a sequence convert 3x better than standalone blasts.',
+  'The best CTAs finish a sentence — "I want to…" — not "Click here."',
+  'Welcome sequences get 4x the open rate of regular campaigns. Your first email is your most read.',
+  'Re-engagement sequences recover 10–25% of dormant subscribers when sent within 90 days.',
+  'Preview text that repeats the subject line wastes your second impression. Use it to add intrigue.',
+  'Abandoned action sequences have the highest ROI of any email type — intent is already there.',
+  'Onboarding sequences reduce refund rates by up to 40% by helping customers get results faster.',
 ]
 
 const ESP_OPTIONS = [
@@ -133,6 +146,8 @@ function transformMergeVars(text: string, esp: string): string {
 function GeneratingScreen({ generationNumber }: { generationNumber: number }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
+  const [factIndex, setFactIndex] = useState(0)
+  const [factVisible, setFactVisible] = useState(true)
 
   useEffect(() => {
     let stepIndex = 0
@@ -149,6 +164,19 @@ function GeneratingScreen({ generationNumber }: { generationNumber: number }) {
     return () => clearTimeout(timeout)
   }, [])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFactVisible(false)
+      setTimeout(() => {
+        setFactIndex(i => (i + 1) % EMAIL_FACTS.length)
+        setFactVisible(true)
+      }, 400)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const isFinalStep = currentStep === GENERATING_STEPS.length - 1
+
   return (
     <div className="max-w-lg mx-auto mt-12">
       <div className="flex items-center gap-3 mb-8">
@@ -162,7 +190,8 @@ function GeneratingScreen({ generationNumber }: { generationNumber: number }) {
           <p className="text-xs" style={{ color: '#9ca3af' }}>Takes about 30–45 seconds</p>
         </div>
       </div>
-      <div className="space-y-3">
+
+      <div className="space-y-3 mb-8">
         {GENERATING_STEPS.map((step, i) => {
           const isDone = completedSteps.includes(i)
           const isActive = currentStep === i
@@ -197,6 +226,21 @@ function GeneratingScreen({ generationNumber }: { generationNumber: number }) {
           )
         })}
       </div>
+
+      {isFinalStep && (
+        <div
+          className="p-4 rounded-2xl transition-all duration-400"
+          style={{
+            border: '1px solid rgba(67,198,172,0.25)',
+            backgroundColor: 'rgba(67,198,172,0.04)',
+            opacity: factVisible ? 1 : 0,
+            transform: factVisible ? 'translateY(0)' : 'translateY(6px)',
+            transition: 'opacity 0.4s ease, transform 0.4s ease',
+          }}>
+          <p className="text-xs font-bold mb-1 tracking-widest" style={{ color: '#43C6AC' }}>📧 DID YOU KNOW</p>
+          <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{EMAIL_FACTS[factIndex]}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -412,14 +456,14 @@ function EmailCard({
               <button
                 onClick={handleSendPreview}
                 disabled={previewSending || previewSent}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60"
                 style={{
-                  borderColor: previewSent ? '#43C6AC' : '#e5e7eb',
-                  backgroundColor: previewSent ? 'rgba(67,198,172,0.08)' : '#fff',
-                  color: previewSent ? '#43C6AC' : '#6b7280',
+                  backgroundColor: previewSent ? 'rgba(67,198,172,0.1)' : '#43C6AC',
+                  color: previewSent ? '#43C6AC' : '#fff',
+                  border: previewSent ? '1px solid #43C6AC' : 'none',
                 }}>
                 {previewSending ? (
-                  <div className="w-3 h-3 rounded-full border-2 animate-spin" style={{ borderColor: '#9ca3af', borderTopColor: 'transparent' }} />
+                  <div className="w-3 h-3 rounded-full border-2 animate-spin" style={{ borderColor: '#fff', borderTopColor: 'transparent' }} />
                 ) : previewSent ? (
                   <CheckCircle size={13} />
                 ) : (
