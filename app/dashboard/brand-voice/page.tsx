@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Wand2, Loader, CheckCircle, ChevronDown, ChevronUp,
-  Plus, X, Sparkles, Target, Share2, Mail
+  X, Sparkles, Target, Share2, Mail
 } from 'lucide-react'
 
 interface GlobalPreferences {
