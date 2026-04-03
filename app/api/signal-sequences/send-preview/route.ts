@@ -35,6 +35,18 @@ export async function POST(request: Request) {
   const { data: cust } = await adminClient.from('customers').select('id').eq('id', biz.customer_id).eq('auth_user_id', auth.user.id).single()
   if (!cust) return apiError('Access denied', 403, 'FORBIDDEN')
 
+  // Rate limit: 10 previews per hour per business
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count: recentCount } = await adminClient
+    .from('module_outputs')
+    .select('id', { count: 'exact', head: true })
+    .eq('business_id', businessId)
+    .eq('module_type', 'signal_sequences_preview')
+    .gte('created_at', oneHourAgo)
+  if ((recentCount ?? 0) >= 10) {
+    return apiError('Preview limit reached — try again in an hour', 429, 'RATE_LIMITED')
+  }
+
   // Get user email from auth
   const userEmail = auth.user.email
   if (!userEmail) return apiError('No email on account', 400, 'NO_EMAIL')
@@ -126,6 +138,14 @@ export async function POST(request: Request) {
   </table>
 </body>
 </html>`
+
+  // Track preview for rate limiting
+  await adminClient.from('module_outputs').insert({
+    business_id: businessId,
+    module_type: 'signal_sequences_preview',
+    status: 'complete',
+    output_data: { emailNumber, sentTo: userEmail },
+  })
 
   try {
     await resend.emails.send({

@@ -410,7 +410,7 @@ function FieldFlagButton({
 }
 
 function EmailCard({
-  email, emailFeedback, onRate, esp, businessId, totalEmails, fieldFeedback, onFieldFlag,
+  email, emailFeedback, onRate, esp, businessId, totalEmails, fieldFeedback, onFieldFlag, previewCount, onPreviewSent,
 }: {
   email: Email
   emailFeedback: Record<number, EmailFeedbackItem>
@@ -420,6 +420,8 @@ function EmailCard({
   totalEmails: number
   fieldFeedback: Record<string, string[]>
   onFieldFlag: (emailNumber: number, fieldKey: string, reasons: string[]) => void
+  previewCount: number
+  onPreviewSent: () => void
 }) {
   const [open, setOpen] = useState(email.emailNumber === 1)
   const [previewSending, setPreviewSending] = useState(false)
@@ -431,7 +433,10 @@ function EmailCard({
   const transformedCta = transformMergeVars(email.cta, esp)
   const fullEmailText = `Subject: ${transformedSubject}\nPreview: ${email.previewText}\n\n${transformedBody}\n\nCTA: ${transformedCta}`
 
+  const previewLimitReached = previewCount >= 3
+
   async function handleSendPreview() {
+    if (previewLimitReached) return
     setPreviewSending(true)
     setPreviewError(false)
     try {
@@ -450,7 +455,7 @@ function EmailCard({
           title: email.title,
         }),
       })
-      if (res.ok) { setPreviewSent(true) } else { setPreviewError(true) }
+      if (res.ok) { setPreviewSent(true); onPreviewSent() } else { setPreviewError(true) }
     } catch { setPreviewError(true) }
     setPreviewSending(false)
   }
@@ -544,11 +549,11 @@ function EmailCard({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSendPreview}
-                disabled={previewSending || previewSent}
+                disabled={previewSending || previewSent || previewLimitReached}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60"
                 style={{
-                  backgroundColor: previewSent ? 'rgba(67,198,172,0.1)' : '#43C6AC',
-                  color: previewSent ? '#43C6AC' : '#fff',
+                  backgroundColor: previewSent ? 'rgba(67,198,172,0.1)' : previewLimitReached ? '#f3f4f6' : '#43C6AC',
+                  color: previewSent ? '#43C6AC' : previewLimitReached ? '#9ca3af' : '#fff',
                   border: previewSent ? '1px solid #43C6AC' : 'none',
                 }}>
                 {previewSending ? (
@@ -558,10 +563,13 @@ function EmailCard({
                 ) : (
                   <Mail size={13} />
                 )}
-                {previewSending ? 'Sending…' : previewSent ? 'Sent to your inbox' : 'Preview in inbox'}
+                {previewLimitReached ? 'Preview limit reached' : previewSending ? 'Sending…' : previewSent ? 'Sent to your inbox' : 'Preview in inbox'}
               </button>
               {previewError && (
                 <p className="text-xs" style={{ color: '#ef4444' }}>Send failed — try again</p>
+              )}
+              {previewLimitReached && !previewSent && (
+                <p className="text-xs" style={{ color: '#9ca3af' }}>Preview limit reached for this session</p>
               )}
             </div>
             <CopyButton text={fullEmailText} variant="button" label="Copy full email" />
@@ -655,6 +663,7 @@ function SignalSequencesModule() {
   const [generationNumber, setGenerationNumber] = useState(1)
   const [emailFeedback, setEmailFeedback] = useState<Record<number, EmailFeedbackItem>>({})
   const [fieldFeedback, setFieldFeedback] = useState<Record<string, string[]>>({})
+  const [previewCount, setPreviewCount] = useState(0)
   const [feedbackSaving, setFeedbackSaving] = useState(false)
   const [overallFeedbackMode, setOverallFeedbackMode] = useState<'idle' | 'thumbsdown'>('idle')
   const [overallFeedbackText, setOverallFeedbackText] = useState('')
@@ -848,7 +857,7 @@ function SignalSequencesModule() {
 
       {sequence.strategySignals && <StrategySignalsBlock ss={sequence.strategySignals} />}
       {sequence.emails?.map(email => (
-        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} esp={esp} businessId={businessId || ''} totalEmails={sequence.emails?.length || 5} fieldFeedback={fieldFeedback} onFieldFlag={handleFieldFlag} />
+        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} esp={esp} businessId={businessId || ''} totalEmails={sequence.emails?.length || 5} fieldFeedback={fieldFeedback} onFieldFlag={handleFieldFlag} previewCount={previewCount} onPreviewSent={() => setPreviewCount(c => c + 1)} />
       ))}
 
       <div className="p-5 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
