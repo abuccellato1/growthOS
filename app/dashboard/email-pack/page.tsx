@@ -370,7 +370,7 @@ function FieldFlagButton({
     return (
       <div className="mt-2 w-full">
         <div className="p-3 rounded-xl border" style={{ borderColor: '#fecaca', backgroundColor: '#fef2f2' }}>
-          <p className="text-xs font-bold mb-2" style={{ color: '#dc2626' }}>What's wrong with this?</p>
+          <p className="text-xs font-bold mb-2" style={{ color: '#dc2626' }}>What&apos;s wrong with this?</p>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {(FIELD_REASONS[fieldKey] || []).map(r => (
               <button key={r} onClick={() => setSelected(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
@@ -784,7 +784,7 @@ function SignalSequencesModule() {
           </div>
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: '#374151' }}>Topics to Avoid <span className="font-normal text-gray-400">(optional)</span></label>
-            <textarea rows={2} placeholder="e.g. 'Don't mention pricing. Avoid competitor comparisons.'"
+            <textarea rows={2} placeholder="e.g. &apos;Don&apos;t mention pricing. Avoid competitor comparisons.&apos;"
               value={topicsToAvoid} onChange={e => setTopicsToAvoid(e.target.value)}
               className="w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none" style={{ borderColor: '#e5e7eb', color: '#374151' }} />
           </div>
