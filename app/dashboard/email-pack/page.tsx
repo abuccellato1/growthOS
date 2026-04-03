@@ -654,6 +654,7 @@ function SignalSequencesModule() {
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [outputId, setOutputId] = useState<string | null>(null)
   const [sequenceType, setSequenceType] = useState('')
+  const [guidedStep, setGuidedStep] = useState<'contact' | 'customer_goal' | 'confirmed'>('contact')
   const [tone, setTone] = useState('')
   const [topicsToAvoid, setTopicsToAvoid] = useState('')
   const [esp, setEsp] = useState('none')
@@ -764,20 +765,82 @@ function SignalSequencesModule() {
         )}
         <div className="space-y-6">
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: '#374151' }}>Sequence Type *</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {SEQUENCE_TYPES.map(s => (
-                <button key={s.value} onClick={() => setSequenceType(s.value)}
-                  className="text-left px-4 py-3 rounded-xl border transition-all"
-                  style={{
-                    borderColor: sequenceType === s.value ? '#43C6AC' : '#e5e7eb',
-                    backgroundColor: sequenceType === s.value ? 'rgba(67,198,172,0.08)' : '#fff',
-                  }}>
-                  <p className="text-xs font-bold" style={{ color: sequenceType === s.value ? '#191654' : '#374151' }}>{s.label}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{s.description}</p>
-                </button>
-              ))}
-            </div>
+            {guidedStep === 'confirmed' ? (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(67,198,172,0.1)', color: '#43C6AC' }}>
+                    {SEQUENCE_TYPES.find(s => s.value === sequenceType)?.label}
+                  </span>
+                  <button onClick={() => { setSequenceType(''); setGuidedStep('contact') }}
+                    className="text-xs underline" style={{ color: '#9ca3af' }}>change</button>
+                </div>
+                {sequenceType === 'welcome_nurture' && (
+                  <p className="text-xs" style={{ color: '#43C6AC' }}>⭐ Best starting point for most businesses</p>
+                )}
+                {sequenceType === 'abandoned_action' && (
+                  <p className="text-xs" style={{ color: '#43C6AC' }}>⭐ Highest ROI sequence type</p>
+                )}
+                {sequenceType === 'sales_offer' && (
+                  <p className="text-xs" style={{ color: '#43C6AC' }}>⭐ Where revenue happens</p>
+                )}
+              </div>
+            ) : guidedStep === 'customer_goal' ? (
+              <div>
+                <label className="block text-xs font-bold mb-2" style={{ color: '#374151' }}>What&apos;s your goal with them?</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button onClick={() => { setSequenceType('onboarding'); setGuidedStep('confirmed') }}
+                    className="text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-1" style={{ color: '#191654' }}>Help them get results faster</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Onboarding — turns new customers into successful users</p>
+                  </button>
+                  <button onClick={() => { setSequenceType('upsell_crosssell'); setGuidedStep('confirmed') }}
+                    className="text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-1" style={{ color: '#191654' }}>Offer them something more</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Upsell / Cross-Sell — increases customer lifetime value</p>
+                  </button>
+                </div>
+                <button onClick={() => setGuidedStep('contact')} className="text-xs mt-3 underline" style={{ color: '#9ca3af' }}>← Back</button>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold mb-2" style={{ color: '#374151' }}>Where are these contacts in their journey? *</label>
+                <div className="space-y-2">
+                  <button onClick={() => { setSequenceType('welcome_nurture'); setGuidedStep('confirmed') }}
+                    className="w-full text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#191654' }}>Brand new — just joined my list</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Welcome / Lead Nurture — turns subscribers into engaged prospects</p>
+                  </button>
+                  <button onClick={() => { setSequenceType('sales_offer'); setGuidedStep('confirmed') }}
+                    className="w-full text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#191654' }}>Warm — they&apos;ve shown interest or engaged</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Sales / Offer — converts warm leads into customers</p>
+                  </button>
+                  <button onClick={() => { setSequenceType('abandoned_action'); setGuidedStep('confirmed') }}
+                    className="w-full text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#191654' }}>They started but didn&apos;t finish</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Abandoned Action — recovers lost conversions (highest ROI)</p>
+                  </button>
+                  <button onClick={() => setGuidedStep('customer_goal')}
+                    className="w-full text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#191654' }}>Already a customer</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Onboarding or Upsell — we&apos;ll help you pick</p>
+                  </button>
+                  <button onClick={() => { setSequenceType('reengagement'); setGuidedStep('confirmed') }}
+                    className="w-full text-left px-4 py-4 rounded-xl border transition-all hover:border-green-300"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#191654' }}>Gone cold — haven&apos;t heard from them</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>Re-engagement — reactivates dormant subscribers</p>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-bold mb-2" style={{ color: '#374151' }}>Email Tone *</label>
