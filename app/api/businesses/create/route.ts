@@ -88,5 +88,16 @@ export async function POST(request: Request) {
   }
 
   logger.apiEnd('/api/businesses/create', start, 200, auth.customer.id)
+
+  // Fire Nora auto-research non-blocking after business creation
+  fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/nora/auto-research`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-secret': process.env.INTERNAL_SECRET || '',
+    },
+    body: JSON.stringify({ businessId: business.id }),
+  }).catch(() => null)
+
   return apiSuccess({ business })
 }
