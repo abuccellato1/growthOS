@@ -156,6 +156,30 @@ function PillarsLoadingScreen() {
 // ─── Hooks loading screen ─────────────────────────────────────────────────────
 
 function HooksLoadingScreen() {
+  const steps = [
+    'Applying 2026 hook frameworks',
+    'Using your CustomerSignals language',
+    'Writing 5 hooks per pillar',
+    'Finalizing 25 hooks for your review',
+  ]
+  const [currentStep, setCurrentStep] = useState(0)
+  const [completedSteps, setCompletedSteps] = useState<number[]>([])
+
+  useEffect(() => {
+    let stepIndex = 0
+    let timeout: ReturnType<typeof setTimeout>
+    function advance() {
+      setCompletedSteps(prev => [...prev, stepIndex])
+      stepIndex++
+      if (stepIndex < steps.length) {
+        setCurrentStep(stepIndex)
+        timeout = setTimeout(advance, 4000)
+      }
+    }
+    timeout = setTimeout(advance, 4000)
+    return () => clearTimeout(timeout)
+  }, [steps.length])
+
   return (
     <div className="max-w-lg mx-auto mt-12">
       <div className="flex items-center gap-3 mb-8">
@@ -164,34 +188,51 @@ function HooksLoadingScreen() {
           <Share2 size={18} style={{ color: '#43C6AC' }} />
         </div>
         <div>
-          <p className="text-sm font-bold" style={{ color: '#191654' }}>Writing your hooks…</p>
-          <p className="text-xs" style={{ color: '#9ca3af' }}>3 scroll-stopping hooks per pillar — takes ~15 seconds</p>
+          <p className="text-sm font-bold" style={{ color: '#191654' }}>
+            Writing your hooks…
+          </p>
+          <p className="text-xs" style={{ color: '#9ca3af' }}>
+            5 scroll-stopping hooks per pillar — takes ~15 seconds
+          </p>
         </div>
       </div>
       <div className="space-y-3">
-        {['Applying 2026 hook frameworks', 'Using your CustomerSignals language',
-          'Writing 3 hooks per pillar', 'Finalizing 15 hooks for your review',
-        ].map((label, i) => (
-          <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
-            style={{ backgroundColor: i === 3 ? 'rgba(67,198,172,0.06)' : 'transparent',
-              border: i === 3 ? '1px solid rgba(67,198,172,0.2)' : '1px solid transparent' }}>
-            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-              {i < 3 ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="8" fill="#43C6AC" fillOpacity="0.15" />
-                  <path d="M4.5 8L7 10.5L11.5 6" stroke="#43C6AC" strokeWidth="1.5"
-                    strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              ) : (
-                <div className="w-4 h-4 rounded-full border-2 animate-spin"
-                  style={{ borderColor: '#43C6AC', borderTopColor: 'transparent' }} />
-              )}
+        {steps.map((label, i) => {
+          const isDone = completedSteps.includes(i)
+          const isActive = currentStep === i
+          const isPending = !isDone && !isActive
+          return (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl transition-all"
+              style={{
+                backgroundColor: isActive ? 'rgba(67,198,172,0.06)' : 'transparent',
+                border: isActive
+                  ? '1px solid rgba(67,198,172,0.2)' : '1px solid transparent',
+                opacity: isPending ? 0.35 : 1,
+              }}>
+              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                {isDone ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="8" fill="#43C6AC" fillOpacity="0.15" />
+                    <path d="M4.5 8L7 10.5L11.5 6" stroke="#43C6AC" strokeWidth="1.5"
+                      strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : isActive ? (
+                  <div className="w-4 h-4 rounded-full border-2 animate-spin"
+                    style={{ borderColor: '#43C6AC', borderTopColor: 'transparent' }} />
+                ) : (
+                  <div className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: '#e5e7eb' }} />
+                )}
+              </div>
+              <p className="text-sm" style={{
+                color: isDone ? '#6b7280' : isActive ? '#191654' : '#9ca3af',
+                fontWeight: isActive ? 600 : 400,
+              }}>
+                {label}
+              </p>
             </div>
-            <p className="text-sm" style={{ color: i < 3 ? '#6b7280' : '#191654', fontWeight: i === 3 ? 600 : 400 }}>
-              {label}
-            </p>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

@@ -156,6 +156,7 @@ export default function ContentCalendar({
   const [weekOffset, setWeekOffset] = useState(0)
   const [localCalendar, setLocalCalendar] = useState<CalendarData>(calendar)
   const [dragOverDay, setDragOverDay] = useState<number | null>(null)
+  const [showDraftsBanner, setShowDraftsBanner] = useState(true)
 
   const dragCalendarEntry = useRef<CalendarEntry | null>(null)
   const dragCalendarSourceWeek = useRef<keyof CalendarData | null>(null)
@@ -283,6 +284,43 @@ export default function ContentCalendar({
           )}
         </div>
       </div>
+
+      {/* Drafts discovery banner */}
+      {showDraftsBanner && draftItems.length > 0 && (
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b"
+          style={{
+            backgroundColor: 'rgba(67,198,172,0.08)',
+            borderColor: 'rgba(67,198,172,0.25)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: '#43C6AC' }} />
+            <p className="text-xs font-semibold" style={{ color: '#191654' }}>
+              {draftItems.length} bonus formats (reels, carousels + stories)
+              are ready in the{' '}
+              <button
+                onClick={() => {
+                  setActiveTab('drafts')
+                  setShowDraftsBanner(false)
+                }}
+                className="underline font-bold"
+                style={{ color: '#43C6AC' }}
+              >
+                Drafts tab →
+              </button>
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDraftsBanner(false)}
+            className="text-xs px-2 py-0.5 rounded-md ml-3 flex-shrink-0"
+            style={{ color: '#9ca3af' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b" style={{ borderColor: '#e5e7eb' }}>

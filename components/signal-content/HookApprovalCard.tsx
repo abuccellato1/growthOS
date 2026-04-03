@@ -13,14 +13,15 @@ interface Props {
 }
 
 const FRAMEWORK_COLORS: Record<string, string> = {
-  'Hyper-specific relatability': '#7c3aed',
-  'Negative warning': '#dc2626',
-  'Emotional vulnerability': '#d97706',
-  'POV/disguised advice': '#0284c7',
-  'Timeframe tension': '#16a34a',
-  'Direct callout': '#43C6AC',
-  'Bold controversial claim': '#191654',
-  'Authority builder': '#6b7280',
+  'hyper-specific': '#7c3aed',
+  'negative warning': '#dc2626',
+  'emotional vulnerability': '#d97706',
+  'pov': '#0284c7',
+  'disguised advice': '#0284c7',
+  'timeframe': '#16a34a',
+  'direct callout': '#43C6AC',
+  'bold controversial': '#191654',
+  'authority builder': '#6b7280',
 }
 
 export default function HookApprovalCard({
@@ -113,7 +114,10 @@ export default function HookApprovalCard({
       {/* Hook cards */}
       <div className="divide-y divide-gray-100">
         {state.hooks.map((hook, hi) => {
-          const color = FRAMEWORK_COLORS[hook.framework] || '#9ca3af'
+          const frameworkLower = (hook.framework || '').toLowerCase()
+          const color = Object.entries(FRAMEWORK_COLORS).find(
+            ([key]) => frameworkLower.includes(key)
+          )?.[1] || '#43C6AC'
           const isSelected = hook.selected
           return (
             <button key={hi} onClick={() => toggleHook(hi)}
