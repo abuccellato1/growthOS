@@ -26,9 +26,9 @@ interface AgentPreferences {
 
 interface AllPreferences {
   global?: GlobalPreferences
-  signal_ads?: { jaimie?: AgentPreferences }
-  signal_content?: { sofia?: AgentPreferences }
-  signal_sequences?: { emily?: AgentPreferences }
+  signal_ads?: Record<string, AgentPreferences>
+  signal_content?: Record<string, AgentPreferences>
+  signal_sequences?: Record<string, AgentPreferences>
 }
 
 const WRITING_STYLE_OPTIONS = [

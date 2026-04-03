@@ -60,8 +60,7 @@ export default function AgentChatPanel({
   const color = AGENT_COLORS[moduleType] || '#43C6AC'
   const starters = AGENT_STARTERS[moduleType] || []
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 300)
       if (messages.length === 0) {
