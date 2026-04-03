@@ -41,7 +41,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'SignalBoard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Deliverables', href: '/dashboard/deliverables', icon: FileText },
+      { label: 'Deliverables', href: '/dashboard/signal-vault', icon: FileText },
       { label: 'BusinessSignals', href: '/dashboard/business-signals', icon: Building2 },
       { label: 'CustomerSignals', href: '/dashboard/voice-of-customer', icon: Mic },
       { label: 'Account', href: '/dashboard/account', icon: User },
@@ -51,11 +51,11 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'MODULES',
     items: [
       { label: 'SignalMap Interview', href: '/dashboard/alex', icon: MessageSquare },
-      { label: 'SignalAds', href: '/dashboard/ad-pack', icon: Target, productType: 'ad_pack' },
-      { label: 'SignalContent', href: '/dashboard/social-pack', icon: Share2, productType: 'social_pack' },
-      { label: 'SignalSequences', href: '/dashboard/email-pack', icon: Mail, productType: 'email_pack' },
-      { label: 'SignalLaunch', href: '/dashboard/gtm-plan', icon: Map, productType: 'gtm_plan' },
-      { label: 'SignalSprint', href: '/dashboard/action-plan', icon: Calendar, productType: 'action_plan' },
+      { label: 'SignalAds', href: '/dashboard/signal-ads', icon: Target, productType: 'ad_pack' },
+      { label: 'SignalContent', href: '/dashboard/signal-content', icon: Share2, productType: 'social_pack' },
+      { label: 'SignalSequences', href: '/dashboard/signal-sequences', icon: Mail, productType: 'email_pack' },
+      { label: 'SignalLaunch', href: '/dashboard/signal-launch', icon: Map, productType: 'gtm_plan' },
+      { label: 'SignalSprint', href: '/dashboard/signal-sprint', icon: Calendar, productType: 'action_plan' },
     ],
   },
 ]

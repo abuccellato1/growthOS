@@ -26,11 +26,11 @@ import { formatDistanceToNow } from '@/lib/utils'
 import IntakeGate from '@/components/IntakeGate'
 
 const LOCKED_MODULES = [
-  { label: 'SignalAds', icon: Target, productType: 'ad_pack', href: '/dashboard/ad-pack' },
-  { label: 'SignalContent', icon: Share2, productType: 'social_pack', href: '/dashboard/social-pack' },
-  { label: 'SignalSequences', icon: Mail, productType: 'email_pack', href: '/dashboard/email-pack' },
-  { label: 'SignalLaunch', icon: Map, productType: 'gtm_plan', href: '/dashboard/gtm-plan' },
-  { label: 'SignalSprint', icon: Calendar, productType: 'action_plan', href: '/dashboard/action-plan' },
+  { label: 'SignalAds', icon: Target, productType: 'ad_pack', href: '/dashboard/signal-ads' },
+  { label: 'SignalContent', icon: Share2, productType: 'social_pack', href: '/dashboard/signal-content' },
+  { label: 'SignalSequences', icon: Mail, productType: 'email_pack', href: '/dashboard/signal-sequences' },
+  { label: 'SignalLaunch', icon: Map, productType: 'gtm_plan', href: '/dashboard/signal-launch' },
+  { label: 'SignalSprint', icon: Calendar, productType: 'action_plan', href: '/dashboard/signal-sprint' },
 ]
 
 export default function DashboardPage() {
@@ -429,7 +429,7 @@ export default function DashboardPage() {
           )}
 
           {/* Primary CTA — go to deliverables */}
-          <Link href="/dashboard/deliverables">
+          <Link href="/dashboard/signal-vault">
             <div
               className="p-6 rounded-2xl border-2 cursor-pointer
                          transition-all hover:shadow-lg mb-6"

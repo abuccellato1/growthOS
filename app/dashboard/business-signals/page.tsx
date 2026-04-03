@@ -621,7 +621,7 @@ export default function BusinessSignalsPage() {
                   </div>
                 </div>
                 {s.status === 'completed' && (
-                  <Link href="/dashboard/deliverables" className="text-xs font-medium" style={{ color: '#43C6AC' }}>View ICP →</Link>
+                  <Link href="/dashboard/signal-vault" className="text-xs font-medium" style={{ color: '#43C6AC' }}>View ICP →</Link>
                 )}
               </div>
             ))}

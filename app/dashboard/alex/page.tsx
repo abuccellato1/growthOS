@@ -448,7 +448,7 @@ export default function AlexPage() {
           )
         }
 
-        const completionMsg = `That's everything. Your **SignalMap** is ready — head to [My Deliverables](/dashboard/deliverables) to view, download as PDF, or copy it into Google Docs.`
+        const completionMsg = `That's everything. Your **SignalMap** is ready — head to [My Deliverables](/dashboard/signal-vault) to view, download as PDF, or copy it into Google Docs.`
         const withCompletion: Message[] = [
           ...finalMessages,
           { role: 'assistant', content: completionMsg },
@@ -599,7 +599,7 @@ export default function AlexPage() {
             {activeBusiness?.business_name || 'your business'}. Your ICP document is in your deliverables.
           </p>
 
-          <Link href="/dashboard/deliverables">
+          <Link href="/dashboard/signal-vault">
             <button
               className="w-full py-3 rounded-xl text-white font-semibold text-sm mb-4"
               style={{ backgroundColor: '#43C6AC', fontFamily: 'DM Sans, sans-serif' }}
@@ -795,7 +795,7 @@ export default function AlexPage() {
               </div>
             </div>
             <Link
-              href="/dashboard/deliverables"
+              href="/dashboard/signal-vault"
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold flex-shrink-0"
               style={{ backgroundColor: '#191654', fontFamily: 'DM Sans, sans-serif' }}
             >

@@ -61,7 +61,7 @@ export async function sendICPCompletionEmail(params: {
               <table cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center" style="padding:8px 0 24px;">
-                    <a href="${appUrl}/dashboard/deliverables"
+                    <a href="${appUrl}/dashboard/signal-vault"
                        style="display:inline-block;background:#43C6AC;
                               color:#ffffff;font-size:15px;font-weight:700;
                               text-decoration:none;padding:14px 32px;
