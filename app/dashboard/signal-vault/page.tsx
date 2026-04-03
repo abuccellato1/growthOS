@@ -2,413 +2,282 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
-import { createClient } from '@/lib/supabase/client'
-import { Session } from '@/types'
-import { FileText, Lock, Loader, ArrowRight, Share2, Copy, Check, X } from 'lucide-react'
-import Link from 'next/link'
+import { Vault, Target, Share2, Mail, Map, Calendar, Tag, Trash2, ExternalLink, Loader, ChevronDown, ChevronUp } from 'lucide-react'
 
-const ICPDisplay = dynamic(() => import('@/components/ICPDisplay'), {
-  loading: () => (
-    <div className="flex items-center justify-center h-48">
-      <Loader size={28} className="animate-spin" style={{ color: '#43C6AC' }} />
-    </div>
-  ),
-  ssr: false,
-})
+const MODULE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; route: string }> = {
+  signal_ads: { label: 'SignalAds', icon: Target, color: '#ef4444', route: '/dashboard/signal-ads' },
+  signal_content: { label: 'SignalContent', icon: Share2, color: '#8b5cf6', route: '/dashboard/signal-content' },
+  signal_sequences: { label: 'SignalSequences', icon: Mail, color: '#43C6AC', route: '/dashboard/signal-sequences' },
+  signal_launch: { label: 'SignalLaunch', icon: Map, color: '#f59e0b', route: '/dashboard/signal-launch' },
+  signal_sprint: { label: 'SignalSprint', icon: Calendar, color: '#3b82f6', route: '/dashboard/signal-sprint' },
+}
 
-export default function DeliverablesPage() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [regenerating, setRegenerating] = useState(false)
-  const [recovering, setRecovering] = useState(false)
-  const [recoverError, setRecoverError] = useState<string | null>(null)
-  const [shareUrl, setShareUrl] = useState<string | null>(null)
-  const [sharing, setSharing] = useState(false)
-  const [shareCopied, setShareCopied] = useState(false)
+const MODULE_TABS = Object.keys(MODULE_CONFIG)
+
+interface VaultOutput {
+  id: string
+  module_type: string
+  output_data: Record<string, unknown>
+  form_inputs: Record<string, unknown>
+  generation_number: number
+  vault_label: string | null
+  vault_pinned_at: string
+  created_at: string
+}
+
+function VaultCard({ output, businessId, onUnsave, onLabel }: {
+  output: VaultOutput
+  businessId: string
+  onUnsave: (id: string) => void
+  onLabel: (id: string, label: string) => void
+}) {
   const router = useRouter()
+  const config = MODULE_CONFIG[output.module_type]
+  const Icon = config?.icon || Vault
+  const [open, setOpen] = useState(false)
+  const [labeling, setLabeling] = useState(false)
+  const [labelText, setLabelText] = useState(output.vault_label || '')
+  const [unsaving, setUnsaving] = useState(false)
 
-  async function handleRegenerateICP() {
-    if (!session) return
-    setRegenerating(true)
-    try {
-      const response = await fetch('/api/regenerate-icp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id }),
-      })
-      if (response.ok) {
-        window.location.reload()
-      }
-    } catch {
-      // Non-fatal — page will show current state
-    } finally {
-      setRegenerating(false)
-    }
+  const ss = (output.output_data?.strategySignals || output.output_data?.strategy_signals) as Record<string, unknown> | undefined
+  const primaryAngle = ss?.primaryAngle || ss?.sequenceGoal || ss?.primary_angle || ''
+  const keyDiff = ss?.keyDifferentiator || ss?.primaryAngle || ''
+
+  const savedDate = new Date(output.vault_pinned_at).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric'
+  })
+
+  async function handleUnsave() {
+    setUnsaving(true)
+    await fetch('/api/vault/unsave', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, outputId: output.id }),
+    })
+    onUnsave(output.id)
   }
 
-  async function handleRecover() {
-    if (!session) return
-    setRecovering(true)
-    setRecoverError(null)
-    try {
-      const response = await fetch('/api/recover-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id }),
-      })
-      if (response.ok) {
-        window.location.reload()
-      } else {
-        const data = await response.json()
-        setRecoverError(data.error || 'Something went wrong. Please try again.')
-      }
-    } catch {
-      setRecoverError('Connection error. Please try again.')
-    } finally {
-      setRecovering(false)
-    }
+  async function handleSaveLabel() {
+    await fetch('/api/vault/label', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, outputId: output.id, label: labelText }),
+    })
+    onLabel(output.id, labelText)
+    setLabeling(false)
   }
 
-  async function handleShare() {
-    if (!session) return
-    setSharing(true)
-    try {
-      const res = await fetch('/api/icp/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setShareUrl(data.data?.shareUrl || data.shareUrl)
-      }
-    } catch {
-      // Non-fatal
-    } finally {
-      setSharing(false)
+  function handleRefine() {
+    if (config?.route) {
+      router.push(`${config.route}?outputId=${output.id}`)
     }
   }
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: customerData } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single()
-
-      if (!customerData) { setLoading(false); return }
-
-      // Get active business
-      const activeBizId = localStorage.getItem('signalshot_active_business')
-      // Fetch session for active business (with fallback)
-      let sessionData = null
-      if (activeBizId) {
-        // First: try to find session by business_id
-        const { data: bizSession } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('business_id', activeBizId)
-          .not('archived', 'is', true)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        // Fall back: if no business session found, try by customer_id
-        // (handles sessions created before business architecture existed)
-        sessionData = bizSession
-        if (!sessionData) {
-          const { data: customerSession } = await supabase
-            .from('sessions')
-            .select('*')
-            .eq('customer_id', customerData.id)
-            .not('archived', 'is', true)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          sessionData = customerSession
-        }
-      } else {
-        const { data } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('customer_id', customerData.id)
-          .not('archived', 'is', true)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        sessionData = data
-      }
-
-      if (sessionData) setSession(sessionData)
-      setLoading(false)
-    }
-    load()
-  }, [router])
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <Loader size={32} className="animate-spin" style={{ color: '#43C6AC' }} />
-      </div>
-    )
-  }
-
-  const hasIcp = !!(session?.icp_html && session.icp_html.length > 0)
-  const sessionNotStarted = !session || session.status === 'not_started'
-  const sessionEarlyInProgress =
-    session?.status === 'in_progress' && (session.phase as number) < 3 && !hasIcp
-
-  // Recovery condition: session complete or past phase 3 but ICP never generated
-  const needsRecovery =
-    !!session &&
-    (session.phase as number) >= 3 &&
-    (session.status === 'completed' || session.status === 'in_progress') &&
-    !hasIcp &&
-    !session.icp_generated_at &&
-    !session.archived
-
-  // Regenerate button: only if session completed/phase>=3, icp_generated_at IS NULL, not archived, and no ICP exists
-  const showRegenerate =
-    !!session &&
-    !hasIcp &&
-    !needsRecovery &&
-    ((session.status === 'completed' || (session.phase as number) >= 3)) &&
-    !session.icp_generated_at &&
-    !session.archived
 
   return (
-    <div className="max-w-6xl">
-      {/* Page header */}
+    <div className="border rounded-2xl overflow-hidden bg-white" style={{ borderColor: '#e5e7eb' }}>
+      <div className="px-5 py-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${config?.color}15` }}>
+            <Icon size={16} style={{ color: config?.color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <p className="text-sm font-bold" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
+                {output.vault_label || config?.label || output.module_type}
+              </p>
+              <span className="text-xs px-2 py-0.5 rounded-md font-medium"
+                style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}>
+                Gen {output.generation_number}
+              </span>
+            </div>
+            {primaryAngle && (
+              <p className="text-xs truncate" style={{ color: '#6b7280' }}>{primaryAngle as string}</p>
+            )}
+            <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>Saved {savedDate}</p>
+          </div>
+        </div>
+        <button onClick={() => setOpen(!open)} className="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">
+          {open ? <ChevronUp size={15} style={{ color: '#9ca3af' }} /> : <ChevronDown size={15} style={{ color: '#9ca3af' }} />}
+        </button>
+      </div>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-4 border-t" style={{ borderColor: '#f3f4f6' }}>
+          {keyDiff && (
+            <div className="pt-4 p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>PRIMARY ANGLE</p>
+              <p className="text-sm" style={{ color: '#374151' }}>{keyDiff as string}</p>
+            </div>
+          )}
+
+          {labeling ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={labelText}
+                onChange={e => setLabelText(e.target.value)}
+                placeholder="e.g. Best performing set, Q2 campaign..."
+                className="flex-1 text-xs px-3 py-2 rounded-lg border outline-none"
+                style={{ borderColor: '#e5e7eb', color: '#374151' }}
+                autoFocus
+              />
+              <button onClick={handleSaveLabel}
+                className="text-xs px-3 py-1.5 rounded-lg text-white font-semibold"
+                style={{ backgroundColor: '#191654' }}>
+                Save
+              </button>
+              <button onClick={() => setLabeling(false)}
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                style={{ color: '#9ca3af' }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={handleRefine}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all"
+                style={{ borderColor: '#191654', color: '#191654' }}>
+                <ExternalLink size={12} /> Refine in module
+              </button>
+              <button onClick={() => setLabeling(true)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all"
+                style={{ borderColor: '#e5e7eb', color: '#6b7280' }}>
+                <Tag size={12} /> {output.vault_label ? 'Edit label' : 'Add label'}
+              </button>
+              <button onClick={handleUnsave}
+                disabled={unsaving}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all disabled:opacity-40 ml-auto"
+                style={{ borderColor: '#fecaca', color: '#dc2626' }}>
+                {unsaving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                Archive
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function SignalVaultPage() {
+  const router = useRouter()
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [vault, setVault] = useState<Record<string, VaultOutput[]>>({})
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('signal_ads')
+
+  useEffect(() => {
+    const id = localStorage.getItem('signalshot_active_business')
+    if (!id) { router.push('/dashboard'); return }
+    setBusinessId(id)
+    fetch(`/api/vault/list?businessId=${id}`)
+      .then(r => r.json())
+      .then(json => {
+        setVault(json.data?.vault || {})
+        // Set active tab to first tab with content
+        const firstWithContent = MODULE_TABS.find(t => (json.data?.vault?.[t]?.length || 0) > 0)
+        if (firstWithContent) setActiveTab(firstWithContent)
+      })
+      .finally(() => setLoading(false))
+  }, [router])
+
+  function handleUnsave(id: string) {
+    setVault(prev => {
+      const updated = { ...prev }
+      for (const key of Object.keys(updated)) {
+        updated[key] = updated[key].filter(o => o.id !== id)
+      }
+      return updated
+    })
+  }
+
+  function handleLabel(id: string, label: string) {
+    setVault(prev => {
+      const updated = { ...prev }
+      for (const key of Object.keys(updated)) {
+        updated[key] = updated[key].map(o => o.id === id ? { ...o, vault_label: label } : o)
+      }
+      return updated
+    })
+  }
+
+  const activeOutputs = vault[activeTab] || []
+
+  return (
+    <div className="w-full">
       <div className="flex items-center gap-4 mb-8">
-        <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: '#191654' }}
-        >
-          <FileText size={26} style={{ color: '#43C6AC' }} />
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#191654' }}>
+          <Vault size={22} style={{ color: '#43C6AC' }} />
         </div>
         <div>
-          <h1
-            className="text-3xl font-bold"
-            style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
-          >
-            SignalVault
-          </h1>
-          <p className="text-sm mt-1" style={{ color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
-            Your saved outputs from every module — organized, persistent, ready to use.
-          </p>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}>SignalVault</h1>
+          <p className="text-sm" style={{ color: '#6b7280' }}>Your saved outputs from every module — organized, persistent, ready to use.</p>
         </div>
       </div>
 
-      {/* Not started */}
-      {sessionNotStarted && (
-        <div
-          className="p-8 rounded-2xl border-2 text-center"
-          style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
-        >
-          <Lock size={40} className="mx-auto mb-4" style={{ color: '#d1d5db' }} />
-          <h2
-            className="text-xl font-semibold mb-2"
-            style={{ fontFamily: 'Playfair Display, serif', color: '#374151' }}
-          >
-            Your deliverables will appear here
-          </h2>
-          <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Complete your SignalMap interview to generate your deliverables.
-          </p>
-          <Link
-            href="/dashboard/alex"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm"
-            style={{ backgroundColor: '#191654' }}
-          >
-            Start Your Session <ArrowRight size={16} />
-          </Link>
-        </div>
-      )}
-
-      {/* Early in-progress */}
-      {sessionEarlyInProgress && (
-        <div
-          className="p-8 rounded-2xl border-2 text-center"
-          style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
-        >
-          <Lock size={40} className="mx-auto mb-4" style={{ color: '#d1d5db' }} />
-          <h2
-            className="text-xl font-semibold mb-2"
-            style={{ fontFamily: 'Playfair Display, serif', color: '#374151' }}
-          >
-            Session in progress
-          </h2>
-          <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            Finish your Alex session to unlock your SignalMap.
-          </p>
-          <Link
-            href="/dashboard/alex"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm"
-            style={{ backgroundColor: '#191654' }}
-          >
-            Resume Session <ArrowRight size={16} />
-          </Link>
-        </div>
-      )}
-
-      {/* Session complete but ICP not generated */}
-      {needsRecovery && (
-        <div
-          className="p-8 rounded-2xl border-2 text-center"
-          style={{ borderColor: '#43C6AC', backgroundColor: 'rgba(67,198,172,0.04)' }}
-        >
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ backgroundColor: '#191654' }}
-          >
-            <FileText size={28} style={{ color: '#43C6AC' }} />
-          </div>
-          <h2
-            className="text-xl font-bold mb-2"
-            style={{ fontFamily: 'Playfair Display, serif', color: '#191654' }}
-          >
-            Your interview is complete.
-          </h2>
-          <p className="text-sm mb-6" style={{ color: '#6b7280' }}>
-            All three phases are saved. Click below to generate your
-            complete ICP document from your interview data.
-          </p>
-          {recoverError && (
-            <p className="text-sm mb-4" style={{ color: '#ef4444' }}>
-              {recoverError}
-            </p>
-          )}
-          <button
-            onClick={handleRecover}
-            disabled={recovering}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold"
-            style={{
-              backgroundColor: recovering ? '#9ca3af' : '#43C6AC',
-              cursor: recovering ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {recovering ? (
-              <>
-                <Loader size={18} className="animate-spin" />
-                Generating your SignalMap... (this takes 30-60 seconds)
-              </>
-            ) : (
-              <>
-                <FileText size={18} />
-                Generate My SignalMap
-              </>
-            )}
-          </button>
-          <p className="text-xs mt-4" style={{ color: '#9ca3af' }}>
-            Uses your complete 3-phase conversation to build your document.
-          </p>
-        </div>
-      )}
-
-      {/* Fallback regenerate */}
-      {showRegenerate && (
-        <div
-          className="p-6 rounded-xl border text-center mb-6"
-          style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}
-        >
-          <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
-            Your interview is complete but your SignalMap document needs to be generated.
-          </p>
-          <button
-            onClick={handleRegenerateICP}
-            disabled={regenerating}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm"
-            style={{ backgroundColor: regenerating ? '#9ca3af' : '#43C6AC' }}
-          >
-            {regenerating ? (
-              <>
-                <Loader size={16} className="animate-spin" />
-                Generating your SignalMap...
-              </>
-            ) : (
-              'Generate My SignalMap'
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* ICP ready */}
-      {hasIcp && session && (
-        <>
-          <div
-            className="rounded-2xl border overflow-hidden"
-            style={{ borderColor: '#e5e7eb', backgroundColor: '#ffffff' }}
-          >
-            <ICPDisplay icpMarkdown={session.icp_html!} sessionId={session.id} />
-          </div>
-
-          {/* Share + Rebuild links */}
-          <div className="flex items-center justify-center gap-6 mt-6">
-            <button
-              onClick={handleShare}
-              disabled={sharing}
-              className="text-xs font-medium flex items-center gap-1"
-              style={{ color: '#43C6AC', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <Share2 size={13} />
-              {sharing ? 'Creating link...' : 'Share with your team →'}
+      {/* Module tabs */}
+      <div className="flex gap-1 mb-6 border-b" style={{ borderColor: '#e5e7eb' }}>
+        {MODULE_TABS.map(tab => {
+          const config = MODULE_CONFIG[tab]
+          const Icon = config.icon
+          const count = vault[tab]?.length || 0
+          const isActive = activeTab === tab
+          return (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all -mb-px"
+              style={{
+                borderBottomColor: isActive ? '#191654' : 'transparent',
+                color: isActive ? '#191654' : '#9ca3af',
+              }}>
+              <Icon size={13} />
+              {config.label}
+              {count > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: isActive ? '#191654' : '#f3f4f6', color: isActive ? '#fff' : '#9ca3af' }}>
+                  {count}
+                </span>
+              )}
             </button>
-            <Link
-              href="/dashboard/alex"
-              className="text-xs"
-              style={{ color: '#9ca3af' }}
-            >
-              Want to rebuild your ICP? Go to your SignalMap Interview →
-            </Link>
-          </div>
+          )
+        })}
+      </div>
 
-          {/* Share modal */}
-          {shareUrl && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold" style={{ color: '#191654' }}>
-                    Share Your SignalMap
-                  </h3>
-                  <button
-                    onClick={() => { setShareUrl(null); setShareCopied(false) }}
-                    className="p-1 rounded hover:bg-gray-100"
-                  >
-                    <X size={18} style={{ color: '#9ca3af' }} />
-                  </button>
-                </div>
-                <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
-                  Anyone with this link can view your ICP document. Link expires in 30 days.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={shareUrl}
-                    readOnly
-                    className="flex-1 px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: '#e5e7eb', color: '#374151' }}
-                  />
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareUrl)
-                      setShareCopied(true)
-                      setTimeout(() => setShareCopied(false), 2000)
-                    }}
-                    className="px-3 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-1"
-                    style={{ backgroundColor: '#43C6AC' }}
-                  >
-                    {shareCopied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center gap-2 py-12 justify-center">
+          <Loader size={18} className="animate-spin" style={{ color: '#43C6AC' }} />
+          <p className="text-sm" style={{ color: '#9ca3af' }}>Loading your vault…</p>
+        </div>
+      ) : activeOutputs.length === 0 ? (
+        <div className="py-16 text-center">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ backgroundColor: 'rgba(67,198,172,0.08)' }}>
+            <Vault size={22} style={{ color: '#43C6AC' }} />
+          </div>
+          <p className="text-sm font-semibold mb-1" style={{ color: '#374151' }}>Nothing saved here yet</p>
+          <p className="text-xs" style={{ color: '#9ca3af' }}>
+            Click &quot;Save to SignalVault&quot; in any module, or give a generation a thumbs up — it&apos;ll appear here automatically.
+          </p>
+          <button
+            onClick={() => router.push(MODULE_CONFIG[activeTab]?.route || '/dashboard')}
+            className="mt-4 text-xs font-semibold px-4 py-2 rounded-lg"
+            style={{ backgroundColor: '#191654', color: '#fff' }}>
+            Go to {MODULE_CONFIG[activeTab]?.label}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {businessId && activeOutputs.map(output => (
+            <VaultCard
+              key={output.id}
+              output={output}
+              businessId={businessId}
+              onUnsave={handleUnsave}
+              onLabel={handleLabel}
+            />
+          ))}
+        </div>
       )}
     </div>
   )
