@@ -65,6 +65,13 @@ const REJECTION_REASONS = [
   'Too salesy',
 ]
 
+const FIELD_REASONS: Record<string, string[]> = {
+  subject: ['Bad hook', 'Too vague', 'Too long', 'Clickbait-y', 'Wrong angle', 'Not specific enough'],
+  preview: ['Repeats subject', 'Too vague', "Doesn't add intrigue", 'Too long', 'Missing curiosity gap'],
+  body: ['Wrong tone', 'Too salesy', 'Too long', 'Too generic', 'Missing proof', 'Weak opening', 'Loses momentum'],
+  cta: ['Too vague', 'Too pushy', 'Wrong next step', 'Missing urgency', 'Not specific enough'],
+}
+
 const GENERATING_STEPS = [
   { label: 'Reading your SignalMap Interview Data', duration: 3000 },
   { label: 'Checking CustomerSignals Data', duration: 3000 },
@@ -334,8 +341,76 @@ function EmailFeedbackWidget({
   )
 }
 
+function FieldFlagButton({
+  fieldKey,
+  emailNumber,
+  fieldFeedback,
+  onFlag,
+}: {
+  fieldKey: string
+  emailNumber: number
+  fieldFeedback: Record<string, string[]>
+  onFlag: (emailNumber: number, fieldKey: string, reasons: string[]) => void
+}) {
+  const key = `${emailNumber}_${fieldKey}`
+  const existing = fieldFeedback[key]
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+
+  if (existing) {
+    return (
+      <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
+        style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+        <ThumbsDown size={10} /> Flagged
+      </span>
+    )
+  }
+
+  if (open) {
+    return (
+      <div className="mt-2 w-full">
+        <div className="p-3 rounded-xl border" style={{ borderColor: '#fecaca', backgroundColor: '#fef2f2' }}>
+          <p className="text-xs font-bold mb-2" style={{ color: '#dc2626' }}>What's wrong with this?</p>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {(FIELD_REASONS[fieldKey] || []).map(r => (
+              <button key={r} onClick={() => setSelected(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
+                className="text-xs px-2 py-1 rounded-md border font-medium transition-all"
+                style={{
+                  borderColor: selected.includes(r) ? '#dc2626' : '#fecaca',
+                  backgroundColor: selected.includes(r) ? '#dc2626' : '#fff',
+                  color: selected.includes(r) ? '#fff' : '#dc2626',
+                }}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { onFlag(emailNumber, fieldKey, selected); setOpen(false) }}
+              className="text-xs px-3 py-1 rounded-lg text-white font-semibold"
+              style={{ backgroundColor: '#dc2626' }}>
+              Flag this
+            </button>
+            <button onClick={() => setOpen(false)} className="text-xs px-3 py-1 rounded-lg font-semibold" style={{ color: '#9ca3af' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button onClick={() => setOpen(true)}
+      className="p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+      title="Flag this field">
+      <ThumbsDown size={11} style={{ color: '#d1d5db' }} />
+    </button>
+  )
+}
+
 function EmailCard({
-  email, emailFeedback, onRate, esp, businessId, totalEmails,
+  email, emailFeedback, onRate, esp, businessId, totalEmails, fieldFeedback, onFieldFlag,
 }: {
   email: Email
   emailFeedback: Record<number, EmailFeedbackItem>
@@ -343,6 +418,8 @@ function EmailCard({
   esp: string
   businessId: string
   totalEmails: number
+  fieldFeedback: Record<string, string[]>
+  onFieldFlag: (emailNumber: number, fieldKey: string, reasons: string[]) => void
 }) {
   const [open, setOpen] = useState(email.emailNumber === 1)
   const [previewSending, setPreviewSending] = useState(false)
@@ -428,17 +505,26 @@ function EmailCard({
                 <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>SUBJECT LINE</p>
                 <p className="text-sm font-semibold" style={{ color: '#191654' }}>{email.subjectLine}</p>
               </div>
-              <CopyButton text={transformedSubject} />
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <FieldFlagButton fieldKey="subject" emailNumber={email.emailNumber} fieldFeedback={fieldFeedback} onFlag={onFieldFlag} />
+                <CopyButton text={transformedSubject} />
+              </div>
             </div>
             <div className="border-t pt-3" style={{ borderColor: '#e5e7eb' }}>
-              <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>PREVIEW TEXT</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-bold" style={{ color: '#9ca3af' }}>PREVIEW TEXT</p>
+                <FieldFlagButton fieldKey="preview" emailNumber={email.emailNumber} fieldFeedback={fieldFeedback} onFlag={onFieldFlag} />
+              </div>
               <p className="text-sm" style={{ color: '#374151' }}>{email.previewText}</p>
             </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold" style={{ color: '#9ca3af' }}>EMAIL BODY</p>
-              <CopyButton text={transformedBody} />
+              <div className="flex items-center gap-1.5">
+                <FieldFlagButton fieldKey="body" emailNumber={email.emailNumber} fieldFeedback={fieldFeedback} onFlag={onFieldFlag} />
+                <CopyButton text={transformedBody} />
+              </div>
             </div>
             <div className="p-4 rounded-xl" style={{ border: '1px solid #e5e7eb' }}>
               <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#374151' }}>{email.body}</p>
@@ -449,7 +535,10 @@ function EmailCard({
               <p className="text-xs font-bold mb-0.5" style={{ color: '#43C6AC' }}>CALL TO ACTION</p>
               <p className="text-sm font-semibold" style={{ color: '#191654' }}>{email.cta}</p>
             </div>
-            <CopyButton text={transformedCta} />
+            <div className="flex items-center gap-1.5">
+              <FieldFlagButton fieldKey="cta" emailNumber={email.emailNumber} fieldFeedback={fieldFeedback} onFlag={onFieldFlag} />
+              <CopyButton text={transformedCta} />
+            </div>
           </div>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
@@ -565,6 +654,7 @@ function SignalSequencesModule() {
   const [error, setError] = useState<string | null>(null)
   const [generationNumber, setGenerationNumber] = useState(1)
   const [emailFeedback, setEmailFeedback] = useState<Record<number, EmailFeedbackItem>>({})
+  const [fieldFeedback, setFieldFeedback] = useState<Record<string, string[]>>({})
   const [feedbackSaving, setFeedbackSaving] = useState(false)
   const [overallFeedbackMode, setOverallFeedbackMode] = useState<'idle' | 'thumbsdown'>('idle')
   const [overallFeedbackText, setOverallFeedbackText] = useState('')
@@ -578,6 +668,11 @@ function SignalSequencesModule() {
   }, [router])
 
   function isFormValid() { return !!sequenceType && !!tone }
+
+  function handleFieldFlag(emailNumber: number, fieldKey: string, reasons: string[]) {
+    const key = `${emailNumber}_${fieldKey}`
+    setFieldFeedback(prev => ({ ...prev, [key]: reasons }))
+  }
 
   function handleEmailRate(item: EmailFeedbackItem) {
     setEmailFeedback(prev => ({ ...prev, [item.emailNumber]: item }))
@@ -618,11 +713,23 @@ function SignalSequencesModule() {
   async function handleRegenerate() {
     if (generationNumber >= 3) return
     setFeedbackSaving(true)
+
+    // Email-level flags
     const flagged = Object.values(emailFeedback).filter(f => f.rating === -1)
-    const flaggedSummary = flagged.length > 0
+    const emailFlagSummary = flagged.length > 0
       ? `USER FLAGGED ${flagged.length} EMAILS AS NOT WORKING:\n` + flagged.map(f => `- Email ${f.emailNumber} "${f.contentText.slice(0, 60)}" — reasons: ${f.reasons.join(', ') || 'no reason given'}`).join('\n')
       : ''
-    const combinedFeedback = [overallFeedbackText, flaggedSummary].filter(Boolean).join('\n\n')
+
+    // Field-level flags
+    const fieldEntries = Object.entries(fieldFeedback)
+    const fieldFlagSummary = fieldEntries.length > 0
+      ? `FIELD-LEVEL FLAGS (fix these specific elements):\n` + fieldEntries.map(([key, reasons]) => {
+          const [emailNum, field] = key.split('_')
+          return `- Email ${emailNum} ${field.toUpperCase()}: ${reasons.length > 0 ? reasons.join(', ') : 'flagged as not working'}`
+        }).join('\n')
+      : ''
+
+    const combinedFeedback = [overallFeedbackText, emailFlagSummary, fieldFlagSummary].filter(Boolean).join('\n\n')
     setFeedbackSaving(false)
     setGenerationNumber(n => n + 1)
     await generate(combinedFeedback || undefined)
@@ -741,7 +848,7 @@ function SignalSequencesModule() {
 
       {sequence.strategySignals && <StrategySignalsBlock ss={sequence.strategySignals} />}
       {sequence.emails?.map(email => (
-        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} esp={esp} businessId={businessId || ''} totalEmails={sequence.emails?.length || 5} />
+        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} esp={esp} businessId={businessId || ''} totalEmails={sequence.emails?.length || 5} fieldFeedback={fieldFeedback} onFieldFlag={handleFieldFlag} />
       ))}
 
       <div className="p-5 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>
