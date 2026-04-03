@@ -864,7 +864,7 @@ function SignalSequencesModule() {
                 <ThumbsDown size={12} /> {flaggedCount} email{flaggedCount > 1 ? 's' : ''} already flagged — included in regeneration context automatically.
               </div>
             )}
-            <textarea rows={3} placeholder="e.g. 'The tone feels too formal. Lead heavier with the pain — they're not ready for solutions this early.'"
+            <textarea rows={3} placeholder="e.g. &apos;The tone feels too formal. Lead heavier with the pain — they&apos;re not ready for solutions this early.&apos;"
               value={overallFeedbackText} onChange={e => setOverallFeedbackText(e.target.value)}
               className="w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none mb-3" style={{ borderColor: '#e5e7eb', color: '#374151' }} />
             <div className="flex items-center gap-2 flex-wrap">
