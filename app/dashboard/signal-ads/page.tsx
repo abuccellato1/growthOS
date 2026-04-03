@@ -331,6 +331,7 @@ function AdPackModule() {
   const [overallFeedbackText, setOverallFeedbackText] = useState('')
   const [overallFeedbackDone, setOverallFeedbackDone] = useState(false)
   const [overallSubmitting, setOverallSubmitting] = useState(false)
+  const [noraResearchCount, setNoraResearchCount] = useState(0)
   const [vaultSaved, setVaultSaved] = useState(false)
   const [vaultSaving, setVaultSaving] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -358,6 +359,16 @@ function AdPackModule() {
           setStage('results')
         }
       })
+
+    fetch(`/api/nora/sessions?businessId=${id}`)
+      .then(r => r.json())
+      .then(json => {
+        const saved = (json.data?.sessions || []).filter(
+          (s: { vault_saved: boolean }) => s.vault_saved
+        )
+        setNoraResearchCount(saved.length)
+      })
+      .catch(() => null)
   }, [router])
 
   function togglePlatform(p: string) {
@@ -595,6 +606,15 @@ function AdPackModule() {
               value={form.previousAttempts} onChange={e => setForm(f => ({ ...f, previousAttempts: e.target.value }))}
               className="w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none" style={{ borderColor: '#e5e7eb', color: '#374151' }} />
           </div>
+          {noraResearchCount > 0 && (
+            <div className="flex items-center gap-3 p-3 rounded-xl"
+              style={{ backgroundColor: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <Sparkles size={14} style={{ color: '#6366f1', flexShrink: 0 }} />
+              <p className="text-xs" style={{ color: '#4f46e5' }}>
+                <strong>Nora has {noraResearchCount} saved research {noraResearchCount === 1 ? 'file' : 'files'}</strong> — Jaimie will reference them automatically.
+              </p>
+            </div>
+          )}
           <button onClick={() => generate()} disabled={!isFormValid()}
             className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-opacity"
             style={{ backgroundColor: isFormValid() ? '#191654' : '#d1d5db', cursor: isFormValid() ? 'pointer' : 'not-allowed' }}>
