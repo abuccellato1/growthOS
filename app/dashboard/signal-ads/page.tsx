@@ -7,8 +7,9 @@ import AdPackSalesPage from '@/components/modules/AdPackSalesPage'
 import CopyButton from '@/components/CopyButton'
 import {
   Target, ChevronDown, ChevronUp, Plus, Trash2,
-  RefreshCw, ThumbsUp, ThumbsDown, AlertCircle, Loader, CheckCircle, Bookmark
+  RefreshCw, ThumbsUp, ThumbsDown, AlertCircle, Loader, CheckCircle, Bookmark, Sparkles
 } from 'lucide-react'
+import AgentChatPanel from '@/components/AgentChatPanel'
 import { createClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -332,6 +333,7 @@ function AdPackModule() {
   const [overallSubmitting, setOverallSubmitting] = useState(false)
   const [vaultSaved, setVaultSaved] = useState(false)
   const [vaultSaving, setVaultSaving] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
@@ -397,6 +399,32 @@ function AdPackModule() {
       setStage('results')
       setOverallFeedbackMode('idle'); setOverallFeedbackText(''); setOverallFeedbackDone(false)
     } catch { setError('Network error — please try again'); setStage('form') }
+  }
+
+  function handleAgentPatch(target: string, value: string) {
+    setAds(prev => {
+      if (!prev) return prev
+      const updated = { ...prev } as Record<string, unknown>
+      const parts = target.split('_')
+      if (parts.length >= 3) {
+        const [section, subsection, indexStr, field] = parts
+        const sectionData = updated[section] as Record<string, unknown>
+        if (sectionData && Array.isArray(sectionData[subsection])) {
+          const arr = [...(sectionData[subsection] as Record<string, unknown>[])]
+          const idx = parseInt(indexStr)
+          if (!isNaN(idx) && arr[idx]) {
+            arr[idx] = { ...arr[idx], [field || 'text']: value }
+            updated[section] = { ...sectionData, [subsection]: arr }
+          }
+        }
+      }
+      if (parts[0] === 'strategySignals' && updated.strategySignals) {
+        const ss = { ...(updated.strategySignals as Record<string, unknown>) }
+        ss[parts[1]] = value
+        updated.strategySignals = ss
+      }
+      return updated as typeof prev
+    })
   }
 
   async function handleVaultSave() {
@@ -592,6 +620,12 @@ function AdPackModule() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{ backgroundColor: '#ef4444', color: '#fff' }}>
+            <Sparkles size={13} /> Refine with Jaimie
+          </button>
           <button onClick={handleVaultSave} disabled={vaultSaving || vaultSaved}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all disabled:opacity-60"
             style={{ borderColor: vaultSaved ? '#43C6AC' : '#e5e7eb', backgroundColor: vaultSaved ? 'rgba(67,198,172,0.08)' : '#fff', color: vaultSaved ? '#43C6AC' : '#6b7280' }}>
@@ -824,6 +858,17 @@ function AdPackModule() {
         submitOverallFeedback={submitOverallFeedback}
         setOverallFeedbackDone={setOverallFeedbackDone}
         handleRegenerate={handleRegenerate}
+      />
+      <AgentChatPanel
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        moduleType="signal_ads"
+        agentName="Jaimie"
+        agentTagline="Performance ad specialist"
+        businessId={businessId || ''}
+        outputId={outputId || ''}
+        currentOutput={ads as unknown as Record<string, unknown>}
+        onPatch={handleAgentPatch}
       />
     </div>
   )
