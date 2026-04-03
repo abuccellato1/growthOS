@@ -73,6 +73,63 @@ const GENERATING_STEPS = [
   { label: 'Writing your 5-email sequence', duration: 6000 },
 ]
 
+const ESP_OPTIONS = [
+  { value: 'none', label: 'None / Plain text' },
+  { value: 'mailchimp', label: 'Mailchimp' },
+  { value: 'klaviyo', label: 'Klaviyo' },
+  { value: 'activecampaign', label: 'ActiveCampaign' },
+  { value: 'kit', label: 'Kit (ConvertKit)' },
+  { value: 'constantcontact', label: 'Constant Contact' },
+]
+
+const MERGE_VAR_MAP: Record<string, Record<string, string>> = {
+  mailchimp: {
+    '[First Name]': '*|FNAME|*',
+    '[Last Name]': '*|LNAME|*',
+    '[Company]': '*|COMPANY|*',
+    '[Email]': '*|EMAIL|*',
+    '[Business Name]': '*|COMPANY|*',
+  },
+  klaviyo: {
+    '[First Name]': '{{ first_name }}',
+    '[Last Name]': '{{ last_name }}',
+    '[Company]': '{{ company }}',
+    '[Email]': '{{ email }}',
+    '[Business Name]': '{{ company }}',
+  },
+  activecampaign: {
+    '[First Name]': '%FIRSTNAME%',
+    '[Last Name]': '%LASTNAME%',
+    '[Company]': '%ORGNAME%',
+    '[Email]': '%EMAIL%',
+    '[Business Name]': '%ORGNAME%',
+  },
+  kit: {
+    '[First Name]': '{{ subscriber.first_name }}',
+    '[Last Name]': '{{ subscriber.last_name }}',
+    '[Company]': '{{ subscriber.organization }}',
+    '[Email]': '{{ subscriber.email_address }}',
+    '[Business Name]': '{{ subscriber.organization }}',
+  },
+  constantcontact: {
+    '[First Name]': '{{FIRSTNAME}}',
+    '[Last Name]': '{{LASTNAME}}',
+    '[Company]': '{{COMPANYNAME}}',
+    '[Email]': '{{EMAIL}}',
+    '[Business Name]': '{{COMPANYNAME}}',
+  },
+}
+
+function transformMergeVars(text: string, esp: string): string {
+  if (esp === 'none' || !MERGE_VAR_MAP[esp]) return text
+  let result = text
+  const map = MERGE_VAR_MAP[esp]
+  Object.entries(map).forEach(([placeholder, tag]) => {
+    result = result.replaceAll(placeholder, tag)
+  })
+  return result
+}
+
 function GeneratingScreen({ generationNumber }: { generationNumber: number }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
@@ -234,14 +291,48 @@ function EmailFeedbackWidget({
 }
 
 function EmailCard({
-  email, emailFeedback, onRate,
+  email, emailFeedback, onRate, esp, businessId, totalEmails,
 }: {
   email: Email
   emailFeedback: Record<number, EmailFeedbackItem>
   onRate: (item: EmailFeedbackItem) => void
+  esp: string
+  businessId: string
+  totalEmails: number
 }) {
   const [open, setOpen] = useState(email.emailNumber === 1)
-  const fullEmailText = `Subject: ${email.subjectLine}\nPreview: ${email.previewText}\n\n${email.body}\n\nCTA: ${email.cta}`
+  const [previewSending, setPreviewSending] = useState(false)
+  const [previewSent, setPreviewSent] = useState(false)
+  const [previewError, setPreviewError] = useState(false)
+
+  const transformedBody = transformMergeVars(email.body, esp)
+  const transformedSubject = transformMergeVars(email.subjectLine, esp)
+  const transformedCta = transformMergeVars(email.cta, esp)
+  const fullEmailText = `Subject: ${transformedSubject}\nPreview: ${email.previewText}\n\n${transformedBody}\n\nCTA: ${transformedCta}`
+
+  async function handleSendPreview() {
+    setPreviewSending(true)
+    setPreviewError(false)
+    try {
+      const res = await fetch('/api/signal-sequences/send-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId,
+          emailNumber: email.emailNumber,
+          totalEmails,
+          subjectLine: transformedSubject,
+          previewText: email.previewText,
+          bodyText: transformedBody,
+          cta: transformedCta,
+          ctaUrl: email.ctaUrl,
+          title: email.title,
+        }),
+      })
+      if (res.ok) { setPreviewSent(true) } else { setPreviewError(true) }
+    } catch { setPreviewError(true) }
+    setPreviewSending(false)
+  }
 
   return (
     <div className="border rounded-2xl overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
@@ -293,7 +384,7 @@ function EmailCard({
                 <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>SUBJECT LINE</p>
                 <p className="text-sm font-semibold" style={{ color: '#191654' }}>{email.subjectLine}</p>
               </div>
-              <CopyButton text={email.subjectLine} />
+              <CopyButton text={transformedSubject} />
             </div>
             <div className="border-t pt-3" style={{ borderColor: '#e5e7eb' }}>
               <p className="text-xs font-bold mb-1" style={{ color: '#9ca3af' }}>PREVIEW TEXT</p>
@@ -303,7 +394,7 @@ function EmailCard({
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold" style={{ color: '#9ca3af' }}>EMAIL BODY</p>
-              <CopyButton text={email.body} />
+              <CopyButton text={transformedBody} />
             </div>
             <div className="p-4 rounded-xl" style={{ border: '1px solid #e5e7eb' }}>
               <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#374151' }}>{email.body}</p>
@@ -314,9 +405,32 @@ function EmailCard({
               <p className="text-xs font-bold mb-0.5" style={{ color: '#43C6AC' }}>CALL TO ACTION</p>
               <p className="text-sm font-semibold" style={{ color: '#191654' }}>{email.cta}</p>
             </div>
-            <CopyButton text={email.cta} />
+            <CopyButton text={transformedCta} />
           </div>
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSendPreview}
+                disabled={previewSending || previewSent}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60"
+                style={{
+                  borderColor: previewSent ? '#43C6AC' : '#e5e7eb',
+                  backgroundColor: previewSent ? 'rgba(67,198,172,0.08)' : '#fff',
+                  color: previewSent ? '#43C6AC' : '#6b7280',
+                }}>
+                {previewSending ? (
+                  <div className="w-3 h-3 rounded-full border-2 animate-spin" style={{ borderColor: '#9ca3af', borderTopColor: 'transparent' }} />
+                ) : previewSent ? (
+                  <CheckCircle size={13} />
+                ) : (
+                  <Mail size={13} />
+                )}
+                {previewSending ? 'Sending…' : previewSent ? 'Sent to your inbox' : 'Preview in inbox'}
+              </button>
+              {previewError && (
+                <p className="text-xs" style={{ color: '#ef4444' }}>Send failed — try again</p>
+              )}
+            </div>
             <CopyButton text={fullEmailText} variant="button" label="Copy full email" />
           </div>
         </div>
@@ -401,6 +515,7 @@ function SignalSequencesModule() {
   const [sequenceType, setSequenceType] = useState('')
   const [tone, setTone] = useState('')
   const [topicsToAvoid, setTopicsToAvoid] = useState('')
+  const [esp, setEsp] = useState('none')
   const [stage, setStage] = useState<'form' | 'generating' | 'results'>('form')
   const [sequence, setSequence] = useState<SequenceOutput | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -435,7 +550,7 @@ function SignalSequencesModule() {
     try {
       const res = await fetch('/api/signal-sequences/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId, sequenceType, tone, topicsToAvoid, regenerationFeedback: regenFeedback || undefined, generationNumber }),
+        body: JSON.stringify({ businessId, sequenceType, tone, topicsToAvoid, esp, regenerationFeedback: regenFeedback || undefined, generationNumber }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error || 'Generation failed'); setStage('form'); return }
@@ -522,6 +637,29 @@ function SignalSequencesModule() {
               value={topicsToAvoid} onChange={e => setTopicsToAvoid(e.target.value)}
               className="w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none" style={{ borderColor: '#e5e7eb', color: '#374151' }} />
           </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: '#374151' }}>
+              Email Platform <span className="font-normal text-gray-400">(optional — formats merge tags for your ESP)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {ESP_OPTIONS.map(opt => (
+                <button key={opt.value} onClick={() => setEsp(opt.value)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                  style={{
+                    borderColor: esp === opt.value ? '#43C6AC' : '#e5e7eb',
+                    backgroundColor: esp === opt.value ? 'rgba(67,198,172,0.1)' : '#fff',
+                    color: esp === opt.value ? '#191654' : '#6b7280',
+                  }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {esp !== 'none' && (
+              <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>
+                Merge tags like [First Name] will auto-convert to {ESP_OPTIONS.find(o => o.value === esp)?.label} syntax when you copy.
+              </p>
+            )}
+          </div>
           <button onClick={() => generate()} disabled={!isFormValid()}
             className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-opacity"
             style={{ backgroundColor: isFormValid() ? '#191654' : '#d1d5db', cursor: isFormValid() ? 'pointer' : 'not-allowed' }}>
@@ -559,7 +697,7 @@ function SignalSequencesModule() {
 
       {sequence.strategySignals && <StrategySignalsBlock ss={sequence.strategySignals} />}
       {sequence.emails?.map(email => (
-        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} />
+        <EmailCard key={email.emailNumber} email={email} emailFeedback={emailFeedback} onRate={handleEmailRate} esp={esp} businessId={businessId || ''} totalEmails={sequence.emails?.length || 5} />
       ))}
 
       <div className="p-5 rounded-2xl border" style={{ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }}>

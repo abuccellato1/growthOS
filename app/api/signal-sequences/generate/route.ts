@@ -16,12 +16,13 @@ export async function POST(request: Request) {
     sequenceType: string
     tone: string
     topicsToAvoid: string
+    esp?: string
     regenerationFeedback?: string
     generationNumber?: number
   }
   try { body = await request.json() } catch { return apiError('Invalid body', 400, 'INVALID_BODY') }
 
-  const { businessId, sequenceType, tone, topicsToAvoid, regenerationFeedback, generationNumber } = body
+  const { businessId, sequenceType, tone, topicsToAvoid, esp, regenerationFeedback, generationNumber } = body
   if (!businessId || !sequenceType || !tone) {
     return apiError('Missing required fields', 400, 'VALIDATION_ERROR')
   }
@@ -205,7 +206,7 @@ Generate exactly 5 emails. Body should be full email copy (150-300 words), ready
     session_id: context.session?.id || null,
     module_type: 'signal_sequences',
     generation_number: generationNumber || 1,
-    form_inputs: { sequenceType, tone, topicsToAvoid, regenerationFeedback: regenerationFeedback || null },
+    form_inputs: { sequenceType, tone, topicsToAvoid, esp: esp || 'none', regenerationFeedback: regenerationFeedback || null },
     input_snapshot: { sequenceContext: sequenceContext.slice(0, 5000) },
     output_data: parsedSequence,
     status: 'complete',
