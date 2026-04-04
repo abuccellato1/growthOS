@@ -69,6 +69,190 @@ function EditInput({ label, value, onChange, placeholder, hint }: EditField) {
   )
 }
 
+function AccountSecuritySection() {
+  const [emailInput, setEmailInput] = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  async function handleChangeEmail() {
+    if (!emailInput.trim() || !emailInput.includes('@')) {
+      setEmailMessage({ type: 'error', text: 'Please enter a valid email address.' })
+      return
+    }
+    setEmailSending(true)
+    setEmailMessage(null)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ email: emailInput.trim() })
+    if (error) {
+      setEmailMessage({ type: 'error', text: error.message })
+    } else {
+      setEmailMessage({
+        type: 'success',
+        text: 'Confirmation sent to your new email address. Click the link to confirm the change.',
+      })
+      setEmailInput('')
+    }
+    setEmailSending(false)
+  }
+
+  async function handleChangePassword() {
+    if (!newPassword || newPassword.length < 8) {
+      setPasswordMessage({ type: 'error', text: 'Password must be at least 8 characters.' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'Passwords do not match.' })
+      return
+    }
+    setPasswordSaving(true)
+    setPasswordMessage(null)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) {
+      setPasswordMessage({ type: 'error', text: error.message })
+    } else {
+      setPasswordMessage({ type: 'success', text: 'Password updated successfully.' })
+      setNewPassword('')
+      setConfirmPassword('')
+    }
+    setPasswordSaving(false)
+  }
+
+  async function handlePasswordResetEmail() {
+    setEmailSending(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.email) {
+      await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/dashboard/account`,
+      })
+      setPasswordMessage({
+        type: 'success',
+        text: `Password reset link sent to ${user.email}. Check your inbox.`,
+      })
+    }
+    setEmailSending(false)
+  }
+
+  return (
+    <div className="space-y-6 mt-8">
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
+        <div className="px-6 py-4 border-b" style={{ borderColor: '#f3f4f6', backgroundColor: '#fafafa' }}>
+          <p className="text-sm font-bold" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
+            Change Email
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+            A confirmation link will be sent to your new address.
+          </p>
+        </div>
+        <div className="p-6 space-y-3">
+          <div>
+            <label className="block text-xs font-bold mb-1.5" style={{ color: '#374151' }}>
+              New Email Address
+            </label>
+            <input
+              type="email"
+              value={emailInput}
+              onChange={e => { setEmailInput(e.target.value); setEmailMessage(null) }}
+              placeholder="new@email.com"
+              className="w-full text-sm px-3 py-2.5 rounded-lg border outline-none"
+              style={{ borderColor: '#e5e7eb', color: '#374151', maxWidth: '400px', display: 'block' }}
+            />
+          </div>
+          {emailMessage && (
+            <p className="text-xs font-medium"
+              style={{ color: emailMessage.type === 'success' ? '#43C6AC' : '#ef4444' }}>
+              {emailMessage.text}
+            </p>
+          )}
+          <button
+            onClick={handleChangeEmail}
+            disabled={emailSending || !emailInput.trim()}
+            className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg text-white disabled:opacity-40"
+            style={{ backgroundColor: '#191654' }}>
+            {emailSending ? (
+              <div className="w-3 h-3 rounded-full border-2 animate-spin"
+                style={{ borderColor: '#fff', borderTopColor: 'transparent' }} />
+            ) : null}
+            {emailSending ? 'Sending\u2026' : 'Send confirmation'}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
+        <div className="px-6 py-4 border-b" style={{ borderColor: '#f3f4f6', backgroundColor: '#fafafa' }}>
+          <p className="text-sm font-bold" style={{ color: '#191654', fontFamily: 'Playfair Display, serif' }}>
+            Change Password
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+            Minimum 8 characters.
+          </p>
+        </div>
+        <div className="p-6 space-y-3">
+          <div className="space-y-3" style={{ maxWidth: '400px' }}>
+            <div>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: '#374151' }}>
+                New Password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => { setNewPassword(e.target.value); setPasswordMessage(null) }}
+                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                className="w-full text-sm px-3 py-2.5 rounded-lg border outline-none"
+                style={{ borderColor: '#e5e7eb', color: '#374151' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: '#374151' }}>
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setPasswordMessage(null) }}
+                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                className="w-full text-sm px-3 py-2.5 rounded-lg border outline-none"
+                style={{ borderColor: '#e5e7eb', color: '#374151' }}
+              />
+            </div>
+          </div>
+          {passwordMessage && (
+            <p className="text-xs font-medium"
+              style={{ color: passwordMessage.type === 'success' ? '#43C6AC' : '#ef4444' }}>
+              {passwordMessage.text}
+            </p>
+          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleChangePassword}
+              disabled={passwordSaving || !newPassword || !confirmPassword}
+              className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg text-white disabled:opacity-40"
+              style={{ backgroundColor: '#191654' }}>
+              {passwordSaving ? (
+                <div className="w-3 h-3 rounded-full border-2 animate-spin"
+                  style={{ borderColor: '#fff', borderTopColor: 'transparent' }} />
+              ) : null}
+              {passwordSaving ? 'Updating\u2026' : 'Update password'}
+            </button>
+            <button
+              onClick={handlePasswordResetEmail}
+              className="text-xs font-semibold"
+              style={{ color: '#9ca3af' }}>
+              Send reset link to my email instead \u2192
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AccountPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
@@ -420,6 +604,8 @@ export default function AccountPage() {
           </div>
         )}
       </div>
+
+      <AccountSecuritySection />
     </div>
   )
 }

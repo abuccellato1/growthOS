@@ -25,6 +25,8 @@ import {
   Wand2,
   Vault,
   FlaskConical,
+  Settings,
+  ChevronRight,
 } from 'lucide-react'
 
 interface NavItem {
@@ -43,11 +45,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'SignalBoard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'BusinessSignals', href: '/dashboard/business-signals', icon: Building2 },
-      { label: 'CustomerSignals', href: '/dashboard/voice-of-customer', icon: Mic },
-      { label: 'Brand Voice', href: '/dashboard/brand-voice', icon: Wand2 },
       { label: 'SignalVault', href: '/dashboard/signal-vault', icon: Vault },
-      { label: 'Account', href: '/dashboard/account', icon: User },
     ],
   },
   {
@@ -69,11 +67,19 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
+const SETTINGS_ITEMS = [
+  { label: 'BusinessSignals', href: '/dashboard/business-signals', icon: Building2 },
+  { label: 'CustomerSignals', href: '/dashboard/voice-of-customer', icon: Mic },
+  { label: 'Brand Voice', href: '/dashboard/brand-voice', icon: Wand2 },
+  { label: 'Account', href: '/dashboard/account', icon: User },
+]
+
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [alexComplete, setAlexComplete] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null)
   const [showBusinessMenu, setShowBusinessMenu] = useState(false)
@@ -345,17 +351,72 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           ))}
         </nav>
 
-        <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-all"
-            style={{ color: 'rgba(255,255,255,0.6)' }}
-            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)' }}
-            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-          >
-            <LogOut size={18} />
-            <span className="text-sm font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>Sign out</span>
-          </button>
+        <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+          {showSettings && (
+            <div className="mx-2 mb-2 rounded-xl overflow-hidden"
+              style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              {SETTINGS_ITEMS.map(item => {
+                const Icon = item.icon
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => { setMobileOpen(false); setShowSettings(false) }}
+                    className="flex items-center gap-3 px-4 py-2.5 transition-all"
+                    style={{
+                      backgroundColor: isActive ? 'rgba(67,198,172,0.15)' : 'transparent',
+                      borderLeft: isActive ? '3px solid #43C6AC' : '3px solid transparent',
+                    }}>
+                    <Icon size={15} style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.6)', flexShrink: 0 }} />
+                    <span className="text-xs font-medium"
+                      style={{ color: isActive ? '#43C6AC' : 'rgba(255,255,255,0.7)', fontFamily: 'DM Sans, sans-serif' }}>
+                      {item.label}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 px-3 py-3">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg transition-all"
+              style={{
+                backgroundColor: showSettings ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: showSettings ? '#fff' : 'rgba(255,255,255,0.6)',
+              }}>
+              <Settings size={16} />
+              <span className="text-xs font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                Settings
+              </span>
+              <ChevronRight
+                size={13}
+                className="ml-auto transition-transform"
+                style={{
+                  transform: showSettings ? 'rotate(90deg)' : 'rotate(0deg)',
+                  color: 'rgba(255,255,255,0.4)',
+                }}
+              />
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg transition-all"
+              style={{ color: 'rgba(255,255,255,0.5)' }}
+              title="Sign out"
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'
+                e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
+              }}
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.color = 'rgba(255,255,255,0.5)'
+              }}>
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </div>
     )
