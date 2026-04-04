@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, Send, Loader, Paperclip, Link as LinkIcon,
-  Sparkles, Plus, Vault, CheckCircle,
+  Plus, Vault, CheckCircle,
   ChevronRight, X, FileText, Globe
 } from 'lucide-react'
 

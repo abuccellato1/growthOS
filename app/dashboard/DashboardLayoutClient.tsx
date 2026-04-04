@@ -9,7 +9,6 @@ import { Customer, Purchase, Business } from '@/types'
 import {
   LayoutDashboard,
   MessageSquare,
-  FileText,
   Building2,
   Target,
   Share2,
