@@ -135,6 +135,7 @@ export default function SignalResearchPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [sessionLoading, setSessionLoading] = useState(false)
   const [offerSave, setOfferSave] = useState(false)
   const [savingToVault, setSavingToVault] = useState(false)
   const [savedToVault, setSavedToVault] = useState(false)
@@ -164,6 +165,32 @@ export default function SignalResearchPage() {
     }
   }, [])
 
+  const loadSessionMessages = useCallback(async (sessionId: string, bizId: string) => {
+    setSessionLoading(true)
+    setMessages([])
+    setOfferSave(false)
+    try {
+      const res = await fetch(`/api/nora/session?businessId=${bizId}&sessionId=${sessionId}`)
+      const json = await res.json()
+      if (res.ok && json.data?.session) {
+        const session = json.data.session
+        const loaded = (session.messages as Array<{
+          role: 'user' | 'assistant'
+          content: string
+          timestamp?: string
+        }> || []).map((m: { role: 'user' | 'assistant'; content: string; timestamp?: string }) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }))
+        setMessages(loaded)
+        setSavedToVault(session.vault_saved || false)
+        setVaultLabel(session.vault_label || '')
+      }
+    } catch { /* non-fatal */ }
+    setSessionLoading(false)
+  }, [])
+
   useEffect(() => {
     const id = localStorage.getItem('signalshot_active_business')
     if (!id) { router.push('/dashboard'); return }
@@ -178,10 +205,11 @@ export default function SignalResearchPage() {
         if (target) {
           setActiveSessionId(target.id)
           setSavedToVault(target.vault_saved)
+          loadSessionMessages(target.id, id)
         }
       }
     })
-  }, [router, searchParams, loadSessions])
+  }, [router, searchParams, loadSessions, loadSessionMessages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -411,10 +439,12 @@ export default function SignalResearchPage() {
                 session={session}
                 isActive={activeSessionId === session.id}
                 onClick={() => {
+                  if (activeSessionId === session.id) return
                   setActiveSessionId(session.id)
-                  setSavedToVault(session.vault_saved)
                   setOfferSave(false)
-                  setMessages([])
+                  setPendingAttachments([])
+                  setPendingUrl(null)
+                  if (businessId) loadSessionMessages(session.id, businessId)
                 }}
               />
             ))
@@ -457,7 +487,20 @@ export default function SignalResearchPage() {
           )}
         </div>
 
-        {!hasConversation ? (
+        {sessionLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
+                style={{ backgroundColor: 'rgba(99,102,241,0.1)' }}>
+                <div className="w-5 h-5 rounded-full border-2 animate-spin"
+                  style={{ borderColor: '#6366f1', borderTopColor: 'transparent' }} />
+              </div>
+              <p className="text-sm font-semibold" style={{ color: '#374151' }}>
+                Loading conversation…
+              </p>
+            </div>
+          </div>
+        ) : !hasConversation ? (
           <NoraWelcome onStart={msg => handleSend(msg)} />
         ) : (
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
