@@ -2,7 +2,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function PATCH(_request: Request) {
+export async function PATCH() {
   const auth = await requireAuth()
   if (auth.error) return auth.error
 
