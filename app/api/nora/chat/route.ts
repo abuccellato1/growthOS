@@ -72,7 +72,7 @@ Certifications/Awards: ${JSON.stringify([...(research?.certifications as string[
 
   type ContentBlock =
     | { type: 'text'; text: string }
-    | { type: 'document'; source: { type: 'base64'; media_type: string; data: string }; title?: string }
+    | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string }; title?: string }
 
   const userContent: ContentBlock[] = []
 
@@ -134,17 +134,11 @@ When you sense the research on a topic is wrapping up, end your message with exa
 {"_noraAction": "offer_save"}
 Only trigger this when the research feels genuinely complete \u2014 not mid-conversation.`
 
-  const allMessages = [
+  const allMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
     ...messages.map(m => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     })),
-    {
-      role: 'user' as const,
-      content: userContent.length > 1 || userContent[0]?.type !== 'text'
-        ? userContent
-        : userMessage,
-    },
   ]
 
   const response = await anthropic.messages.create({
@@ -152,7 +146,15 @@ Only trigger this when the research feels genuinely complete \u2014 not mid-conv
     max_tokens: 2000,
     tools: [{ type: 'web_search_20250305', name: 'web_search' }] as Parameters<typeof anthropic.messages.create>[0]['tools'],
     system: systemPrompt,
-    messages: allMessages,
+    messages: [
+      ...allMessages,
+      {
+        role: 'user' as const,
+        content: (userContent.length > 1 || userContent[0]?.type !== 'text'
+          ? userContent
+          : userMessage) as Parameters<typeof anthropic.messages.create>[0]['messages'][0]['content'],
+      },
+    ],
   })
 
   const textContent = response.content

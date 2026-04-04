@@ -135,8 +135,7 @@ export default function AgentChatPanel({
   const starters = AGENT_STARTERS[moduleType] || []
   const agentKey = `${AGENT_MODULE_KEY[moduleType]}.${agentName.toLowerCase()}`
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
     if (!isOpen) return
 
     setTimeout(() => inputRef.current?.focus(), 300)
