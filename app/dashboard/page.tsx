@@ -293,7 +293,7 @@ export default function DashboardPage() {
     <>
       {showTeamIntro && (
         <MeetYourTeam
-          customerName={customer?.first_name}
+          customerName={customer?.first_name ?? undefined}
           onDismiss={() => setShowTeamIntro(false)}
         />
       )}

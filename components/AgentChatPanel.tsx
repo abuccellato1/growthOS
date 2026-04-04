@@ -135,7 +135,8 @@ export default function AgentChatPanel({
   const starters = AGENT_STARTERS[moduleType] || []
   const agentKey = `${AGENT_MODULE_KEY[moduleType]}.${agentName.toLowerCase()}`
 
-  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => {
     if (!isOpen) return
 
     setTimeout(() => inputRef.current?.focus(), 300)
@@ -189,6 +190,7 @@ export default function AgentChatPanel({
         .catch(() => setInstructionsLoaded(true))
     }
   }, [isOpen])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
