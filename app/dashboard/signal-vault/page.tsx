@@ -8,7 +8,7 @@ import { Session } from '@/types'
 import {
   Vault, Search, Target, Share2, Mail, Map, Calendar,
   Loader, ExternalLink, FileText, Lock, ArrowRight,
-  Copy, Check, X
+  Copy, Check, X, ChevronDown, ChevronUp
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -203,6 +203,7 @@ export default function SignalVaultPage() {
   const [researchSessions, setResearchSessions] = useState<ResearchSession[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('signal_ads')
+  const [signalMapCollapsed, setSignalMapCollapsed] = useState(false)
 
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
@@ -333,14 +334,27 @@ export default function SignalVaultPage() {
 
       <div className="rounded-2xl overflow-hidden border"
         style={{ border: '1px solid rgba(67,198,172,0.25)', backgroundColor: 'rgba(67,198,172,0.03)' }}>
-        <div className="px-6 py-4 flex items-center gap-2 border-b"
+        <button
+          onClick={() => setSignalMapCollapsed(!signalMapCollapsed)}
+          className="w-full px-6 py-4 flex items-center justify-between border-b text-left hover:bg-opacity-80 transition-all"
           style={{ borderColor: 'rgba(67,198,172,0.15)' }}>
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#43C6AC' }} />
-          <p className="text-xs font-bold tracking-widest" style={{ color: '#43C6AC' }}>
-            SIGNALMAP INTERVIEW
-          </p>
-        </div>
-        <div className="p-6">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#43C6AC' }} />
+            <p className="text-xs font-bold tracking-widest" style={{ color: '#43C6AC' }}>
+              SIGNALMAP INTERVIEW
+            </p>
+            {signalMapCollapsed && hasIcp && (
+              <span className="text-xs px-2 py-0.5 rounded-md font-medium ml-2"
+                style={{ backgroundColor: 'rgba(67,198,172,0.15)', color: '#43C6AC' }}>
+                Complete
+              </span>
+            )}
+          </div>
+          {signalMapCollapsed
+            ? <ChevronDown size={15} style={{ color: '#43C6AC' }} />
+            : <ChevronUp size={15} style={{ color: '#43C6AC' }} />}
+        </button>
+        {!signalMapCollapsed && <div className="p-6">
           {loading ? (
             <div className="flex items-center gap-2">
               <Loader size={16} className="animate-spin" style={{ color: '#43C6AC' }} />
@@ -409,7 +423,7 @@ export default function SignalVaultPage() {
               <ICPDisplay icpMarkdown={session.icp_html!} sessionId={session.id} />
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       <div>
