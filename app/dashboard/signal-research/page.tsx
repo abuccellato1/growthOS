@@ -7,6 +7,7 @@ import {
   Plus, Vault, CheckCircle,
   ChevronRight, X, FileText, Globe
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -370,7 +371,7 @@ export default function SignalResearchPage() {
     pendingUrl !== null) && !loading
 
   return (
-    <div className="flex w-full" style={{ height: 'calc(100vh - 73px)' }}>
+    <div className="flex w-full" style={{ height: 'calc(100vh - 137px)' }}>
 
       <div className="flex-shrink-0 flex flex-col border-r"
         style={{ width: '240px', borderColor: '#e5e7eb', backgroundColor: '#fafafa' }}>
@@ -493,7 +494,7 @@ export default function SignalResearchPage() {
                     </div>
                   )}
                   <div
-                    className="px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
+                    className="px-4 py-3 rounded-2xl text-sm leading-relaxed"
                     style={{
                       backgroundColor: msg.role === 'user' ? '#191654' : '#f9fafb',
                       color: msg.role === 'user' ? '#fff' : '#374151',
@@ -501,7 +502,28 @@ export default function SignalResearchPage() {
                         ? '18px 18px 4px 18px'
                         : '18px 18px 18px 4px',
                     }}>
-                    {msg.content}
+                    {msg.role === 'user' ? (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    ) : (
+                      <div className="prose-nora">
+                        <ReactMarkdown
+                          components={{
+                            h1: ({ children }) => <p className="font-bold text-base mb-2 mt-3" style={{ color: '#191654' }}>{children}</p>,
+                            h2: ({ children }) => <p className="font-bold text-sm mb-1.5 mt-3" style={{ color: '#191654' }}>{children}</p>,
+                            h3: ({ children }) => <p className="font-semibold text-sm mb-1 mt-2" style={{ color: '#374151' }}>{children}</p>,
+                            p: ({ children }) => <p className="mb-2 last:mb-0 text-sm leading-relaxed">{children}</p>,
+                            ul: ({ children }) => <ul className="mb-2 space-y-0.5 pl-4">{children}</ul>,
+                            ol: ({ children }) => <ol className="mb-2 space-y-0.5 pl-4 list-decimal">{children}</ol>,
+                            li: ({ children }) => <li className="text-sm leading-relaxed list-disc">{children}</li>,
+                            strong: ({ children }) => <strong className="font-bold" style={{ color: '#191654' }}>{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            hr: () => <hr className="my-3" style={{ borderColor: '#e5e7eb' }} />,
+                            code: ({ children }) => <code className="text-xs px-1 py-0.5 rounded font-mono" style={{ backgroundColor: 'rgba(25,22,84,0.06)', color: '#191654' }}>{children}</code>,
+                          }}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
