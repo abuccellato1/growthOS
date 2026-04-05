@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { updateKB } from '@/lib/knowledge-base'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -88,6 +89,20 @@ Only include fields that have actual data. Return ONLY valid JSON.`,
       updated_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
+
+  // Update KB competitive domain with Nora's findings — non-blocking
+  if (businessId && findings && Object.keys(findings).length > 0) {
+    const f = findings as Record<string, unknown>
+    updateKB(businessId, 'competitive', {
+      noraResearchSummaries: [{
+        label: label || session.title || 'Research',
+        summary: (f.summary as string) || '',
+        date: new Date().toISOString(),
+      }],
+      competitorInsights: f.competitorInsights || [],
+      marketGaps: f.marketData || [],
+    }, true).catch(() => null)
+  }
 
   return apiSuccess({ saved: true, findings })
 }

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { calculateAndSaveScore } from '@/lib/signal-score'
+import { updateKB } from '@/lib/knowledge-base'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -162,6 +163,17 @@ export async function POST(request: Request) {
     calculateAndSaveScore(businessId).catch(err =>
       console.error('Score calc error:', err)
     )
+  }
+
+  // Update KB audience domain with VOC language — non-blocking
+  if (businessId && parsedData) {
+    const vocData = parsedData as Record<string, unknown>
+    updateKB(businessId, 'audience', {
+      languageThatWorks: [
+        ...((vocData.top_phrases as string[]) || []),
+        ...((vocData.outcome_language as string[]) || []),
+      ].slice(0, 20),
+    }, true).catch(() => null)
   }
 
   return apiSuccess({ extracted: parsedData })

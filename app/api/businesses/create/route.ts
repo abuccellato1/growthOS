@@ -99,5 +99,17 @@ export async function POST(request: Request) {
     body: JSON.stringify({ businessId: business.id }),
   }).catch(() => null)
 
+  // Fire KB init non-blocking — creates row so enrichment triggers can write to it
+  if (business?.id) {
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/knowledge/init-internal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': process.env.INTERNAL_SECRET || '',
+      },
+      body: JSON.stringify({ businessId: business.id }),
+    }).catch(() => null)
+  }
+
   return apiSuccess({ business })
 }

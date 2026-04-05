@@ -1,6 +1,7 @@
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { updateKB } from '@/lib/knowledge-base'
 
 interface AdFeedbackItem {
   blockId: string
@@ -60,6 +61,55 @@ export async function POST(request: Request) {
       feedback_rating: rating,
       feedback_text: feedbackText || null,
     }).eq('id', outputId)
+  }
+
+  // Update KB performance domain — non-blocking
+  if (businessId) {
+    const performanceUpdate: Record<string, unknown> = { byModule: { signal_ads: {} } }
+    const adsModule = (performanceUpdate.byModule as Record<string, unknown>).signal_ads as Record<string, unknown>
+
+    if (rating !== undefined) {
+      if (rating >= 4) {
+        const { data: outputData } = await adminClient
+          .from('module_outputs')
+          .select('output_data, form_inputs')
+          .eq('id', outputId)
+          .single()
+
+        if (outputData?.output_data) {
+          const output = outputData.output_data as Record<string, unknown>
+          const ss = output.strategySignals as Record<string, unknown> | undefined
+          const formInputs = outputData.form_inputs as Record<string, unknown> | undefined
+          if (ss?.primaryAngle) adsModule.approvedAngles = [ss.primaryAngle as string]
+          if (formInputs?.tone) adsModule.approvedTones = [formInputs.tone as string]
+        }
+      } else if (rating <= 2) {
+        const { data: outputData } = await adminClient
+          .from('module_outputs')
+          .select('output_data')
+          .eq('id', outputId)
+          .single()
+
+        if (outputData?.output_data) {
+          const output = outputData.output_data as Record<string, unknown>
+          const ss = output.strategySignals as Record<string, unknown> | undefined
+          if (ss?.primaryAngle) adsModule.rejectedAngles = [ss.primaryAngle as string]
+        }
+      }
+    }
+
+    if (adFeedbackItems && adFeedbackItems.length > 0) {
+      const flagged = adFeedbackItems.filter(i => i.rating === -1)
+      if (flagged.length > 0) {
+        adsModule.rejectedPatterns = flagged
+          .map(i => i.contentText.slice(0, 100))
+          .filter(Boolean)
+      }
+    }
+
+    if (Object.keys(adsModule).length > 0) {
+      updateKB(businessId, 'performance', performanceUpdate, false).catch(() => null)
+    }
   }
 
   return apiSuccess({ saved: true })

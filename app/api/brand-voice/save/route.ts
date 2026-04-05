@@ -1,6 +1,7 @@
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { updateKB } from '@/lib/knowledge-base'
 
 export async function POST(request: Request) {
   const auth = await requireAuth()
@@ -71,6 +72,17 @@ export async function POST(request: Request) {
     .from('businesses')
     .update({ agent_preferences: updated })
     .eq('id', businessId)
+
+  // Update KB identity domain with Brand Voice data — non-blocking
+  if (scope === 'global') {
+    updateKB(businessId, 'identity', {
+      brandVoice: (data.brandVoice as string) || '',
+      writingStyle: (data.writingStyle as string[]) || [],
+      alwaysInclude: (data.alwaysInclude as string[]) || [],
+      neverInclude: (data.neverInclude as string[]) || [],
+      customSummary: (data.customSummary as string) || '',
+    }, true).catch(() => null)
+  }
 
   return apiSuccess({ saved: true, scope })
 }

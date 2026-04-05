@@ -1,6 +1,7 @@
 import { requireAuth } from '@/lib/auth-guard'
 import { apiError, apiSuccess } from '@/lib/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { updateKB } from '@/lib/knowledge-base'
 
 export async function POST(request: Request) {
   const auth = await requireAuth()
@@ -79,6 +80,26 @@ export async function POST(request: Request) {
           signalWeight: 2,
         }),
       }).catch(() => null)
+    }
+  }
+
+  // Vault save = strongest approval signal — update KB performance (non-blocking)
+  if (businessId && output?.module_type) {
+    const moduleType = output.module_type as string
+    const outputDataObj = output.output_data as Record<string, unknown>
+    const ss = (outputDataObj?.strategySignals || outputDataObj?.strategy_signals) as Record<string, unknown> | undefined
+    if (ss) {
+      const moduleUpdate: Record<string, unknown> = {}
+      if (ss.primaryAngle) moduleUpdate.approvedAngles = [ss.primaryAngle as string]
+      if (ss.primaryTheme) moduleUpdate.approvedFormats = [ss.primaryTheme as string]
+      if (Object.keys(moduleUpdate).length > 0) {
+        updateKB(businessId, 'performance', {
+          byModule: { [moduleType]: moduleUpdate },
+          globalPatterns: {
+            whatAlwaysWorks: ss.primaryAngle ? [ss.primaryAngle as string] : [],
+          },
+        }, false).catch(() => null)
+      }
     }
   }
 

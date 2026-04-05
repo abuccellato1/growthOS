@@ -3,6 +3,7 @@ import { apiError, apiSuccess } from '@/lib/api-response'
 import { requireAuth } from '@/lib/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendICPCompletionEmail } from '@/lib/email'
+import { updateKB } from '@/lib/knowledge-base'
 
 const ROUTE = '/api/save-icp'
 
@@ -87,6 +88,49 @@ export async function POST(request: Request) {
         .eq('id', verification.business_id)
         .single()
       if (biz?.business_name) businessName = biz.business_name
+    }
+
+    // Update KB with SignalMap completion data — non-blocking
+    if (verification.business_id) {
+      const { data: completedSession } = await adminClient
+        .from('sessions')
+        .select('icp_core, messaging_data, competitive_data')
+        .eq('id', sessionId)
+        .single()
+
+      if (completedSession) {
+        const icp = completedSession.icp_core as Record<string, unknown> | null
+        const msg = completedSession.messaging_data as Record<string, unknown> | null
+        const comp = completedSession.competitive_data as Record<string, unknown> | null
+
+        if (icp) {
+          updateKB(verification.business_id, 'audience', {
+            icpOneLiner: icp.one_sentence_icp || '',
+            archetype: icp.archetype || '',
+            primaryFear: icp.primary_fear || '',
+            dreamOutcome: icp.dream_outcome_12months || '',
+            topObjections: icp.top_objections || [],
+            buyingTriggers: icp.buying_triggers || [],
+            whereTheyShowUp: icp.where_they_show_up ? [icp.where_they_show_up as string] : [],
+          }, true).catch(() => null)
+        }
+
+        if (msg) {
+          updateKB(verification.business_id, 'identity', {
+            positioningStatement: msg.core_positioning_statement || '',
+            differentiator: msg.differentiator_statement || '',
+          }, true).catch(() => null)
+        }
+
+        if (comp) {
+          updateKB(verification.business_id, 'competitive', {
+            knownCompetitors: comp.known_competitors || [],
+            ourAdvantages: comp.competitive_advantages || [],
+            competitorWeaknesses: comp.competitor_weaknesses || [],
+            marketGaps: comp.market_gaps || [],
+          }, true).catch(() => null)
+        }
+      }
     }
 
     await sendICPCompletionEmail({
